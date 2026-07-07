@@ -149,14 +149,14 @@ This section exists because the UX and the bots must serve these dynamics, not f
 2. Play instantly against 3 bots (offline capable once loaded).
 3. Private online rooms with a 6 character code and share link, 1 to 4 humans, bots filling empty seats.
 4. Disconnect handling: bot takeover with seat reclaim.
-5. Anyone joining a room by code after the match has started joins as an observer and can claim any bot-controlled seat; joining during the founding lobby (before the host starts the match) still seats you directly, same as filling any other empty chair.
+5. Anyone joining a room by code after the match has started joins as an observer who sees the live board itself (table, cards, scores, whose turn it is — the same `SeatView`, minus the hidden per-seat fields) and can claim any bot-controlled seat from a sidelines list; joining during the founding lobby (before the host starts the match) still seats you directly, same as filling any other empty chair.
 6. Turn timers with auto play on expiry.
 7. English and Arabic (RTL) interfaces.
 8. Round and match summaries, basic settings, rules screen.
 
 ### Explicitly out of MVP (parking lot in Section 16)
 
-Accounts, rankings, matchmaking queues, doubling variants, full spectator mode (watching the live board without a seat), replays UI, chat beyond emotes, native app store builds, tournaments.
+Accounts, rankings, matchmaking queues, doubling variants, replays UI, chat beyond emotes, native app store builds, tournaments. (Watching the live board without a seat did land in MVP after all — see item 5 above — once it turned out an observer who could only see a seat picker, not the game, read as a bug rather than a deferred feature.)
 
 ---
 
@@ -198,7 +198,7 @@ Desktop and landscape use the same topology with more breathing room. The local 
 7. **Danger states**: any player within 30 points of the target gets a persistent red treatment on their score row. This makes the sacrifice dynamic visible to everyone, which is the point.
 8. **Last trick**: a small button reopens the previous trick.
 9. **Timers**: a ring around the active avatar. On expiry the server auto plays for that seat (see Section 12) and shows "auto played" briefly.
-10. **Disconnects**: the avatar grays with a "reconnecting" ring for the grace period, then flips to a robot icon with "Bot is playing for Ali". When Ali returns, a Resume Seat button restores control instantly.
+10. **Disconnects**: the avatar grays with a "reconnecting" ring for the grace period, then flips to a robot icon with "Bot is playing for Ali". When Ali returns, her seat is not handed back automatically: she lands on the sidelines list like any other observer and claims it (or any other open bot seat) from there.
 11. **Emotes**: 6 to 8 quick emotes and short preset phrases (localized). No free text chat in MVP: it is a moderation burden and, in a partnership game, a signaling channel.
 
 ### 7.4 Visual and audio direction
@@ -391,8 +391,8 @@ All messages are zod validated in `packages/protocol`. Every server message carr
 
 1. `auth { name, seatToken? }`
 2. `room.create { config } → ack { code, seatToken }`
-3. `room.join { code } → ack { seatToken | observer: true | error }`. In the founding lobby (before `room.start`) this seats you directly, same as any open chair. Once the match is running it makes you an observer instead: you receive `room.state` but no `game.snapshot`, since you hold no seat and no hand to protect.
-4. `room.sit { seat } → ack { seatToken | error }` (an observer claiming a specific bot-controlled seat) · `room.addBot { seat, level }` · `room.removeBot { seat }`
+3. `room.join { code } → ack { seatToken | observer: true | error }`. In the founding lobby (before `room.start`) this seats you directly, same as any open chair. Once the match is running it makes you an observer instead: you receive `room.state` plus `game.publicSnapshot` (never `game.snapshot`, since you hold no seat and no hand to protect).
+4. `room.sit { seat } → ack { seatToken | error }` — the one, unified way to occupy a bot-controlled seat, whether the caller is a brand-new observer claiming it for the first time or its own former occupant reclaiming it after an AFK flip. There is no separate reclaim message. · `room.addBot { seat, level }` · `room.removeBot { seat }`
 5. `room.configure { config }` (host only, lobby only)
 6. `room.ready { ready }` · `room.start` (host)
 7. `game.pass { cards: [Card, Card, Card] }`
@@ -403,7 +403,8 @@ All messages are zod validated in `packages/protocol`. Every server message carr
 ### Server → client
 
 1. `room.state { seats, config, hostSeat, readiness }` (lobby)
-2. `game.snapshot { view: SeatView, seq }` (on start, join, and resync)
+2. `game.snapshot { view: SeatView, seq }` (on start, join, and resync — seated players only)
+2b. `game.publicSnapshot { view: SeatView, seq }` — the same shape, broadcast to observers at every round transition and on their own `game.resync`; `hand`, `legal`, `youPassed` and `youReceived` are always blanked server-side (`viewFor` already treats these as seat-specific, so building this view costs the engine nothing — see CLAUDE.md's "clients consume `SeatView` only").
 3. `game.dealt { hand, dealer, roundIndex }`
 4. `game.passPrompt { deadline }` · `game.passProgress { seatsCommitted }`
 5. `game.passReveal { received: Card[3] }`
@@ -435,8 +436,9 @@ Room rules:
 
 1. Rooms are garbage collected after 15 minutes idle in lobby or 5 minutes after game over.
 2. The host role passes to the next human if the host leaves; a room with zero humans is destroyed. A seat currently under bot control still counts as human here as long as it holds a seat token (someone could still reclaim or lose it to a takeover) — going AFK must never make a room eligible for collection out from under a player who is still connected and simply idle.
-3. Seat tokens survive room membership; a player who closed the tab can rejoin the room by code and reclaim their seat.
-4. Anyone can join a room by code at any time. If the match has already started, joining makes you an observer: you see the seat list (who's seated, who's a bot) but nothing about the hand in progress. An observer may claim any bot-controlled seat via `room.sit`, taking over that seat's identity outright — the bot's original human, if any, keeps a stale seat token that no longer matches and simply can't reclaim it. Joining during the founding lobby, before the host starts the match, always seats you directly instead; observing is only a gate on an already-running match.
+3. Seat tokens survive room membership; a player who closed the tab can rejoin the room by code and resume their seat automatically, but only while that seat is still genuinely theirs — untouched by an AFK flip or a takeover in the meantime. A stale token buys re-entry to the room, never an automatic seat: reconnecting after either one instead lands the returning player on the sidelines like any other observer, with `room.sit` as the one path back into a chair.
+4. Anyone can join a room by code at any time. If the match has already started, joining makes you an observer: you see the live board (via `game.publicSnapshot`) plus the seat list, and a sidelines list of every bot-controlled seat you may claim via `room.sit`. Claiming takes over that seat's identity outright — the bot's original human, if any, keeps a stale seat token that no longer grants the seat back, so reconnecting with it now just lands them on the sidelines alongside everyone else. Joining during the founding lobby, before the host starts the match, always seats you directly instead; observing is only a gate on an already-running match.
+5. The server, not just the client, must re-validate seat ownership on every seat-scoped action rather than trusting a connection's remembered seat number. Three independent ways a seat stops belonging to a connection without that connection ever hearing about it as a rejection: another player's `room.sit` repoints the seat to a new socket (a takeover), two AFK strikes flip the seat to bot control (`Room.flipToBot`) while the original connection is still open, and a fresh connection presenting that seat's old token after either has happened. A still-connected, never-reconnected socket whose seat was flipped to bot control must be treated exactly like any other observer — including on `game.resync`, which must route it to the observer branch (`game.publicSnapshot`), not hand it back a seated `game.snapshot`. The `auth` handler applies the same rule to a stale seat token: it grants re-entry to the room but never silently un-flips or reclaims a seat that has moved on, since two humans could otherwise end up holding the same chair.
 
 ---
 
@@ -445,7 +447,7 @@ Room rules:
 1. Defaults: 45 s to pass, 25 s per card play. Both configurable per room, including "off" for living room play.
 2. On timer expiry the server plays for that seat using the Easy bot policy (a single action, the seat stays human) and increments an AFK strike counter shown subtly on the avatar.
 3. Two consecutive strikes, or a disconnect grace period of 15 s expiring, flips the seat to bot control at the seat's configured difficulty. The seat keeps the player's name with a robot badge.
-4. A returning player reclaims the seat instantly with the resume button; control transfers at the next decision point.
+4. A returning player reclaims the seat instantly by claiming it from the sidelines list, the same `room.sit` path any other observer uses (see Section 11 item 4); control transfers at the next decision point. There is no dedicated resume message — reclaiming your own bot-flipped seat and a stranger claiming an empty bot seat are the same operation.
 5. Lobbies can start with any mix of humans and bots; a solo human with three bots is a first class mode, not a fallback.
 
 ---
@@ -577,7 +579,7 @@ leekha/
 
 ## 17. Future feature parking lot
 
-Doubling variant (the base game's exposure doubling of Q♠ and 10♦, with a possible Idlibi analog for K♣), accounts and persistent stats, replays (the event log already makes them free), full spectator mode (watching the live board play out, seat-free — see Section 6's minimal observer for what already shipped), tournaments and leaderboards, randomized partner ranked mode, free chat with moderation, native store builds via Capacitor, a house rules editor exposing `RulesConfig`, and richer hint or coaching modes built on the inference tracker.
+Doubling variant (the base game's exposure doubling of Q♠ and 10♦, with a possible Idlibi analog for K♣), accounts and persistent stats, replays (the event log already makes them free — live spectating via `game.publicSnapshot` already shipped in MVP, see Section 6 item 5), tournaments and leaderboards, randomized partner ranked mode, free chat with moderation, native store builds via Capacitor, a house rules editor exposing `RulesConfig`, and richer hint or coaching modes built on the inference tracker.
 
 ---
 
