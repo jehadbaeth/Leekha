@@ -9,6 +9,13 @@ import { MatchEnd } from './MatchEnd';
 import { cardKey, cardName, isLeekha } from '../cardDisplay';
 import { illegalReason, isForcedDumpSituation, undercutMarkerCard } from '../legality';
 import type { Settings } from '../settings';
+import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, vibrate } from '../sound';
+
+// Online events arrive as ServerMessage (type 'game.trickEnd') while local
+// events arrive as engine GameEvent (type 'trickEnd'); accept either spelling.
+function isEventType(type: string, suffix: 'played' | 'trickEnd' | 'roundEnd' | 'gameOver'): boolean {
+  return type === suffix || type === `game.${suffix === 'gameOver' ? 'over' : suffix}`;
+}
 
 interface FrozenTrick {
   leader: Seat;
@@ -104,9 +111,34 @@ export function GameTable({
     setShowLastTrick(false);
   }, [view.roundIndex]);
 
+  // Sound + haptics for card plays, trick ends, and round/game endings
+  // (SPEC.md section 7.5.6: distinct sting for Q♠/K♣/10♦ tricks).
+  useEffect(() => {
+    for (const item of events) {
+      const type = item.event.type;
+      if (isEventType(type, 'played')) {
+        if (settings.sound) playCardSound();
+        if (settings.haptics) vibrate(8);
+      } else if (isEventType(type, 'trickEnd')) {
+        const ev = item.event as unknown as { cards: { card: Card }[] };
+        const big = ev.cards?.some((p) => isBigCard(p.card)) ?? false;
+        if (settings.sound) trickEndSound(big);
+        if (settings.haptics) vibrate(big ? [20, 40, 20] : 15);
+      } else if (isEventType(type, 'roundEnd')) {
+        if (settings.sound) roundEndSound();
+        if (settings.haptics) vibrate([15, 30, 15, 30]);
+      } else if (isEventType(type, 'gameOver')) {
+        const ev = item.event as unknown as { losingTeam: 0 | 1 };
+        const won = ev.losingTeam !== teamOf(mySeat);
+        if (settings.sound) gameOverSound(won);
+        if (settings.haptics) vibrate(won ? [30, 50, 30, 50, 30] : [60]);
+      }
+    }
+  }, [events, settings.sound, settings.haptics, mySeat]);
+
   // Freeze the completed trick on screen briefly, highlighting the winner.
   useEffect(() => {
-    const trickEndEvents = events.filter((e) => e.event.type === 'trickEnd');
+    const trickEndEvents = events.filter((e) => isEventType(e.event.type, 'trickEnd'));
     for (const item of trickEndEvents) {
       const ev = item.event as unknown as { winner: Seat; points: number };
       const completed = view.playedCards[view.playedCards.length - 1];
@@ -119,7 +151,7 @@ export function GameTable({
       clearEvent(item.id);
     }
     for (const item of events) {
-      if (item.event.type !== 'trickEnd') clearEvent(item.id);
+      if (!isEventType(item.event.type, 'trickEnd')) clearEvent(item.id);
     }
   }, [events, clearEvent, view.playedCards, settings.reducedMotion]);
 
