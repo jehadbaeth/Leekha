@@ -139,6 +139,17 @@ export function gameOverSound(won: boolean) {
   }
 }
 
+/**
+ * Mobile browsers only allow an AudioContext to start (or resume from
+ * suspended) synchronously inside a real user gesture's call stack; a sound
+ * triggered later from an async effect (e.g. reacting to a server message)
+ * is too late and gets silently swallowed. Call this once from the very
+ * first tap/click anywhere in the app to unlock it for every sound after.
+ */
+export function unlockAudio() {
+  getContext();
+}
+
 export function vibrate(pattern: number | number[]) {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern);
 }

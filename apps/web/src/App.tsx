@@ -12,6 +12,7 @@ import { useOnlineGame } from './useOnlineGame';
 import { loadSession } from './net/session';
 import { useInstallPrompt } from './useInstallPrompt';
 import { InstallBanner } from './components/InstallBanner';
+import { unlockAudio } from './sound';
 
 type Screen = 'home' | 'howto' | 'settings' | 'game' | 'lobby';
 type Mode = 'local' | 'online';
@@ -39,6 +40,15 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dir = settings.language === 'ar' ? 'rtl' : 'ltr';
   }, [settings.language]);
+
+  // Mobile browsers require a real user gesture to start audio; unlock it on
+  // the very first tap anywhere so every later sound effect (triggered from
+  // async server events, not gestures) can actually be heard.
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    return () => window.removeEventListener('pointerdown', unlock);
+  }, []);
 
   // If a seat token is already stashed in localStorage (a killed-and-reopened
   // tab, per SPEC.md's Phase 2 definition of done), go straight into online
