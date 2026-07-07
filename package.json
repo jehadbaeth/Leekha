@@ -1,0 +1,11 @@
+{
+  "name": "leekha",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "test": "pnpm -r --filter=./packages/** test run",
+    "sim": "pnpm --filter tools-sim start",
+    "build": "pnpm -r --filter=./packages/** build"
+  }
+}
