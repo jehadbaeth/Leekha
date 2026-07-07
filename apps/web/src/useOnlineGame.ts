@@ -150,9 +150,12 @@ export function useOnlineGame() {
           setView((prev) => {
             if (!prev) return prev;
             const playedCards = [...prev.playedCards, msg.cards];
+            const eatenPoints = [...prev.eatenPoints] as typeof prev.eatenPoints;
+            eatenPoints[msg.winner] += msg.points;
             return {
               ...prev,
               playedCards,
+              eatenPoints,
               currentTrick: { leader: msg.winner, plays: [] },
               trickNumber: Math.min(13, prev.trickNumber + 1),
             };
