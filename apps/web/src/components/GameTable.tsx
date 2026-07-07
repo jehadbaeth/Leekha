@@ -341,7 +341,7 @@ export function GameTable({
   }
 
   return (
-    <div className="relative h-full w-full flex flex-col bg-gradient-to-b from-felt-900 to-felt-950 overflow-hidden select-none">
+    <div className="@container relative h-full w-full flex flex-col bg-gradient-to-b from-felt-900 to-felt-950 overflow-hidden select-none">
       {/* Deal flourish: four quick card bursts flying out from the center, purely
           cosmetic and non-blocking (the real hand underneath is already playable). */}
       {dealFx && (
@@ -542,7 +542,7 @@ export function GameTable({
                   disabled={view.phase !== 'playing' || !isMyTurn}
                   onPointerDown={(e) => onCardPointerDown(e, card, legal)}
                   style={{ zIndex: isRaised ? 50 : i }}
-                  className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : '-ml-5 sm:-ml-7'} ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
+                  className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : '-ml-5 @[480px]:-ml-7'} ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
                     justReceived ? 'ring-2 ring-amber-300 rounded-md -translate-y-2' : ''
                   } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
                 >

@@ -16,7 +16,7 @@ export function CardFace({
     size === 'sm'
       ? 'w-8 h-11 text-xs'
       : size === 'lg'
-        ? 'w-11 h-16 text-sm sm:w-16 sm:h-24 sm:text-xl'
+        ? 'w-11 h-16 text-sm @[480px]:w-16 @[480px]:h-24 @[480px]:text-xl'
         : 'w-12 h-16 text-base';
   if (faceDown) {
     return (
