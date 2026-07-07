@@ -9,7 +9,7 @@ import { MatchEnd } from './MatchEnd';
 import { cardKey, cardName, isLeekha, sortHand } from '../cardDisplay';
 import { illegalReason, isForcedDumpSituation, undercutMarkerCard } from '../legality';
 import { pick, type Settings } from '../settings';
-import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, vibrate } from '../sound';
+import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, emoteSound, dealSound, vibrate } from '../sound';
 import { EMOTES, EMOTE_BY_ID } from '../emotes';
 
 // Online events arrive as ServerMessage (type 'game.trickEnd') while local
@@ -100,6 +100,9 @@ export function GameTable({
   const [pendingPlay, setPendingPlay] = useState(false);
   const pendingPlayRef = useRef(false);
   const pendingPlayTimer = useRef<number | null>(null);
+  const [dealFx, setDealFx] = useState(false);
+  const [dealStarted, setDealStarted] = useState(false);
+  const prevDealRoundIndex = useRef<number | null>(null);
 
   const turn = view.phase === 'playing' ? turnSeatOf(view.currentTrick) : null;
   const isMyTurn = turn === mySeat && !!view.legal && !pendingPlay;
@@ -171,6 +174,27 @@ export function GameTable({
     setRaised(null);
     setReasonToast(null);
     setShowLastTrick(false);
+  }, [view.roundIndex]);
+
+  // A quick, cosmetic "cards flying out" flourish whenever a fresh hand has
+  // just been dealt. The hand is already fully playable underneath it, so
+  // this never blocks input; it just self-dismisses well under 2s.
+  useEffect(() => {
+    if (prevDealRoundIndex.current === view.roundIndex) return;
+    prevDealRoundIndex.current = view.roundIndex;
+    if (settings.reducedMotion) return;
+    setDealFx(true);
+    setDealStarted(false);
+    const raf = requestAnimationFrame(() => setDealStarted(true));
+    if (settings.sound) {
+      [0, 1, 2, 3].forEach((i) => window.setTimeout(() => dealSound(i), i * 90));
+    }
+    const doneTimer = window.setTimeout(() => setDealFx(false), 950);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(doneTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.roundIndex]);
 
   // Sound + haptics for card plays, trick ends, and round/game endings
@@ -315,6 +339,38 @@ export function GameTable({
 
   return (
     <div className="relative h-full w-full flex flex-col bg-gradient-to-b from-felt-900 to-felt-950 overflow-hidden select-none">
+      {/* Deal flourish: four quick card bursts flying out from the center, purely
+          cosmetic and non-blocking (the real hand underneath is already playable). */}
+      {dealFx && (
+        <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+          {(
+            [
+              ['bottom', 'translate(0px, 150px)'],
+              ['right', 'translate(150px, 0px)'],
+              ['top', 'translate(0px, -150px)'],
+              ['left', 'translate(-150px, 0px)'],
+            ] as const
+          ).map(([dir, target], i) => (
+            <div
+              key={dir}
+              className="absolute ease-out"
+              style={{
+                transitionProperty: 'transform, opacity',
+                transitionDuration: '520ms',
+                transitionDelay: `${i * 90}ms`,
+                transform: dealStarted ? target : 'translate(0px, 0px)',
+                opacity: dealStarted ? 0 : 1,
+              }}
+            >
+              <div className="flex -space-x-6">
+                <CardFace card={{ suit: 'S', rank: 2 }} size="sm" faceDown />
+                <CardFace card={{ suit: 'S', rank: 2 }} size="sm" faceDown />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Top: partner */}
       <div className="flex justify-center pt-3">
         <Avatar
