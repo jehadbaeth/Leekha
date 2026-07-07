@@ -148,6 +148,7 @@ export function GameTable({
       const glyph = EMOTE_BY_ID[e.id]?.glyph;
       if (!glyph) continue;
       setVisibleEmotes((prev) => ({ ...prev, [seat]: glyph }));
+      if (settings.sound) emoteSound();
       timers.push(
         window.setTimeout(() => {
           setVisibleEmotes((prev) => ({ ...prev, [seat]: undefined }));
@@ -155,7 +156,7 @@ export function GameTable({
       );
     }
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [emotes ? ([0, 1, 2, 3] as Seat[]).map((s) => emotes[s]?.ts ?? 0).join(',') : '']);
+  }, [emotes ? ([0, 1, 2, 3] as Seat[]).map((s) => emotes[s]?.ts ?? 0).join(',') : '', settings.sound]);
 
   // Detect the moment a pass gets applied, to show the "you received" reveal briefly.
   useEffect(() => {
@@ -484,7 +485,7 @@ export function GameTable({
             {EMOTES.map((e) => (
               <button
                 key={e.id}
-                className="text-2xl w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-800"
+                className="text-xl w-14 h-14 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
                 title={t(e.en, e.ar)}
                 onClick={() => {
                   onEmote(e.id);
