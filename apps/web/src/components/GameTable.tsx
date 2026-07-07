@@ -102,7 +102,6 @@ export function GameTable({
   const pendingPlayTimer = useRef<number | null>(null);
   const [dealFx, setDealFx] = useState(false);
   const [dealStarted, setDealStarted] = useState(false);
-  const prevDealRoundIndex = useRef<number | null>(null);
 
   const turn = view.phase === 'playing' ? turnSeatOf(view.currentTrick) : null;
   const isMyTurn = turn === mySeat && !!view.legal && !pendingPlay;
@@ -179,10 +178,12 @@ export function GameTable({
 
   // A quick, cosmetic "cards flying out" flourish whenever a fresh hand has
   // just been dealt. The hand is already fully playable underneath it, so
-  // this never blocks input; it just self-dismisses well under 2s.
+  // this never blocks input; it just self-dismisses well under 2s. The
+  // cleanup resets dealFx itself (not just the timer) so that React 18
+  // StrictMode's dev-only mount->cleanup->mount double-invoke on the very
+  // first round can't cancel the hide timer and leave the overlay stuck
+  // on screen with nothing left to dismiss it.
   useEffect(() => {
-    if (prevDealRoundIndex.current === view.roundIndex) return;
-    prevDealRoundIndex.current = view.roundIndex;
     if (settings.reducedMotion) return;
     setDealFx(true);
     setDealStarted(false);
@@ -194,6 +195,7 @@ export function GameTable({
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(doneTimer);
+      setDealFx(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.roundIndex]);
