@@ -104,7 +104,7 @@ Avoid eating penalty points. Each player keeps an individual cumulative score ac
 3a. Forced talyeekh on a follow: if a player holds the led suit's own Leekha card and a strictly higher card of that suit already lies on the current trick (from the lead itself or an earlier player this trick), guaranteeing the Leekha would lose if played, that Leekha card must be played; the player may not follow with a different card of that suit instead. If nothing on the trick yet beats the Leekha, the player is free to hold it back and follow with a different card of that suit, since playing the Leekha now would win the trick (and its points) instead of surrendering them. There is at most one such card per suit, so no further choice arises here once the condition is met (unlike rule 4).
 4. Void with Leekha (the forced dump): a player holding no cards of the led suit who holds at least one Leekha card (10♦, Q♠, K♣) must play a Leekha card. If they hold more than one, they choose which, subject to rule 6. This rule binds partners and opponents equally.
 5. Void without Leekha: the player may discard any card. Rule 6 does not constrain these discards.
-6. The undercut rule: from the moment a Leekha card lies on the current trick, every later player must play a card of strictly lower rank than the highest Leekha on the trick, chosen from whatever set rules 3 to 5 give them. If that set contains no such card, the constraint lifts and any card from the set may be played. Concrete cases: a follower whose cards of the led suit all outrank the Leekha simply plays one and usually eats the trick; a forced dumper holding 10♦ and K♣ while the Q♠ lies on the trick must dump the 10♦; a trick containing hearts but no Leekha card triggers nothing.
+6. The undercut rule: from the moment a Leekha card lies on the current trick, every later player must play a card of strictly lower rank than the trick's current highest card of the led suit, chosen from whatever set rules 3 to 5 give them. If that set contains no such card, the constraint lifts and any card from the set may be played. Concrete cases: a follower whose cards of the led suit already all outrank the current leader simply plays one and usually eats the trick, taking any dumped Leekha's points with it; a forced dumper holding 10♦ and K♣ while the Q♠ lies on the trick must dump the 10♦, since Q♠ is both the led suit's own card and the current leader; a trick containing hearts but no Leekha card triggers nothing.
 7. The trick is won by the highest ranked card of the led suit. Off suit cards, including dumped Leekha cards, can never win a trick.
 8. The trick winner collects the trick face down, adds any penalty points in it to their round total, and leads the next trick.
 9. A round is 13 tricks; every card is played exactly once.
@@ -115,8 +115,8 @@ Notes that fall out of the rules and must hold in the engine:
 * Two or even three players can be forced on the same trick, so a single trick can contain Q♠ and K♣ and hearts at once.
 * The forced dump can land on a trick the dumper's own partner is winning. This is the intended cruelty of the format. Rule 3a's forced follow is exactly as unforgiving once it applies: you cannot protect a partner who is winning by quietly following with a lower card of the suit instead of the Leekha, provided the Leekha itself is already beaten on the trick.
 * Public inference: everyone can see when a player fails to follow suit. If that player discards a non Leekha card, the whole table has proof they hold no Leekha cards. If they play a Leekha card while void, everyone knows it was forced (they may still hold another one). If a player follows suit with a card other than that suit's own Leekha while a higher card of that suit is already on the trick, everyone knows they do not hold the Leekha card of that suit.
-* The undercut rule makes the first Leekha on a trick sticky. Everyone behind it must duck beneath it, so it is eaten by whoever is winning when it lands, or by its own player when following suit forced it out. A deliberate rescue survives only in a narrow window: a card that beats the current winner while staying below the Leekha's rank. No such window exists while the Leekha itself is the highest card of the led suit on the table.
-* The undercut rule creates a second public inference: any player who plays over a Leekha has proven they held nothing below it among their legal cards at that moment.
+* The undercut rule makes the current led-suit leader sticky once a Leekha lands on the trick. Everyone behind must duck beneath it if they can, so any dumped Leekha is eaten by whoever ends up winning, or by its own player when following suit forced it out. There is no safe middle play once this kicks in: a follower either ducks below the current leader or, holding nothing lower, must play into contention for the trick outright.
+* The undercut rule creates a second public inference: any player who plays over the trick's current leader has proven they held nothing lower among their legal cards at that moment.
 
 ### 4.7 Scoring and match end
 
@@ -261,7 +261,7 @@ export const nextSeat  = (s: Seat): Seat => ((s + 1) % 4) as Seat; // anticlockw
 export interface RulesConfig {
   targetScore: number;                    // 201
   forcedLeekhaDiscard: boolean;           // true
-  undercutRule: 'leekhaRank' | 'winningCard' | 'off';  // Idlib default 'leekhaRank'
+  undercutRule: 'leekhaRank' | 'winningCard' | 'off';  // Idlib default 'winningCard'
   undercutBindsDiscards: boolean;         // false, see Section 3 item 12
   dealerSelection: 'biggestEater' | 'rotateRight';     // Idlib default 'biggestEater'
   leadRestrictions: 'none';               // reserved for variants
