@@ -63,7 +63,7 @@ describe('apps/server end to end', () => {
   it('completes a full round with 1 human and 3 bots', async () => {
     const host = connect(port);
     sockets.push(host);
-    await new Promise((r) => host.on('connect', r));
+    await new Promise<void>((r) => host.on('connect', r));
 
     fire(host, { type: 'auth', name: 'Alice' });
     const createAck = await send(host, { type: 'room.create', config: FAST_CONFIG });
@@ -103,7 +103,7 @@ describe('apps/server end to end', () => {
   it('reconnects a disconnected seat via seatToken and resumes control', async () => {
     const a = connect(port);
     sockets.push(a);
-    await new Promise((r) => a.on('connect', r));
+    await new Promise<void>((r) => a.on('connect', r));
     fire(a, { type: 'auth', name: 'Alice' });
     const createAck = await send(a, { type: 'room.create', config: FAST_CONFIG });
     const seatToken = createAck.seatToken as string;
@@ -114,7 +114,7 @@ describe('apps/server end to end', () => {
 
     const b = connect(port);
     sockets.push(b);
-    await new Promise((r) => b.on('connect', r));
+    await new Promise<void>((r) => b.on('connect', r));
     const stateAfterAuth = waitFor(b, (m) => m.type === 'room.state', 3000);
     fire(b, { type: 'auth', name: 'Alice', seatToken });
     fire(b, { type: 'game.resync' });
@@ -126,7 +126,7 @@ describe('apps/server end to end', () => {
   it('auto plays on timeout and flips to bot control after two strikes', async () => {
     const host = connect(port);
     sockets.push(host);
-    await new Promise((r) => host.on('connect', r));
+    await new Promise<void>((r) => host.on('connect', r));
     fire(host, { type: 'auth', name: 'Alice' });
     const SHORT_TIMER_CONFIG = { ...FAST_CONFIG, timers: { passMs: 300, playMs: 300 } };
     const createAck = await send(host, { type: 'room.create', config: SHORT_TIMER_CONFIG });
