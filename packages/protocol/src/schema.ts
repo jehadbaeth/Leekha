@@ -20,7 +20,7 @@ export const RulesConfigSchema = z.object({
   moonPenalty: z.number().int().positive().optional(),
   passDirection: z.enum(['right', 'alternate']),
   bustTieBreak: z.literal('higherIndividual'),
-  timers: z.object({ passMs: z.number().int().positive(), playMs: z.number().int().positive() }),
+  timers: z.object({ passMs: z.number().int().nonnegative(), playMs: z.number().int().nonnegative() }),
 });
 
 export const TrickPlaySchema = z.object({ seat: SeatSchema, card: CardSchema, forced: z.boolean() });
