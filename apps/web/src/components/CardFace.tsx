@@ -12,7 +12,12 @@ export function CardFace({
   fourColor?: boolean;
   faceDown?: boolean;
 }) {
-  const dims = size === 'sm' ? 'w-8 h-11 text-xs' : size === 'lg' ? 'w-16 h-24 text-xl' : 'w-12 h-16 text-base';
+  const dims =
+    size === 'sm'
+      ? 'w-8 h-11 text-xs'
+      : size === 'lg'
+        ? 'w-11 h-16 text-sm sm:w-16 sm:h-24 sm:text-xl'
+        : 'w-12 h-16 text-base';
   if (faceDown) {
     return (
       <div
