@@ -6,7 +6,7 @@ import { Avatar, type PresenceStatus } from './Avatar';
 import { PassingPanel } from './PassingPanel';
 import { RoundSummary } from './RoundSummary';
 import { MatchEnd } from './MatchEnd';
-import { cardKey, cardName, isLeekha } from '../cardDisplay';
+import { cardKey, cardName, isLeekha, sortHand } from '../cardDisplay';
 import { illegalReason, isForcedDumpSituation, undercutMarkerCard } from '../legality';
 import { pick, type Settings } from '../settings';
 import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, vibrate } from '../sound';
@@ -381,44 +381,46 @@ export function GameTable({
       )}
 
       {/* Hand */}
-      <div className="pb-3 pt-1 px-1">
-        <div className="flex justify-center flex-wrap gap-1">
-          {view.hand.map((card) => {
-            const legal =
-              view.phase !== 'playing' || !isMyTurn || !view.legal
-                ? true
-                : view.legal.some((c) => cardKey(c) === cardKey(card));
-            const isRaised = raised && cardKey(raised) === cardKey(card);
-            const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
-            const pulseForced = forcedDumpActive && legal && isLeekha(card);
-            return (
-              <button
-                key={cardKey(card)}
-                disabled={view.phase !== 'playing' || !isMyTurn}
-                onClick={() => tapCard(card)}
-                className={`transition-transform ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
-                  justReceived ? 'ring-2 ring-amber-300 rounded-md -translate-y-2' : ''
-                } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
-              >
-                <CardFace card={card} fourColor={settings.fourColorDeck} />
-              </button>
-            );
-          })}
-        </div>
-        {isMyTurn && settings.confirmBeforePlay && raised && (
-          <div className="flex justify-center mt-2">
-            <button
-              className="rounded-lg bg-amber-400 text-emerald-950 font-semibold px-5 py-1.5 text-sm"
-              onClick={() => {
-                onPlayCard(raised);
-                setRaised(null);
-              }}
-            >
-              {t(`Play ${cardName(raised)}`, `العب ${cardName(raised, 'ar')}`)}
-            </button>
+      {view.phase !== 'passing' && (
+        <div className="pb-3 pt-1 px-1">
+          <div className="flex justify-center flex-wrap gap-1">
+            {sortHand(view.hand).map((card) => {
+              const legal =
+                view.phase !== 'playing' || !isMyTurn || !view.legal
+                  ? true
+                  : view.legal.some((c) => cardKey(c) === cardKey(card));
+              const isRaised = raised && cardKey(raised) === cardKey(card);
+              const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
+              const pulseForced = forcedDumpActive && legal && isLeekha(card);
+              return (
+                <button
+                  key={cardKey(card)}
+                  disabled={view.phase !== 'playing' || !isMyTurn}
+                  onClick={() => tapCard(card)}
+                  className={`transition-transform ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
+                    justReceived ? 'ring-2 ring-amber-300 rounded-md -translate-y-2' : ''
+                  } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
+                >
+                  <CardFace card={card} fourColor={settings.fourColorDeck} />
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+          {isMyTurn && settings.confirmBeforePlay && raised && (
+            <div className="flex justify-center mt-2">
+              <button
+                className="rounded-lg bg-amber-400 text-emerald-950 font-semibold px-5 py-1.5 text-sm"
+                onClick={() => {
+                  onPlayCard(raised);
+                  setRaised(null);
+                }}
+              >
+                {t(`Play ${cardName(raised)}`, `العب ${cardName(raised, 'ar')}`)}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Passing overlay */}
       {view.phase === 'passing' && (

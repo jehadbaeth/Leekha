@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Card } from '@leekha/engine';
 import { CardFace } from './CardFace';
-import { cardKey } from '../cardDisplay';
+import { cardKey, sortHand } from '../cardDisplay';
 import { pick, type Settings } from '../settings';
 
 export function PassingPanel({
@@ -44,7 +44,7 @@ export function PassingPanel({
               <div className="text-xs text-emerald-200 mt-1">{t(`${selected.length}/3 selected`, `${selected.length}/3 مختارة`)}</div>
             </div>
             <div className="flex flex-wrap justify-center gap-1.5 max-w-md">
-              {hand.map((card) => {
+              {sortHand(hand).map((card) => {
                 const isSel = selected.some((c) => cardKey(c) === cardKey(card));
                 return (
                   <button

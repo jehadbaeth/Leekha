@@ -56,6 +56,16 @@ export function cardKey(c: Card): string {
   return `${c.suit}${c.rank}`;
 }
 
+const HAND_SUIT_ORDER: Suit[] = ['S', 'H', 'D', 'C'];
+
+export function sortHand(cards: Card[]): Card[] {
+  return [...cards].sort((a, b) => {
+    const suitDiff = HAND_SUIT_ORDER.indexOf(a.suit) - HAND_SUIT_ORDER.indexOf(b.suit);
+    if (suitDiff !== 0) return suitDiff;
+    return b.rank - a.rank; // Ace high to 2 low within each suit
+  });
+}
+
 export function suitColor(suit: Suit, fourColor: boolean): string {
   if (fourColor) {
     if (suit === 'S') return 'text-slate-900 dark:text-slate-100';
