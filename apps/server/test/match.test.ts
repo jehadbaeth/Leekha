@@ -178,7 +178,7 @@ describe('apps/server end to end', () => {
     expect(room.match?.phase).not.toBe('gameOver');
   });
 
-  it('lets a new player join and take over a bot seat mid-match instead of room-full', async () => {
+  it('joins a newcomer as an observer once the match has started, instead of room-full', async () => {
     const host = connect(port);
     sockets.push(host);
     await new Promise<void>((r) => host.on('connect', r));
@@ -197,16 +197,48 @@ describe('apps/server end to end', () => {
     sockets.push(newcomer);
     await new Promise<void>((r) => newcomer.on('connect', r));
     fire(newcomer, { type: 'auth', name: 'Bob' });
-    const snapshotPromise = waitFor(newcomer, (m) => m.type === 'game.snapshot', 5000);
+    const roomStatePromise = waitFor(newcomer, (m) => m.type === 'room.state', 5000);
     const joinAck = await send(newcomer, { type: 'room.join', code: roomCode });
     expect(joinAck.error).toBeUndefined();
-    fire(newcomer, { type: 'auth', name: 'Bob', seatToken: joinAck.seatToken });
+    expect(joinAck.observer).toBe(true);
+    expect(joinAck.seatToken).toBeUndefined();
+    const observedState = await roomStatePromise;
+    expect(observedState.phase).toBe('game');
+
+    const room = app.manager.get(roomCode)!;
+    expect(room.seats[1].isBot).toBe(true);
+    expect(room.seats.every((s) => s.name !== 'Bob')).toBe(true);
+
+    // Now claim seat 1's bot outright — the only way an observer gets a chair mid-match.
+    const snapshotPromise = waitFor(newcomer, (m) => m.type === 'game.snapshot', 5000);
+    const sitAck = await send(newcomer, { type: 'room.sit', seat: 1 });
+    expect(sitAck.error).toBeUndefined();
     fire(newcomer, { type: 'game.resync' });
     const snapshot = await snapshotPromise;
     expect(snapshot.roomCode).toBe(roomCode);
 
-    const room = app.manager.get(roomCode)!;
     expect(room.seats[1].isBot).toBe(false);
+    expect(room.seats[1].name).toBe('Bob');
+  });
+
+  it('still seats a joiner directly in the founding lobby, before the host starts the match', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const createAck = await send(host, { type: 'room.create', config: FAST_CONFIG });
+    const roomCode = createAck.code as string;
+
+    const newcomer = connect(port);
+    sockets.push(newcomer);
+    await new Promise<void>((r) => newcomer.on('connect', r));
+    fire(newcomer, { type: 'auth', name: 'Bob' });
+    const joinAck = await send(newcomer, { type: 'room.join', code: roomCode });
+    expect(joinAck.error).toBeUndefined();
+    expect(joinAck.observer).toBeUndefined();
+    expect(joinAck.seatToken).toBeTruthy();
+
+    const room = app.manager.get(roomCode)!;
     expect(room.seats[1].name).toBe('Bob');
   });
 

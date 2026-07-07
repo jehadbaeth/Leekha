@@ -6,7 +6,7 @@ export const SERVER_URL: string =
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
-type Ack = { code: string; seatToken: string } | { seatToken: string } | { error: string };
+type Ack = { code: string; seatToken: string } | { seatToken: string } | { observer: true } | { error: string };
 
 /**
  * Thin typed wrapper around a single socket.io connection. Every protocol message,
@@ -57,7 +57,7 @@ export class GameSocket {
     this.socket.emit('msg', msg);
   }
 
-  /** Ack-returning request, used only for room.create and room.join. */
+  /** Ack-returning request, used only for room.create, room.join, and room.sit. */
   request<T extends Ack>(msg: ClientMessage, timeoutMs = 8000): Promise<T> {
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => reject(new Error('Request timed out')), timeoutMs);

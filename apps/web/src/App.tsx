@@ -143,6 +143,7 @@ export default function App() {
           onReady={online.setReady}
           onStart={online.startGame}
           onConfigure={online.configure}
+          onClaimSeat={online.claimSeat}
           onLeave={() => {
             online.leaveRoom();
             setMode('local');

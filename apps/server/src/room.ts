@@ -129,15 +129,21 @@ export class Room {
     }));
   }
 
-  broadcastRoomState(): void {
-    this.emit(null, {
+  /** Builds a room.state message without sending it, for targeting a single joining socket (see server.ts's observer join path). */
+  roomStateMessage(): Extract<ServerMessage, { type: 'room.state' }> {
+    return {
       type: 'room.state',
       seq: this.nextSeq(),
       roomCode: this.code,
       seats: this.seatSlotSchema(),
       config: this.config,
       hostSeat: this.hostSeat,
-    });
+      phase: this.phase,
+    };
+  }
+
+  broadcastRoomState(): void {
+    this.emit(null, this.roomStateMessage());
     this.onChange?.();
   }
 

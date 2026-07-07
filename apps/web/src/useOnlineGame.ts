@@ -65,6 +65,7 @@ export function useOnlineGame() {
   const eventIdRef = useRef(0);
   const sessionRef = useRef<StoredSession | null>(null);
   const mySeatRef = useRef<Seat | null>(null);
+  const roomStateRef = useRef<RoomState | null>(null);
   const pendingJoinRef = useRef<{ token: string; name: string } | null>(null);
 
   const setMySeat = useCallback((seat: Seat | null) => {
@@ -86,6 +87,7 @@ export function useOnlineGame() {
     const offMsg = socket.onMessage((msg) => {
       switch (msg.type) {
         case 'room.state': {
+          roomStateRef.current = msg;
           setRoomState(msg);
           if (mySeatRef.current === null && pendingJoinRef.current) {
             const { token, name } = pendingJoinRef.current;
@@ -242,7 +244,7 @@ export function useOnlineGame() {
   const joinRoom = useCallback(async (name: string, code: string) => {
     const resolvedName = name || 'Guest';
     socketRef.current!.send({ type: 'auth', name: resolvedName });
-    const res = await socketRef.current!.request<{ seatToken: string } | { error: string }>({
+    const res = await socketRef.current!.request<{ seatToken: string } | { observer: true } | { error: string }>({
       type: 'room.join',
       code: code.toUpperCase(),
     });
@@ -250,17 +252,41 @@ export function useOnlineGame() {
       setLastError(res.error);
       return false;
     }
+    if ('observer' in res) {
+      // The match is already running (SPEC.md 11): we hold no seat and no
+      // hand, just the roster broadcast the server pushed us on the way in.
+      // claimSeat() is the only path from here into an actual chair.
+      return true;
+    }
     pendingJoinRef.current = { token: res.seatToken, name: resolvedName };
     // Re-auth with the fresh token so the server binds this socket to the
     // seat it just sat us in (see server.ts's 'auth' handler); that bind
     // triggers a fresh room.state broadcast our seat-matching logic above reads.
     socketRef.current!.send({ type: 'auth', name: resolvedName, seatToken: res.seatToken });
-    // If we just took over a bot's seat mid-match, room.state alone carries no
-    // hand/board — game.resync (see room.ts's resync()) is what actually gets
-    // us a game.snapshot so the screen can switch out of the lobby view.
     socketRef.current!.send({ type: 'game.resync' });
     return true;
   }, []);
+
+  const claimSeat = useCallback(async (seat: Seat) => {
+    const res = await socketRef.current!.request<{ seatToken: string } | { error: string }>({
+      type: 'room.sit',
+      seat,
+    });
+    if ('error' in res) {
+      setLastError(res.error);
+      return false;
+    }
+    const roomCode = roomStateRef.current?.roomCode ?? '';
+    const session: StoredSession = { roomCode, seatToken: res.seatToken, seat };
+    sessionRef.current = session;
+    saveSession(session);
+    setMySeat(seat);
+    // room.sit already tells us which seat we got — unlike room.join's ack,
+    // there's no name-matching to do (see the joinRoom comment above it used
+    // to need). game.resync is what actually gets us a game.snapshot mid-match.
+    socketRef.current!.send({ type: 'game.resync' });
+    return true;
+  }, [setMySeat]);
 
   const addBot = useCallback((seat: Seat, level: 'easy' | 'medium' | 'hard') => {
     socketRef.current!.send({ type: 'room.addBot', seat, level });
@@ -320,6 +346,7 @@ export function useOnlineGame() {
     clearEvent,
     createRoom,
     joinRoom,
+    claimSeat,
     addBot,
     removeBot,
     configure,

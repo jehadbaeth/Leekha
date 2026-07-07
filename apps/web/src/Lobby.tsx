@@ -46,6 +46,7 @@ export function Lobby({
   onStart,
   onLeave,
   onConfigure,
+  onClaimSeat,
 }: {
   roomState: RoomState | null;
   roomCode: string | null;
@@ -57,6 +58,7 @@ export function Lobby({
   onStart: () => void;
   onLeave: () => void;
   onConfigure: (config: RulesConfig) => void;
+  onClaimSeat: (seat: Seat) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [pickerSeat, setPickerSeat] = useState<Seat | null>(null);
@@ -75,6 +77,11 @@ export function Lobby({
 
   const isHost = mySeat !== null && mySeat === roomState.hostSeat;
   const canStart = roomState.seats.every((s) => (s.occupied || s.isBot) && (s.isBot || s.ready));
+  // SPEC.md 11: joining a room whose match already started makes you an
+  // observer, not a seat — the only way from here into a chair is claiming a
+  // bot-controlled seat below. The founding lobby (phase === 'lobby') always
+  // seats a joiner directly, so mySeat is only ever null here mid-match.
+  const isObserving = mySeat === null && roomState.phase === 'game';
   const joinLink = `${window.location.origin}${window.location.pathname}?join=${roomCode}`;
   const mySlot = mySeat !== null ? roomState.seats[mySeat] : null;
 
@@ -194,6 +201,15 @@ export function Lobby({
                 </div>
               )}
 
+              {isObserving && slot.isBot && (
+                <button
+                  className="text-xs rounded-lg bg-amber-400 text-emerald-950 font-semibold px-2 py-1"
+                  onClick={() => onClaimSeat(seat)}
+                >
+                  {t('Take this seat', 'خذ هذا المقعد')}
+                </button>
+              )}
+
               {isHost && slot.isBot && (
                 <button
                   className="text-xs rounded-lg border border-red-400 text-red-300 px-2 py-1"
@@ -282,7 +298,17 @@ export function Lobby({
           {t('Start game', 'ابدأ اللعبة')}
         </button>
       )}
-      {!isHost && <p className="text-emerald-300 text-xs">{t('Waiting for the host to start…', 'بانتظار أن يبدأ المضيف اللعبة…')}</p>}
+      {isObserving && (
+        <p className="text-emerald-300 text-xs text-center max-w-xs">
+          {t(
+            "You're watching this room. Tap \"Take this seat\" on any 🤖 seat above to jump in.",
+            'أنت تشاهد هذه الغرفة. اضغط "خذ هذا المقعد" على أي مقعد 🤖 أعلاه للانضمام.',
+          )}
+        </p>
+      )}
+      {!isHost && !isObserving && (
+        <p className="text-emerald-300 text-xs">{t('Waiting for the host to start…', 'بانتظار أن يبدأ المضيف اللعبة…')}</p>
+      )}
 
       <button className="text-emerald-400 text-xs underline" onClick={onLeave}>
         {t('Leave room', 'مغادرة الغرفة')}

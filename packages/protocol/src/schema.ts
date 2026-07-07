@@ -104,6 +104,9 @@ export const RoomStateMsg = z.object({
   seats: z.array(SeatSlotSchema),
   config: RulesConfigSchema,
   hostSeat: SeatSchema,
+  // Lets a joiner who received no seatToken (an observer, see RoomSitMsg) tell
+  // "match already running, I'm watching the roster" apart from "founding lobby".
+  phase: z.enum(['lobby', 'game']),
 });
 
 export const GameSnapshotMsg = z.object({ type: z.literal('game.snapshot'), seq: z.number().int().nonnegative(), roomCode: z.string(), view: SeatViewSchema });

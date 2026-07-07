@@ -98,6 +98,17 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               ack?.({ error: 'not-found' });
               break;
             }
+            if (room.phase !== 'lobby') {
+              // Match already running: joining by code makes you an observer, not
+              // a seat (SPEC.md 11). Only an explicit room.sit claiming a specific
+              // bot-controlled seat actually seats you from here.
+              state.roomCode = room.code;
+              state.seat = null;
+              joinSocketIoRoom(room.code);
+              socket.emit('msg', room.roomStateMessage());
+              ack?.({ observer: true });
+              break;
+            }
             const seat = room.findOpenSeat();
             if (seat === null) {
               ack?.({ error: 'room-full' });
@@ -109,6 +120,28 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
             state.seat = seat;
             joinSocketIoRoom(room.code);
             ack?.({ seatToken: token });
+            break;
+          }
+
+          case 'room.sit': {
+            const room = currentRoom();
+            if (!room) {
+              ack?.({ error: 'not-found' });
+              break;
+            }
+            if (state.seat !== null) {
+              ack?.({ error: 'already-seated' });
+              break;
+            }
+            try {
+              const token = room.sit(msg.seat, state.name ?? 'Guest', socket.id);
+              tokenIndex.set(token, { roomCode: room.code, seat: msg.seat });
+              state.seat = msg.seat;
+              ack?.({ seatToken: token });
+            } catch (err) {
+              if (err instanceof IllegalAction) ack?.({ error: err.code });
+              else throw err;
+            }
             break;
           }
 
