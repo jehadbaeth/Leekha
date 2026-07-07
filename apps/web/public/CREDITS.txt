@@ -3,11 +3,19 @@ Third-party assets bundled with this app
 
 Sounds (public/sounds/)
 ------------------------
-Source: Kenney (www.kenney.nl) — "Casino Audio", "Interface Sounds", and
-"Music Jingles" packs.
+Source: Kenney (www.kenney.nl) — "Casino Audio", "Interface Sounds",
+"Music Jingles", and "Sci-Fi Sounds" (emote-wow.ogg, an explosion, for the
+exploding-head emote) packs.
 License: Creative Commons CC0 1.0 Universal (public domain dedication).
 https://creativecommons.org/publicdomain/zero/1.0/
 Attribution is not required, but credit to Kenney is appreciated.
+
+Note: emote-nice.ogg (clapping-hands emote) and emote-haha.ogg (laughing
+emote) are still generic UI blips, not real applause/laughter recordings —
+none of Kenney's CC0 packs include human vocal or crowd sounds. Swapping
+these two for the real thing needs an actual licensed clap/laugh sample
+(e.g. a specific CC0-tagged freesound.org clip, chosen and licensing-checked
+by a person) rather than this app's stock CC0 asset pipeline.
 
 Animated emotes (public/emotes/)
 ---------------------------------
