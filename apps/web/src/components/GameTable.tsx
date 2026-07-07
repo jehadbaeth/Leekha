@@ -458,16 +458,16 @@ export function GameTable({
           {t(`You: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`, `أنت: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`)}
         </span>
         <span>&middot;</span>
-        <span>{t(`Trick ${view.trickNumber}/13`, `الأخذة ${view.trickNumber}/13`)}</span>
+        <span>{t(`Trick ${view.trickNumber}/13`, `اللفة ${view.trickNumber}/13`)}</span>
         <span>&middot;</span>
-        <span>{t(`Target ${view.config.targetScore}`, `الهدف ${view.config.targetScore}`)}</span>
+        <span>{t(`Target ${view.config.targetScore}`, `الطلوع ${view.config.targetScore}`)}</span>
         <span>&middot;</span>
         <span>{t(`Dealer: ${names[dealer]}`, `الموزّع: ${names[dealer]}`)}</span>
         {lastCompletedTrick && (
           <>
             <span>&middot;</span>
             <button className="underline" onClick={() => setShowLastTrick(true)}>
-              {t('Last trick', 'الأخذة الأخيرة')}
+              {t('Last trick', 'اللفة الأخيرة')}
             </button>
           </>
         )}
@@ -615,7 +615,7 @@ export function GameTable({
       {showLastTrick && lastCompletedTrick && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20" onClick={() => setShowLastTrick(false)}>
           <div className="bg-emerald-950 border border-emerald-700 rounded-2xl p-5 flex flex-col items-center gap-3">
-            <h3 className="text-white font-semibold">{t('Last trick', 'الأخذة الأخيرة')}</h3>
+            <h3 className="text-white font-semibold">{t('Last trick', 'اللفة الأخيرة')}</h3>
             <div className="flex gap-2">
               {lastCompletedTrick.map((p) => (
                 <div key={p.seat} className="flex flex-col items-center gap-1">
