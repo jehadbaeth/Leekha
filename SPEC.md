@@ -17,8 +17,9 @@ Popular online implementations (for example Jawaker) confirm the play convention
 3. Passing is always to the right, every round (no alternation).
 4. The undercut rule: once a Leekha card lies on the current trick, every later player must play a card of lower rank than it whenever they hold one. Section 4.6 pins down the exact reading.
 5. Dealer selection: from the second round on, the player who ate the most points in the previous round deals. On a tie, the tied player who ate the K♣ deals. Since the opening lead belongs to the seat at the dealer's right, which is always an opponent, eating big hands the other team the first lead of the next round.
+6. **Forced talyeekh strengthens the base rule.** The documented base game only forces a Leekha card out when a player is void of the led suit (see Section 1's "talyeekh" definition). The Idlib variant goes further: if a player holds the led suit's own Leekha card (10♦ on a diamond lead, Q♠ on a spade lead, K♣ on a club lead), that card must be played immediately, even if the player holds other cards of that suit they could have followed with instead. Leading a suit that has a Leekha card in it therefore guarantees that card is surrendered on that very trick, by the holder if they can follow, or by whoever is void and forced to dump cross suit otherwise. This does not change the void-side forced dump rule at all; it only removes the choice to "hide" a Leekha behind other cards of its own suit.
 
-Neither of the last two rules appears in any documented source consulted; both come from the project owner and are marked as Idlib specific. Everything else carries over from the documented base game unless a decision in Section 3 says otherwise.
+Neither of the last three rules appears in any documented source consulted; all three come from the project owner and are marked as Idlib specific. Everything else carries over from the documented base game unless a decision in Section 3 says otherwise.
 
 ### Why the K♣ addition matters
 
@@ -31,6 +32,7 @@ The King of Clubs is the second highest club. Only the Ace of Clubs beats it. A 
 * **Leekha cards**: 10♦, Q♠, K♣. Hearts are penalty cards but are not Leekha cards.
 * **Eating**: winning a trick that contains penalty cards. The winner's round total increases by those points.
 * **Forced dump**: the rule that a player void in the led suit who holds any Leekha card must play one.
+* **Forced talyeekh (Idlib addition)**: a player who holds the led suit's own Leekha card must play it immediately when that suit is led, even if other cards of that suit are available to follow with instead.
 * **Busting**: reaching a cumulative score of 201 or more at the end of a round.
 * **Chasing / smoking out**: deliberately leading suits to force a known Leekha holder to release the card.
 * **Sacrifice**: the healthier partner deliberately winning a pointed trick to protect a partner near 201.
@@ -98,7 +100,8 @@ Avoid eating penalty points. Each player keeps an individual cumulative score ac
 
 1. The player to the dealer's right leads the first trick with any card.
 2. Play proceeds anticlockwise; each player plays exactly one card per trick.
-3. Following: a player holding one or more cards of the led suit must play one of them, choosing freely subject to rule 6.
+3. Following: a player holding one or more cards of the led suit must play one of them. Exception: if the led suit's own Leekha card (10♦ for diamonds, Q♠ for spades, K♣ for clubs) is among them, forced talyeekh (rule 3a) applies and removes the free choice.
+3a. Forced talyeekh on a follow: if the cards a player could follow with include the led suit's own Leekha card, that Leekha card must be played; the player may not follow with a different card of that suit instead. There is at most one such card per suit, so no further choice arises here (unlike rule 4).
 4. Void with Leekha (the forced dump): a player holding no cards of the led suit who holds at least one Leekha card (10♦, Q♠, K♣) must play a Leekha card. If they hold more than one, they choose which, subject to rule 6. This rule binds partners and opponents equally.
 5. Void without Leekha: the player may discard any card. Rule 6 does not constrain these discards.
 6. The undercut rule: from the moment a Leekha card lies on the current trick, every later player must play a card of strictly lower rank than the highest Leekha on the trick, chosen from whatever set rules 3 to 5 give them. If that set contains no such card, the constraint lifts and any card from the set may be played. Concrete cases: a follower whose cards of the led suit all outrank the Leekha simply plays one and usually eats the trick; a forced dumper holding 10♦ and K♣ while the Q♠ lies on the trick must dump the 10♦; a trick containing hearts but no Leekha card triggers nothing.
@@ -108,10 +111,10 @@ Avoid eating penalty points. Each player keeps an individual cumulative score ac
 
 Notes that fall out of the rules and must hold in the engine:
 
-* A Leekha card can never be forced out by a lead of its own suit, because holding it means you can follow that suit. The forced dump only ever fires cross suit.
+* A Leekha card cannot be hidden behind other cards of its own suit: a lead of its suit forces it out via rule 3a even while its holder has other legal followers, and a void holder is forced to dump it cross suit via rule 4. Either way, leading a suit that contains a live Leekha card guarantees that card is surrendered on that trick.
 * Two or even three players can be forced on the same trick, so a single trick can contain Q♠ and K♣ and hearts at once.
-* The forced dump can land on a trick the dumper's own partner is winning. This is the intended cruelty of the format.
-* Public inference: everyone can see when a player fails to follow suit. If that player discards a non Leekha card, the whole table has proof they hold no Leekha cards. If they play a Leekha card, everyone knows it was forced (they may still hold another one).
+* The forced dump can land on a trick the dumper's own partner is winning. This is the intended cruelty of the format, and rule 3a's forced follow is exactly as unforgiving: you cannot protect a partner who is winning by quietly following with a lower card of the suit instead of the Leekha.
+* Public inference: everyone can see when a player fails to follow suit. If that player discards a non Leekha card, the whole table has proof they hold no Leekha cards. If they play a Leekha card while void, everyone knows it was forced (they may still hold another one). If a player follows suit with the suit's own Leekha card, that reveals nothing extra since rule 3a made it mandatory regardless of what else they held.
 * The undercut rule makes the first Leekha on a trick sticky. Everyone behind it must duck beneath it, so it is eaten by whoever is winning when it lands, or by its own player when following suit forced it out. A deliberate rescue survives only in a narrow window: a card that beats the current winner while staying below the Leekha's rank. No such window exists while the Leekha itself is the highest card of the led suit on the table.
 * The undercut rule creates a second public inference: any player who plays over a Leekha has proven they held nothing below it among their legal cards at that moment.
 
@@ -353,6 +356,9 @@ function legalPlaysFor(hand: Card[], trick: TrickState, cfg: RulesConfig): Card[
     } else {
       base = hand; freeDiscard = true;                         // free discard
     }
+  } else if (cfg.forcedLeekhaDiscard) {
+    const leekhaOfSuit = base.filter(isLeekha);
+    if (leekhaOfSuit.length > 0) base = leekhaOfSuit;           // forced talyeekh on a follow
   }
   const leekhasOnTrick = trick.plays.map(p => p.card).filter(isLeekha);
   const undercutApplies =
@@ -494,7 +500,7 @@ Human pacing: 600 to 1800 ms randomized thinking delay, slightly longer on force
 
 ## 14. Testing and simulation plan
 
-1. **Unit tests, engine (vitest).** Named scenarios, at minimum: must follow suit; leader may lead anything including hearts on trick 1; forced dump with exactly one Leekha; forced dump choice among two and three; forced dump fires on trick 1; void with no Leekha may discard anything; Q♠ may be chosen as a legal follow to a spade lead; off suit cards never win; K♣ eaten by following a club lead under the A♣; two players forced on the same trick; winner receives the sum of all points in the trick. Undercut scenarios: a follower must duck beneath a Leekha on the trick; a follower whose led suit cards all outrank it plays over and wins; a forced dumper must pick the Leekha below the trick's highest Leekha; a free discard stays unconstrained; a heart only trick triggers no undercut; with two Leekha cards on the trick the highest one sets the ceiling.
+1. **Unit tests, engine (vitest).** Named scenarios, at minimum: must follow suit; leader may lead anything including hearts on trick 1; forced dump with exactly one Leekha; forced dump choice among two and three; forced dump fires on trick 1; void with no Leekha may discard anything; Q♠ is forced (talyeekh) when following a spade lead even with other spades in hand; a forced talyeekh follow is tagged `forced` while a plain follow of the same suit is not; off suit cards never win; K♣ eaten by following a club lead under the A♣; two players forced on the same trick; winner receives the sum of all points in the trick. Undercut scenarios: a follower must duck beneath a Leekha on the trick; a follower whose led suit cards all outrank it plays over and wins; a forced dumper must pick the Leekha below the trick's highest Leekha; a free discard stays unconstrained; a heart only trick triggers no undercut; with two Leekha cards on the trick the highest one sets the ceiling.
 2. **Scoring tests.** Round total is exactly 50; bust at exactly 201; both teams crossing with the higher individual losing; equal cross team busts falling through to team totals then sudden death; same team double bust. Dealer selection: biggest eater deals; the K♣ eater breaks a points tie; the cascade fires when the K♣ eater is not among the tied; the first deal of every match is random.
 3. **Property tests (fast check).** For thousands of randomly seeded rounds with random legal play: every card played exactly once; every applied move was in `legalPlays`; eaten totals always sum to 50; `viewFor(seat)` serialized never contains another seat's hand or an uncommitted pass.
 4. **Self play soak.** `pnpm sim --matches 2000` runs bot matches headlessly and prints: rounds per match distribution, mean and p90 match length at realistic pacing, forced dump frequency per round, how often a forced dump lands on the dumper's partner's trick, K♣ eater identity distribution (holder after pass vs others), and win rate by seat (must be symmetric, an asymmetry means an engine bug), how often the undercut rule forces a Leekha back onto the player who played it, and dealer streak lengths (how long one team keeps conceding the opening lead).
