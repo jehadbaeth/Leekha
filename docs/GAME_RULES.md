@@ -68,9 +68,15 @@ eats 14 points unless the A♣ falls on the same trick.
    play one of them, subject to rule 3a and the undercut rule below.
 3a. **Forced talyeekh on a follow.** If the led suit's own Leekha card (10♦
    on a diamond lead, Q♠ on a spade lead, K♣ on a club lead) is one of the
-   cards you could follow with, you must play it. You cannot follow with a
-   different card of that suit to keep the Leekha in hand. There's at most
-   one such card per suit, so this never presents a choice, unlike rule 4.
+   cards you could follow with, and a strictly higher card of that suit is
+   already on the trick, guaranteeing the Leekha would lose the trick if
+   played, you must play it. You cannot follow with a different card of that
+   suit instead to keep the Leekha in hand. If nothing on the trick yet
+   beats the Leekha, you are free to hold it back and follow with a
+   different card of the suit, since playing it now would win you the trick
+   (and its points) rather than surrender them. There's at most one such
+   card per suit, so once the condition is met this never presents a
+   choice, unlike rule 4.
 4. **Forced dump.** If you have no card of the led suit but hold at least
    one Leekha card (10♦, Q♠, or K♣), you must play one of them. If you hold
    more than one, you choose which (again, subject to undercut). This binds
@@ -99,30 +105,38 @@ must play the 10♦ (ranked below the Q♠), not the K♣.
 
 ### Worked example of forced talyeekh on a follow
 
-Suppose diamonds are led, and you hold the 10♦ along with the 3♦ and 7♦.
-You have no choice here: rule 3a forces the 10♦ out, even though the 3♦ and
-7♦ would also have been legal follows in a game without this rule. Leading
-diamonds when the 10♦ hasn't been played yet is a guarantee that the 10♦
-comes out on that trick, one way or another.
+Suppose someone leads the J♦ and you hold the 10♦ along with the 3♦ and 7♦.
+The jack already beats your ten, so playing the 10♦ now would lose it for
+certain: rule 3a forces it out, even though the 3♦ and 7♦ would also have
+been legal follows in a game without this rule.
+
+Now suppose someone instead leads the 2♣ and you hold the K♣ along with the
+4♣. Nothing on the trick beats your king yet, so rule 3a does not force it
+out: you may play the 4♣ and keep the K♣ in hand, since playing the king
+now would win you the trick (and its 13 points), not surrender them. Only
+once someone leads, or plays before you, the A♣ does the K♣ become forced.
 
 ### Things that fall naturally out of these rules
 
-- A Leekha card can never be hidden behind other cards of its own suit.
-  Leading that suit forces it out via rule 3a even if the holder has other
-  cards of the suit; being void forces it out via rule 4. Either way,
-  leading a suit with a live Leekha card in it guarantees that card gets
-  played on that very trick.
+- A Leekha card can never be hidden behind other cards of its own suit once
+  it would lose. Leading that suit with something that already beats it
+  forces it out via rule 3a even if the holder has other cards of the suit;
+  being void forces it out via rule 4 regardless of winning odds, since an
+  off-suit card can never win anyway. Before that point, the holder may
+  legally hold the Leekha back and follow with a different card instead.
 - More than one player can be forced on the same trick. A single trick can
   contain the Q♠, the K♣, and hearts all at once.
 - A forced dump, or a forced talyeekh follow, can land on your own
-  partner's trick. That's intended; you can't protect a partner who's
-  winning by quietly following with a lower card of the suit instead.
+  partner's trick. That's intended; once the Leekha is already beaten, you
+  can't protect a partner who's winning by quietly following with a lower
+  card of the suit instead.
 - Everyone can see when a player fails to follow suit. If they then dump a
   non-Leekha card, the whole table now knows for certain they hold no
   Leekha cards for the rest of the round. If they dump a Leekha card while
-  void, everyone knows it was forced, they might still hold another one. A
-  Leekha played to follow its own suit reveals nothing extra, since rule 3a
-  made that mandatory regardless of what else was in hand.
+  void, everyone knows it was forced, they might still hold another one. If
+  a player follows suit with something other than that suit's own Leekha
+  while a higher card of that suit is already on the trick, everyone knows
+  they don't hold it.
 - Anyone who plays a card that beats a Leekha card already on the trick has
   proven they held nothing lower among their legal options at that moment.
 
