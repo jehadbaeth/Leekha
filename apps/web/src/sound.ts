@@ -11,61 +11,64 @@ function getContext(): AudioContext | null {
   return ctx;
 }
 
-function tone(freq: number, durationMs: number, gain = 0.12, type: OscillatorType = 'sine', delayMs = 0) {
+const buffers = new Map<string, Promise<AudioBuffer | null>>();
+
+/** Fetches and decodes a sound file once; every later play() for the same URL reuses the decoded buffer. */
+function loadBuffer(url: string): Promise<AudioBuffer | null> {
   const audio = getContext();
-  if (!audio) return;
-  const osc = audio.createOscillator();
-  const g = audio.createGain();
-  osc.type = type;
-  osc.frequency.value = freq;
-  const start = audio.currentTime + delayMs / 1000;
-  g.gain.setValueAtTime(0, start);
-  g.gain.linearRampToValueAtTime(gain, start + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, start + durationMs / 1000);
-  osc.connect(g).connect(audio.destination);
-  osc.start(start);
-  osc.stop(start + durationMs / 1000 + 0.02);
+  if (!audio) return Promise.resolve(null);
+  let cached = buffers.get(url);
+  if (!cached) {
+    cached = fetch(url)
+      .then((res) => res.arrayBuffer())
+      .then((data) => audio.decodeAudioData(data))
+      .catch(() => null);
+    buffers.set(url, cached);
+  }
+  return cached;
 }
 
-/** A short filtered noise burst — the raw material for a card's paper "snap" or a drum's "crack". */
-function noiseBurst(durationMs: number, gain: number, filterFreq: number, filterType: BiquadFilterType, delayMs = 0) {
+function play(url: string, gain = 0.7, delayMs = 0) {
   const audio = getContext();
   if (!audio) return;
-  const start = audio.currentTime + delayMs / 1000;
-  const durationSec = durationMs / 1000;
-  const buffer = audio.createBuffer(1, Math.max(1, Math.floor(audio.sampleRate * durationSec)), audio.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-  const src = audio.createBufferSource();
-  src.buffer = buffer;
-  const filter = audio.createBiquadFilter();
-  filter.type = filterType;
-  filter.frequency.value = filterFreq;
-  const g = audio.createGain();
-  g.gain.setValueAtTime(gain, start);
-  g.gain.exponentialRampToValueAtTime(0.0001, start + durationSec);
-  src.connect(filter).connect(g).connect(audio.destination);
-  src.start(start);
-  src.stop(start + durationSec + 0.02);
+  loadBuffer(url).then((buffer) => {
+    if (!buffer) return;
+    const source = audio.createBufferSource();
+    source.buffer = buffer;
+    const g = audio.createGain();
+    g.gain.value = gain;
+    source.connect(g).connect(audio.destination);
+    source.start(audio.currentTime + delayMs / 1000);
+  });
 }
 
-/** A pitch-swept low thump — the raw material for a kick-drum style hit. */
-function thump(startFreq: number, endFreq: number, durationMs: number, gain: number, delayMs = 0) {
-  const audio = getContext();
-  if (!audio) return;
-  const osc = audio.createOscillator();
-  const g = audio.createGain();
-  osc.type = 'sine';
-  const start = audio.currentTime + delayMs / 1000;
-  const durationSec = durationMs / 1000;
-  osc.frequency.setValueAtTime(startFreq, start);
-  osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), start + durationSec);
-  g.gain.setValueAtTime(gain, start);
-  g.gain.exponentialRampToValueAtTime(0.0001, start + durationSec);
-  osc.connect(g).connect(audio.destination);
-  osc.start(start);
-  osc.stop(start + durationSec + 0.02);
+function playOneOf(urls: string[], gain = 0.7) {
+  play(urls[Math.floor(Math.random() * urls.length)], gain);
 }
+
+// Real recorded/produced audio (CC0, Kenney.nl "Casino Audio", "Interface
+// Sounds" and "Music Jingles" packs) — see public/CREDITS.txt. No more
+// synthesized oscillator tones.
+const CARD_PLACE = [1, 2, 3, 4].map((i) => `/sounds/card-place-${i}.ogg`);
+const CARD_SLIDE = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => `/sounds/card-slide-${i}.ogg`);
+const CHIP_STACK = [1, 2, 3, 4, 5, 6].map((i) => `/sounds/chip-stack-${i}.ogg`);
+const BIG_CARD_HIT = '/sounds/big-card-hit.ogg';
+const ROUND_END = '/sounds/round-end.ogg';
+const GAME_WIN = '/sounds/game-win.ogg';
+const GAME_LOSE = '/sounds/game-lose.ogg';
+
+const EMOTE_SOUNDS: Record<string, string> = {
+  nice: '/sounds/emote-nice.ogg',
+  haha: '/sounds/emote-haha.ogg',
+  wow: '/sounds/emote-wow.ogg',
+  oops: '/sounds/emote-oops.ogg',
+  fire: '/sounds/emote-fire.ogg',
+  thanks: '/sounds/emote-thanks.ogg',
+  ugh: '/sounds/emote-ugh.ogg',
+  gg: '/sounds/emote-gg.ogg',
+  clown: '/sounds/emote-clown.ogg',
+  popcorn: '/sounds/emote-popcorn.ogg',
+};
 
 /** Q-spade, K-club, 10-diamond get a distinct sting per SPEC.md section 7.5.6. */
 export function isBigCard(card: Card): boolean {
@@ -76,102 +79,35 @@ export function isBigCard(card: Card): boolean {
   );
 }
 
-/** A card thrown onto the table: a quick paper whoosh followed by a crisp snap. */
+/** A card thrown onto the table. */
 export function playCardSound() {
-  noiseBurst(70, 0.1, 2200, 'bandpass');
-  noiseBurst(35, 0.14, 5000, 'highpass', 45);
-  tone(900, 30, 0.05, 'square', 50);
-}
-
-/** A player eating a Leekha card: a big kick-drum hit, not just a louder chime. */
-function bigLeekhaDrum() {
-  thump(180, 45, 130, 0.3);
-  noiseBurst(60, 0.18, 1800, 'bandpass', 5);
-  thump(140, 40, 160, 0.22, 150);
-  noiseBurst(50, 0.12, 1500, 'bandpass', 155);
+  playOneOf(CARD_PLACE);
 }
 
 export function trickEndSound(bigCard: boolean) {
   if (bigCard) {
-    bigLeekhaDrum();
+    play(BIG_CARD_HIT, 0.85);
   } else {
-    tone(660, 120, 0.1, 'sine');
-    tone(880, 140, 0.08, 'sine', 90);
+    playOneOf(CHIP_STACK, 0.6);
   }
 }
 
 /** A distinct cue per emote (SPEC.md 7.5.11) so reactions are told apart by ear, not just by sight. */
 export function emoteSound(id: string) {
-  switch (id) {
-    case 'nice':
-      noiseBurst(40, 0.15, 2600, 'bandpass');
-      tone(880, 90, 0.1, 'sine', 30);
-      tone(1175, 110, 0.08, 'sine', 90);
-      break;
-    case 'haha':
-      tone(300, 70, 0.1, 'square', 0);
-      tone(360, 70, 0.1, 'square', 80);
-      tone(300, 70, 0.1, 'square', 160);
-      tone(420, 90, 0.1, 'square', 240);
-      break;
-    case 'wow':
-      thump(150, 1100, 220, 0.14);
-      tone(1200, 120, 0.08, 'sine', 200);
-      break;
-    case 'oops':
-      tone(500, 160, 0.12, 'sawtooth', 0);
-      tone(360, 200, 0.12, 'sawtooth', 150);
-      break;
-    case 'fire':
-      noiseBurst(180, 0.12, 6000, 'highpass', 0);
-      thump(200, 60, 120, 0.2, 20);
-      break;
-    case 'thanks':
-      tone(660, 140, 0.1, 'sine', 0);
-      tone(880, 180, 0.1, 'sine', 120);
-      break;
-    case 'ugh':
-      tone(220, 260, 0.12, 'sawtooth', 0);
-      tone(180, 260, 0.1, 'sawtooth', 120);
-      break;
-    case 'gg':
-      tone(523, 100, 0.1, 'sine', 0);
-      tone(659, 100, 0.1, 'sine', 90);
-      tone(784, 160, 0.12, 'sine', 180);
-      break;
-    case 'clown':
-      tone(300, 90, 0.12, 'square', 0);
-      tone(240, 130, 0.12, 'square', 100);
-      break;
-    case 'popcorn':
-      noiseBurst(20, 0.08, 3500, 'bandpass', 0);
-      noiseBurst(20, 0.08, 4200, 'bandpass', 60);
-      noiseBurst(25, 0.09, 3000, 'bandpass', 130);
-      noiseBurst(20, 0.07, 4500, 'bandpass', 210);
-      break;
-    default:
-      tone(320, 90, 0.12, 'sine');
-  }
+  play(EMOTE_SOUNDS[id] ?? EMOTE_SOUNDS.nice, 0.7);
 }
 
-/** A fast, light patter for the round's deal flourish — many quick taps, over almost as soon as it starts. */
+/** The round's deal flourish: each card gets its own slide, cycling through the pack so a full deal doesn't repeat one clip. */
 export function dealSound(cardIndex: number) {
-  noiseBurst(28, 0.05, 3200, 'bandpass', 0);
-  tone(700 + (cardIndex % 4) * 40, 18, 0.02, 'triangle');
+  play(CARD_SLIDE[cardIndex % CARD_SLIDE.length], 0.5);
 }
 
 export function roundEndSound() {
-  tone(392, 150, 0.1);
-  tone(494, 150, 0.1, 'sine', 130);
-  tone(587, 220, 0.1, 'sine', 260);
+  play(ROUND_END, 0.8);
 }
 
 export function gameOverSound(won: boolean) {
-  if (won) {
-    [523, 659, 784, 1047].forEach((f, i) => tone(f, 220, 0.12, 'sine', i * 130));
-  } else {
-    [392, 349, 294].forEach((f, i) => tone(f, 260, 0.12, 'sawtooth', i * 150));
-  }
+  play(won ? GAME_WIN : GAME_LOSE, 0.9);
 }
 
 /**
@@ -180,9 +116,17 @@ export function gameOverSound(won: boolean) {
  * triggered later from an async effect (e.g. reacting to a server message)
  * is too late and gets silently swallowed. Call this once from the very
  * first tap/click anywhere in the app to unlock it for every sound after.
+ * Scheduling a silent buffer (rather than just opening the context) is what
+ * actually satisfies iOS Safari's gesture check.
  */
 export function unlockAudio() {
-  getContext();
+  const audio = getContext();
+  if (!audio) return;
+  const buffer = audio.createBuffer(1, 1, audio.sampleRate);
+  const source = audio.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audio.destination);
+  source.start();
 }
 
 export function vibrate(pattern: number | number[]) {
