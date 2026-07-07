@@ -215,6 +215,48 @@ export function GameTable({
     }
   }
 
+  // Mobile-first alternative to tap-then-confirm: drag a card up past the
+  // throw threshold to play it in one gesture. A pointerdown that never
+  // crosses the movement threshold falls back to tapCard's existing
+  // tap/tap-to-confirm behavior, so mouse users are unaffected.
+  const DRAG_THROW_THRESHOLD = 56;
+  function onCardPointerDown(e: React.PointerEvent<HTMLButtonElement>, card: Card, legal: boolean) {
+    const el = e.currentTarget;
+    const startY = e.clientY;
+    el.setPointerCapture(e.pointerId);
+    let dragging = false;
+
+    function onMove(ev: PointerEvent) {
+      const dy = startY - ev.clientY;
+      if (!dragging && Math.abs(dy) > 6) dragging = true;
+      if (!dragging) return;
+      const lift = Math.max(0, dy);
+      el.style.transition = 'none';
+      el.style.zIndex = '30';
+      el.style.transform = `translateY(${-lift}px) scale(${1 + Math.min(lift, 60) / 300})`;
+    }
+
+    function onUp(ev: PointerEvent) {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      const dy = startY - ev.clientY;
+      el.style.transition = 'transform 150ms ease, opacity 150ms ease';
+      if (dragging && dy > DRAG_THROW_THRESHOLD && legal) {
+        el.style.transform = 'translateY(-160px) scale(0.85)';
+        el.style.opacity = '0';
+        onPlayCard(card);
+        setRaised(null);
+      } else {
+        el.style.transform = '';
+        el.style.zIndex = '';
+        if (!dragging) tapCard(card);
+      }
+    }
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+  }
+
   const dealer = view.dealer;
   const passRecipient = names[nextSeat(mySeat)];
 
@@ -396,8 +438,8 @@ export function GameTable({
                 <button
                   key={cardKey(card)}
                   disabled={view.phase !== 'playing' || !isMyTurn}
-                  onClick={() => tapCard(card)}
-                  className={`transition-transform ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
+                  onPointerDown={(e) => onCardPointerDown(e, card, legal)}
+                  className={`touch-none transition-transform ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
                     justReceived ? 'ring-2 ring-amber-300 rounded-md -translate-y-2' : ''
                   } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
                 >
