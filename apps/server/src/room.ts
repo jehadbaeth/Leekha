@@ -174,7 +174,7 @@ export class Room {
     this.broadcastRoomState();
     // A takeover replaces whoever (bot or previously-AFK human) held the seat; their
     // old seat token was just overwritten above, so a stale reconnect attempt with it
-    // will simply fail the token check in the 'auth' handler rather than fight for the seat.
+    // lands them as an observer in the 'auth' handler instead of fighting for the seat.
     if (isTakeover) this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'connected' });
     return slot.token;
   }
@@ -583,6 +583,13 @@ export class Room {
     else this.broadcastRoomState();
   }
 
+  /**
+   * Only ever called for a seat server.ts's 'auth' handler has confirmed is
+   * still this connection's own (token matches, not flipped to bot) - a
+   * network-blip reconnect, not a comeback from being AFK-flipped or taken
+   * over. Reclaiming either of those now goes through sit() like anyone else
+   * on the sidelines (SPEC.md 11), so there is no isBot un-flip here.
+   */
   bindSocket(seat: Seat, socketId: string): void {
     const slot = this.seats[seat];
     slot.socketId = socketId;
@@ -591,13 +598,6 @@ export class Room {
     if (timer) {
       clearTimeout(timer);
       this.disconnectTimers.delete(seat);
-    }
-    const wasBot = slot.isBot;
-    if (wasBot && slot.token) {
-      // A human reclaiming a seat that had been flipped to bot control regains it now;
-      // any bot move already in flight for the current turn still resolves (see scheduleBotPlayIfDue).
-      slot.isBot = false;
-      slot.afkStrikes = 0;
     }
     this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'connected' });
     if (this.phase === 'lobby') this.broadcastRoomState();

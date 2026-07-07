@@ -54,6 +54,13 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
       socket.join(`room:${code}`);
     }
 
+    /** The roster plus (mid-match) a blanked public snapshot — what a socket that holds no seat gets. */
+    function sendObserverView(room: Room) {
+      socket.emit('msg', room.roomStateMessage());
+      const pub = room.publicSnapshotMessage();
+      if (pub) socket.emit('msg', pub);
+    }
+
     /**
      * Re-validates state.seat against the room's live SeatSlot before trusting
      * it. Two ways a seat stops being this connection's to act on, neither of
@@ -88,13 +95,23 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
             state.name = msg.name;
             if (msg.seatToken) {
               const found = tokenIndex.get(msg.seatToken);
-              if (found) {
-                const room = manager.get(found.roomCode);
-                if (room && room.seats[found.seat].token === msg.seatToken) {
-                  state.roomCode = found.roomCode;
+              const room = found ? manager.get(found.roomCode) : undefined;
+              if (found && room) {
+                state.roomCode = room.code;
+                joinSocketIoRoom(room.code);
+                const slot = room.seats[found.seat];
+                if (slot.token === msg.seatToken && !slot.isBot) {
                   state.seat = found.seat;
-                  joinSocketIoRoom(found.roomCode);
                   room.bindSocket(found.seat, socket.id);
+                } else {
+                  // Our seat moved on without us: AFK-flipped to a bot, or claimed
+                  // outright by someone else while we were away. It is no longer
+                  // ours to walk back into automatically - land as an observer,
+                  // same as any fresh joiner mid-match (SPEC.md 11). Claiming a
+                  // seat back now goes through room.sit like anyone else on the
+                  // sidelines; there is no separate, silent reclaim-on-reconnect.
+                  state.seat = null;
+                  sendObserverView(room);
                 }
               }
             }
@@ -125,9 +142,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               state.roomCode = room.code;
               state.seat = null;
               joinSocketIoRoom(room.code);
-              socket.emit('msg', room.roomStateMessage());
-              const pub = room.publicSnapshotMessage();
-              if (pub) socket.emit('msg', pub);
+              sendObserverView(room);
               ack?.({ observer: true });
               break;
             }
@@ -233,9 +248,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               // Observer resync: no seat to hand to Room.resync, so deliver the
               // room snapshot plus (if a match is running) a public spectator
               // snapshot directly to this socket instead of the seated path.
-              socket.emit('msg', room.roomStateMessage());
-              const pub = room.publicSnapshotMessage();
-              if (pub) socket.emit('msg', pub);
+              sendObserverView(room);
             }
             break;
           }

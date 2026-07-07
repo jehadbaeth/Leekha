@@ -237,6 +237,15 @@ export function useOnlineGame() {
   // On connect (including every reconnect), replay auth + resync if we have a
   // stored seat token, per SPEC.md section 10's reconnection contract. This is
   // what lets a killed-and-reopened tab resume its seat automatically.
+  //
+  // Deliberately does NOT optimistically setMySeat(stored.seat) here: the seat
+  // may have been AFK-flipped to a bot, or claimed outright by someone else,
+  // while this tab was away, and the server routes a stale token to the
+  // observer view rather than handing the seat back (see server.ts's 'auth'
+  // handler). Claiming a seat back is room.sit's job now, same as any other
+  // sideline observer - assuming we still own it here would let this client
+  // render itself into a seat another human already legitimately holds.
+  // mySeat is set for real once game.snapshot confirms the seat is still ours.
   useEffect(() => {
     const socket = socketRef.current!;
     return socket.onStatus((s) => {
@@ -244,12 +253,11 @@ export function useOnlineGame() {
       const stored = loadSession();
       if (stored) {
         sessionRef.current = stored;
-        setMySeat(stored.seat);
         socket.send({ type: 'auth', name: '', seatToken: stored.seatToken });
         socket.send({ type: 'game.resync' });
       }
     });
-  }, [setMySeat]);
+  }, []);
 
   const createRoom = useCallback(async (name: string, config: RulesConfig) => {
     socketRef.current!.send({ type: 'auth', name: name || 'Guest' });

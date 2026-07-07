@@ -195,6 +195,95 @@ describe('apps/server end to end', () => {
     expect((reply as { view: { hand: unknown[] } }).view.hand).toEqual([]);
   }, 30_000);
 
+  it('lands a stale-token reconnect on an AFK-flipped seat as an observer instead of silently un-flipping it', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const SHORT_TIMER_CONFIG = { ...FAST_CONFIG, timers: { passMs: 300, playMs: 300 } };
+    const createAck = await send(host, { type: 'room.create', config: SHORT_TIMER_CONFIG });
+    const roomCode = createAck.code as string;
+    const seatToken = createAck.seatToken as string;
+
+    fire(host, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(host, { type: 'room.ready', ready: true });
+
+    const botTakeover = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'bot', 25_000);
+    fire(host, { type: 'room.start' });
+    await botTakeover;
+
+    // Bug report: a returning player's stale seatToken used to silently flip
+    // isBot back to false via bindSocket, bypassing the sidelines entirely and
+    // opening the door for two humans to end up claiming the same seat.
+    const returning = connect(port);
+    sockets.push(returning);
+    await new Promise<void>((r) => returning.on('connect', r));
+    const roomStatePromise = waitFor(returning, (m) => m.type === 'room.state', 5000);
+    fire(returning, { type: 'auth', name: 'Alice', seatToken });
+    const state = await roomStatePromise;
+    expect(state.roomCode).toBe(roomCode);
+
+    const room = app.manager.get(roomCode)!;
+    expect(room.seats[0].isBot).toBe(true);
+    expect(room.seats[0].socketId).toBe(host.id);
+
+    const snapshotOrNothing = waitFor(returning, (m) => m.type === 'game.snapshot', 1500).then(
+      () => 'seated',
+      () => 'observer',
+    );
+    fire(returning, { type: 'game.resync' });
+    expect(await snapshotOrNothing).toBe('observer');
+  }, 30_000);
+
+  it('keeps a takeover safe from the original owner\'s stale reconnect: no two humans in one seat', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const SHORT_TIMER_CONFIG = { ...FAST_CONFIG, timers: { passMs: 300, playMs: 300 } };
+    const createAck = await send(host, { type: 'room.create', config: SHORT_TIMER_CONFIG });
+    const roomCode = createAck.code as string;
+    const staleSeatToken = createAck.seatToken as string;
+
+    fire(host, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(host, { type: 'room.ready', ready: true });
+
+    const botTakeover = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'bot', 25_000);
+    fire(host, { type: 'room.start' });
+    await botTakeover;
+
+    // Bob, a genuine newcomer, claims the now-bot-controlled seat from the sidelines.
+    const bob = connect(port);
+    sockets.push(bob);
+    await new Promise<void>((r) => bob.on('connect', r));
+    fire(bob, { type: 'auth', name: 'Bob' });
+    await send(bob, { type: 'room.join', code: roomCode });
+    const sitAck = await send(bob, { type: 'room.sit', seat: 0 });
+    expect(sitAck.error).toBeUndefined();
+
+    const room = app.manager.get(roomCode)!;
+    expect(room.seats[0].name).toBe('Bob');
+    expect(room.seats[0].isBot).toBe(false);
+
+    // Alice's tab comes back with her old, now-stale seatToken from before the flip.
+    const aliceReturns = connect(port);
+    sockets.push(aliceReturns);
+    await new Promise<void>((r) => aliceReturns.on('connect', r));
+    const roomStatePromise = waitFor(aliceReturns, (m) => m.type === 'room.state', 5000);
+    fire(aliceReturns, { type: 'auth', name: 'Alice', seatToken: staleSeatToken });
+    const state = await roomStatePromise;
+    expect(state.roomCode).toBe(roomCode);
+
+    // Bob's claim must be completely unaffected by Alice's stale reconnect.
+    expect(room.seats[0].name).toBe('Bob');
+    expect(room.seats[0].isBot).toBe(false);
+    expect(room.seats[0].socketId).toBe(bob.id);
+  }, 30_000);
+
   it('restarts the match when a solo human votes rematch after game over', async () => {
     const host = connect(port);
     sockets.push(host);
