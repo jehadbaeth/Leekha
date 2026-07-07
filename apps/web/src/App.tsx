@@ -10,6 +10,8 @@ import { defaultSettings, loadSettings, saveSettings, type Settings } from './se
 import { useGame } from './useGame';
 import { useOnlineGame } from './useOnlineGame';
 import { loadSession } from './net/session';
+import { useInstallPrompt } from './useInstallPrompt';
+import { InstallBanner } from './components/InstallBanner';
 
 type Screen = 'home' | 'howto' | 'settings' | 'game' | 'lobby';
 type Mode = 'local' | 'online';
@@ -28,6 +30,7 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const game = useGame();
   const online = useOnlineGame();
+  const install = useInstallPrompt();
 
   useEffect(() => {
     setSettings(loadSettings());
@@ -180,6 +183,14 @@ export default function App() {
             setMode('local');
             setScreen('home');
           }}
+        />
+      )}
+
+      {install.canInstall && (
+        <InstallBanner
+          rtl={settings.language === 'ar'}
+          onInstall={install.promptInstall}
+          onDismiss={install.dismiss}
         />
       )}
     </div>
