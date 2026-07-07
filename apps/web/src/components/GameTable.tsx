@@ -1,21 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Card, MatchState, Seat, SeatView } from '@leekha/engine';
-import { nextSeat, teamOf } from '@leekha/engine';
+import type { Card, MatchResult, Seat, SeatView } from '@leekha/engine';
+import { nextSeat, partnerOf, prevSeat, teamOf } from '@leekha/engine';
 import { CardFace } from './CardFace';
-import { Avatar } from './Avatar';
+import { Avatar, type PresenceStatus } from './Avatar';
 import { PassingPanel } from './PassingPanel';
 import { RoundSummary } from './RoundSummary';
 import { MatchEnd } from './MatchEnd';
 import { cardKey, cardName, isLeekha } from '../cardDisplay';
 import { illegalReason, isForcedDumpSituation, undercutMarkerCard } from '../legality';
 import type { Settings } from '../settings';
-import type { GameEventLogItem } from '../useGame';
-
-const BOT_NAMES: Record<number, string> = { 1: 'Rami', 2: 'Nour', 3: 'Sami' };
-
-function seatName(seat: Seat, humanName: string): string {
-  return seat === 0 ? humanName || 'You' : BOT_NAMES[seat];
-}
 
 interface FrozenTrick {
   leader: Seat;
@@ -24,37 +17,59 @@ interface FrozenTrick {
   points: number;
 }
 
+/**
+ * The core table screen (SPEC.md section 7.2). It only ever consumes a
+ * SeatView plus a handful of transient bits (passesApplied, passProgress,
+ * matchResult) that a MatchState-backed local match and a socket-backed
+ * online match can both produce — see useGame.ts and useOnlineGame.ts. This
+ * keeps GameTable itself framework/transport agnostic, per CLAUDE.md's rule
+ * that clients only ever consume SeatView.
+ *
+ * "You" are not assumed to be seat 0: online, view.seat can be any of 0-3, so
+ * every screen position (bottom/right/top/left) is computed relative to it,
+ * per SPEC.md 7.2 ("the local player is always at the bottom regardless of
+ * seat number").
+ */
 export function GameTable({
-  match,
   view,
+  names,
   events,
   clearEvent,
+  passesApplied,
+  passProgress,
+  matchResult,
+  presence,
+  turnDeadline,
   settings,
   onCommitPass,
   onPlayCard,
   onAdvanceRound,
   onRematch,
   onHome,
-  turnSeatOf,
 }: {
-  match: MatchState;
   view: SeatView;
-  events: GameEventLogItem[];
+  names: Record<Seat, string>;
+  events: { id: number; event: { type: string } }[];
   clearEvent: (id: number) => void;
+  passesApplied: boolean;
+  passProgress: boolean[];
+  matchResult?: MatchResult;
+  presence?: Record<Seat, PresenceStatus>;
+  turnDeadline?: { seat: Seat; deadline: number | null } | null;
   settings: Settings;
   onCommitPass: (cards: [Card, Card, Card]) => void;
   onPlayCard: (card: Card) => void;
   onAdvanceRound: () => void;
   onRematch: () => void;
   onHome: () => void;
-  turnSeatOf: (trick: { leader: Seat; plays: unknown[] }) => Seat;
 }) {
-  const names: Record<Seat, string> = {
-    0: seatName(0, settings.displayName),
-    1: BOT_NAMES[1],
-    2: BOT_NAMES[2],
-    3: BOT_NAMES[3],
-  };
+  const mySeat = view.seat;
+  const rightSeat = nextSeat(mySeat);
+  const topSeat = partnerOf(mySeat);
+  const leftSeat = prevSeat(mySeat);
+
+  const turnSeatOf = (trick: { leader: Seat; plays: unknown[] }): Seat =>
+    (((trick.leader as number) + trick.plays.length) % 4) as Seat;
 
   const [raised, setRaised] = useState<Card | null>(null);
   const [reasonToast, setReasonToast] = useState<string | null>(null);
@@ -68,34 +83,33 @@ export function GameTable({
   const autoPlayedTrick = useRef<string | null>(null);
 
   const turn = view.phase === 'playing' ? turnSeatOf(view.currentTrick) : null;
-  const isMyTurn = turn === 0 && !!view.legal;
+  const isMyTurn = turn === mySeat && !!view.legal;
 
   // Detect the moment a pass gets applied, to show the "you received" reveal briefly.
   useEffect(() => {
-    const applied = match.round.passesApplied;
-    if (applied && !wasPassesApplied.current) {
+    if (passesApplied && !wasPassesApplied.current) {
       setReceivedReveal(true);
       revealTimer.current = window.setTimeout(() => setReceivedReveal(false), 3000);
     }
-    wasPassesApplied.current = applied;
+    wasPassesApplied.current = passesApplied;
     return () => {
       if (revealTimer.current) window.clearTimeout(revealTimer.current);
     };
-  }, [match.round.passesApplied]);
+  }, [passesApplied]);
 
   // Reset per-round local UI state.
   useEffect(() => {
     setRaised(null);
     setReasonToast(null);
     setShowLastTrick(false);
-  }, [match.roundIndex]);
+  }, [view.roundIndex]);
 
   // Freeze the completed trick on screen briefly, highlighting the winner.
   useEffect(() => {
     const trickEndEvents = events.filter((e) => e.event.type === 'trickEnd');
     for (const item of trickEndEvents) {
-      const ev = item.event as Extract<typeof item.event, { type: 'trickEnd' }>;
-      const completed = match.round.playedCards[match.round.playedCards.length - 1];
+      const ev = item.event as unknown as { winner: Seat; points: number };
+      const completed = view.playedCards[view.playedCards.length - 1];
       if (completed) {
         setFrozenTrick({ leader: completed[0]?.seat ?? 0, plays: completed, winner: ev.winner, points: ev.points });
         if (freezeTimer.current) window.clearTimeout(freezeTimer.current);
@@ -107,18 +121,18 @@ export function GameTable({
     for (const item of events) {
       if (item.event.type !== 'trickEnd') clearEvent(item.id);
     }
-  }, [events, clearEvent, match.round.playedCards, settings.reducedMotion]);
+  }, [events, clearEvent, view.playedCards, settings.reducedMotion]);
 
   // Auto play when exactly one legal card and the setting is on.
   useEffect(() => {
     if (!settings.autoPlaySingleLegal) return;
     if (view.phase !== 'playing' || !isMyTurn || !view.legal) return;
     if (view.legal.length !== 1) return;
-    const key = `${match.roundIndex}-${match.round.trickNumber}-${match.round.currentTrick.plays.length}`;
+    const key = `${view.roundIndex}-${view.trickNumber}-${view.currentTrick.plays.length}`;
     if (autoPlayedTrick.current === key) return;
     autoPlayedTrick.current = key;
     onPlayCard(view.legal[0]);
-  }, [settings.autoPlaySingleLegal, isMyTurn, view, match.roundIndex, match.round.trickNumber, match.round.currentTrick.plays.length, onPlayCard]);
+  }, [settings.autoPlaySingleLegal, isMyTurn, view, onPlayCard]);
 
   function tapCard(card: Card) {
     if (view.phase !== 'playing' || !isMyTurn || !view.legal) return;
@@ -142,10 +156,10 @@ export function GameTable({
   }
 
   const dealer = view.dealer;
-  const passRecipient = names[nextSeat(0)];
-  const passProgress: boolean[] = [0, 1, 2, 3].map((s) => match.round.passes[s as Seat] !== null);
+  const passRecipient = names[nextSeat(mySeat)];
 
   const dangerFor = (s: Seat) => view.scores[s] >= view.config.targetScore - 30;
+  const deadlineFor = (s: Seat) => (turnDeadline?.seat === s ? turnDeadline.deadline : null);
 
   const trickPlays = frozenTrick ? frozenTrick.plays : view.currentTrick.plays;
   const winnerSeatForHighlight = frozenTrick?.winner ?? null;
@@ -156,35 +170,46 @@ export function GameTable({
   const forcedDumpActive = isMyTurn ? isForcedDumpSituation(view.hand, view.currentTrick, view.config) : false;
   const undercutCard = frozenTrick ? null : undercutMarkerCard(view.currentTrick, view.config);
 
+  function posFor(seat: Seat): 'bottom-0 left-1/2 -translate-x-1/2' | 'right-0 top-1/2 -translate-y-1/2' | 'top-0 left-1/2 -translate-x-1/2' | 'left-0 top-1/2 -translate-y-1/2' {
+    if (seat === mySeat) return 'bottom-0 left-1/2 -translate-x-1/2';
+    if (seat === rightSeat) return 'right-0 top-1/2 -translate-y-1/2';
+    if (seat === topSeat) return 'top-0 left-1/2 -translate-x-1/2';
+    return 'left-0 top-1/2 -translate-y-1/2';
+  }
+
   return (
     <div className="relative h-full w-full flex flex-col bg-gradient-to-b from-felt-900 to-felt-950 overflow-hidden select-none">
-      {/* Top: North (partner) */}
+      {/* Top: partner */}
       <div className="flex justify-center pt-3">
         <Avatar
-          name={names[2]}
-          score={view.scores[2]}
-          isTurn={turn === 2}
-          isDealer={dealer === 2}
-          danger={dangerFor(2)}
-          team={teamOf(2)}
+          name={names[topSeat]}
+          score={view.scores[topSeat]}
+          isTurn={turn === topSeat}
+          isDealer={dealer === topSeat}
+          danger={dangerFor(topSeat)}
+          team={teamOf(topSeat)}
+          presence={presence?.[topSeat]}
+          deadline={deadlineFor(topSeat)}
         />
       </div>
 
-      {/* Middle: West - trick area - East */}
+      {/* Middle: left - trick area - right */}
       <div className="flex-1 flex items-center justify-between px-2">
-        <Avatar name={names[3]} score={view.scores[3]} isTurn={turn === 3} isDealer={dealer === 3} danger={dangerFor(3)} team={teamOf(3)} />
+        <Avatar
+          name={names[leftSeat]}
+          score={view.scores[leftSeat]}
+          isTurn={turn === leftSeat}
+          isDealer={dealer === leftSeat}
+          danger={dangerFor(leftSeat)}
+          team={teamOf(leftSeat)}
+          presence={presence?.[leftSeat]}
+          deadline={deadlineFor(leftSeat)}
+        />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-1 relative min-h-[120px]">
           <div className="relative w-32 h-32">
             {trickPlays.map((p) => {
-              const pos =
-                p.seat === 0
-                  ? 'bottom-0 left-1/2 -translate-x-1/2'
-                  : p.seat === 1
-                    ? 'right-0 top-1/2 -translate-y-1/2'
-                    : p.seat === 2
-                      ? 'top-0 left-1/2 -translate-x-1/2'
-                      : 'left-0 top-1/2 -translate-y-1/2';
+              const pos = posFor(p.seat);
               const isWinner = winnerSeatForHighlight === p.seat;
               const isUndercutMarker = undercutCard && cardKey(undercutCard) === cardKey(p.card);
               return (
@@ -212,7 +237,16 @@ export function GameTable({
           )}
         </div>
 
-        <Avatar name={names[1]} score={view.scores[1]} isTurn={turn === 1} isDealer={dealer === 1} danger={dangerFor(1)} team={teamOf(1)} />
+        <Avatar
+          name={names[rightSeat]}
+          score={view.scores[rightSeat]}
+          isTurn={turn === rightSeat}
+          isDealer={dealer === rightSeat}
+          danger={dangerFor(rightSeat)}
+          team={teamOf(rightSeat)}
+          presence={presence?.[rightSeat]}
+          deadline={deadlineFor(rightSeat)}
+        />
       </div>
 
       {/* HUD strip */}
@@ -318,12 +352,12 @@ export function GameTable({
       )}
 
       {/* Match end overlay */}
-      {view.phase === 'gameOver' && match.result?.over && (
+      {view.phase === 'gameOver' && matchResult?.over && (
         <MatchEnd
           names={names}
           totals={view.scores}
-          losingTeam={match.result.losingTeam!}
-          bustSeat={match.result.bustSeat!}
+          losingTeam={matchResult.losingTeam!}
+          bustSeat={matchResult.bustSeat!}
           onRematch={onRematch}
           onHome={onHome}
         />

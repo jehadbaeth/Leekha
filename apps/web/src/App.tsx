@@ -1,17 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { Seat } from '@leekha/engine';
+import { defaultConfig } from '@leekha/engine';
 import { Home } from './Home';
+import { Lobby } from './Lobby';
 import { HowToPlay } from './HowToPlay';
 import { SettingsScreen } from './SettingsScreen';
 import { GameTable } from './components/GameTable';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
+import { useOnlineGame } from './useOnlineGame';
+import { loadSession } from './net/session';
 
-type Screen = 'home' | 'howto' | 'settings' | 'game';
+type Screen = 'home' | 'howto' | 'settings' | 'game' | 'lobby';
+type Mode = 'local' | 'online';
+
+const BOT_NAMES: Record<number, string> = { 1: 'Rami', 2: 'Nour', 3: 'Sami' };
+
+function initialJoinCodeFromUrl(): string | undefined {
+  const params = new URLSearchParams(window.location.search);
+  const join = params.get('join');
+  return join ? join.toUpperCase().slice(0, 6) : undefined;
+}
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
+  const [mode, setMode] = useState<Mode>('local');
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const game = useGame();
+  const online = useOnlineGame();
 
   useEffect(() => {
     setSettings(loadSettings());
@@ -21,12 +37,60 @@ export default function App() {
     document.documentElement.dir = settings.language === 'ar' ? 'rtl' : 'ltr';
   }, [settings.language]);
 
+  // If a seat token is already stashed in localStorage (a killed-and-reopened
+  // tab, per SPEC.md's Phase 2 definition of done), go straight into online
+  // mode; useOnlineGame's own effect replays auth + game.resync on connect.
+  useEffect(() => {
+    if (loadSession()) setMode('online');
+  }, []);
+
+  // Follow the server's lead once we're in online mode: room.state means the
+  // lobby, a SeatView means a game is running (also covers resync landing
+  // either in the lobby or mid-match, per SPEC.md section 10).
+  useEffect(() => {
+    if (mode !== 'online') return;
+    if (online.view) {
+      setScreen('game');
+    } else if (online.roomState) {
+      setScreen((s) => (s === 'howto' || s === 'settings' ? s : 'lobby'));
+    }
+  }, [mode, online.view, online.roomState]);
+
   function updateSettings(patch: Partial<Settings>) {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
       saveSettings(next);
       return next;
     });
+  }
+
+  const onlineNames: Record<Seat, string> = useMemo(() => {
+    const base: Record<Seat, string> = { 0: 'Seat 0', 1: 'Seat 1', 2: 'Seat 2', 3: 'Seat 3' };
+    if (online.roomState) {
+      for (const slot of online.roomState.seats) {
+        base[slot.seat] = slot.name ?? `Seat ${slot.seat}`;
+      }
+    }
+    return base;
+  }, [online.roomState]);
+
+  const localNames: Record<Seat, string> = {
+    0: settings.displayName || 'You',
+    1: BOT_NAMES[1],
+    2: BOT_NAMES[2],
+    3: BOT_NAMES[3],
+  };
+
+  async function handleCreateRoom(name: string) {
+    setMode('online');
+    const code = await online.createRoom(name, defaultConfig);
+    if (code) setScreen('lobby');
+  }
+
+  async function handleJoinRoom(name: string, code: string) {
+    setMode('online');
+    const ok = await online.joinRoom(name, code);
+    if (ok) setScreen('lobby');
   }
 
   return (
@@ -36,11 +100,16 @@ export default function App() {
           settings={settings}
           onUpdateSettings={updateSettings}
           onPlayVsBots={() => {
+            setMode('local');
             game.startMatch();
             setScreen('game');
           }}
+          onCreateRoom={handleCreateRoom}
+          onJoinRoom={handleJoinRoom}
           onHowToPlay={() => setScreen('howto')}
           onSettings={() => setScreen('settings')}
+          joinError={online.lastError}
+          initialJoinCode={initialJoinCodeFromUrl()}
         />
       )}
 
@@ -50,19 +119,67 @@ export default function App() {
         <SettingsScreen settings={settings} onUpdate={updateSettings} onBack={() => setScreen('home')} />
       )}
 
-      {screen === 'game' && game.match && game.view && (
+      {screen === 'lobby' && (
+        <Lobby
+          roomState={online.roomState}
+          roomCode={online.roomState?.roomCode ?? null}
+          mySeat={online.mySeat}
+          onAddBot={online.addBot}
+          onRemoveBot={online.removeBot}
+          onReady={online.setReady}
+          onStart={online.startGame}
+          onLeave={() => {
+            online.leaveRoom();
+            setMode('local');
+            setScreen('home');
+          }}
+        />
+      )}
+
+      {screen === 'game' && mode === 'local' && game.match && game.view && (
         <GameTable
-          match={game.match}
           view={game.view}
+          names={localNames}
           events={game.events}
           clearEvent={game.clearEvent}
+          passesApplied={game.match.round.passesApplied}
+          passProgress={[0, 1, 2, 3].map((s) => game.match!.round.passes[s as Seat] !== null)}
+          matchResult={game.match.result}
           settings={settings}
           onCommitPass={game.humanCommitPass}
           onPlayCard={game.humanPlayCard}
           onAdvanceRound={game.advanceRound}
           onRematch={() => game.rematch()}
           onHome={() => setScreen('home')}
-          turnSeatOf={game.turnSeatOf}
+        />
+      )}
+
+      {screen === 'game' && mode === 'online' && online.view && (
+        <GameTable
+          view={online.view}
+          names={onlineNames}
+          events={online.events}
+          clearEvent={online.clearEvent}
+          passesApplied={online.passesApplied}
+          passProgress={online.passProgress}
+          matchResult={online.matchResult}
+          presence={online.presence}
+          turnDeadline={online.turnDeadline}
+          settings={settings}
+          onCommitPass={online.pass}
+          onPlayCard={online.play}
+          onAdvanceRound={() => {
+            // The server auto-advances to the next round a few seconds after
+            // game.roundEnd (see ROUND_ADVANCE_DELAY_MS in apps/server/src/room.ts);
+            // there is no client action to hurry it along, so this is a no-op
+            // and the overlay dismisses itself once the next game.dealt/snapshot lands.
+          }}
+          onRematch={() => online.rematch()}
+          onHome={() => {
+            online.leaveRoom();
+            setMode('local');
+            setScreen('home');
+          }}
         />
       )}
     </div>
