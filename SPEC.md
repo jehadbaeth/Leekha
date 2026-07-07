@@ -149,13 +149,14 @@ This section exists because the UX and the bots must serve these dynamics, not f
 2. Play instantly against 3 bots (offline capable once loaded).
 3. Private online rooms with a 6 character code and share link, 1 to 4 humans, bots filling empty seats.
 4. Disconnect handling: bot takeover with seat reclaim.
-5. Turn timers with auto play on expiry.
-6. English and Arabic (RTL) interfaces.
-7. Round and match summaries, basic settings, rules screen.
+5. Anyone joining a room by code after the match has started joins as an observer and can claim any bot-controlled seat; joining during the founding lobby (before the host starts the match) still seats you directly, same as filling any other empty chair.
+6. Turn timers with auto play on expiry.
+7. English and Arabic (RTL) interfaces.
+8. Round and match summaries, basic settings, rules screen.
 
 ### Explicitly out of MVP (parking lot in Section 16)
 
-Accounts, rankings, matchmaking queues, doubling variants, spectators, replays UI, chat beyond emotes, native app store builds, tournaments.
+Accounts, rankings, matchmaking queues, doubling variants, full spectator mode (watching the live board without a seat), replays UI, chat beyond emotes, native app store builds, tournaments.
 
 ---
 
@@ -390,8 +391,8 @@ All messages are zod validated in `packages/protocol`. Every server message carr
 
 1. `auth { name, seatToken? }`
 2. `room.create { config } → ack { code, seatToken }`
-3. `room.join { code } → ack { seatToken | error }`
-4. `room.sit { seat }` · `room.addBot { seat, level }` · `room.removeBot { seat }`
+3. `room.join { code } → ack { seatToken | observer: true | error }`. In the founding lobby (before `room.start`) this seats you directly, same as any open chair. Once the match is running it makes you an observer instead: you receive `room.state` but no `game.snapshot`, since you hold no seat and no hand to protect.
+4. `room.sit { seat } → ack { seatToken | error }` (an observer claiming a specific bot-controlled seat) · `room.addBot { seat, level }` · `room.removeBot { seat }`
 5. `room.configure { config }` (host only, lobby only)
 6. `room.ready { ready }` · `room.start` (host)
 7. `game.pass { cards: [Card, Card, Card] }`
@@ -433,8 +434,9 @@ LOBBY → (host starts, 4 seats filled) → ROUND_START(deal)
 Room rules:
 
 1. Rooms are garbage collected after 15 minutes idle in lobby or 5 minutes after game over.
-2. The host role passes to the next human if the host leaves; a room with zero humans is destroyed.
+2. The host role passes to the next human if the host leaves; a room with zero humans is destroyed. A seat currently under bot control still counts as human here as long as it holds a seat token (someone could still reclaim or lose it to a takeover) — going AFK must never make a room eligible for collection out from under a player who is still connected and simply idle.
 3. Seat tokens survive room membership; a player who closed the tab can rejoin the room by code and reclaim their seat.
+4. Anyone can join a room by code at any time. If the match has already started, joining makes you an observer: you see the seat list (who's seated, who's a bot) but nothing about the hand in progress. An observer may claim any bot-controlled seat via `room.sit`, taking over that seat's identity outright — the bot's original human, if any, keeps a stale seat token that no longer matches and simply can't reclaim it. Joining during the founding lobby, before the host starts the match, always seats you directly instead; observing is only a gate on an already-running match.
 
 ---
 
@@ -575,7 +577,7 @@ leekha/
 
 ## 17. Future feature parking lot
 
-Doubling variant (the base game's exposure doubling of Q♠ and 10♦, with a possible Idlibi analog for K♣), accounts and persistent stats, replays (the event log already makes them free), spectators, tournaments and leaderboards, randomized partner ranked mode, free chat with moderation, native store builds via Capacitor, a house rules editor exposing `RulesConfig`, and richer hint or coaching modes built on the inference tracker.
+Doubling variant (the base game's exposure doubling of Q♠ and 10♦, with a possible Idlibi analog for K♣), accounts and persistent stats, replays (the event log already makes them free), full spectator mode (watching the live board play out, seat-free — see Section 6's minimal observer for what already shipped), tournaments and leaderboards, randomized partner ranked mode, free chat with moderation, native store builds via Capacitor, a house rules editor exposing `RulesConfig`, and richer hint or coaching modes built on the inference tracker.
 
 ---
 
