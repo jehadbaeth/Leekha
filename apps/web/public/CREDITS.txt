@@ -9,5 +9,14 @@ License: Creative Commons CC0 1.0 Universal (public domain dedication).
 https://creativecommons.org/publicdomain/zero/1.0/
 Attribution is not required, but credit to Kenney is appreciated.
 
-This is a generic, openly-licensed SFX pack, not another app's proprietary
-sound effects.
+Animated emotes (public/emotes/)
+---------------------------------
+Source: Google's Noto Emoji Animation set, https://googlefonts.github.io/noto-emoji-animation/
+(https://github.com/googlefonts/noto-emoji)
+License: Apache License, Version 2.0 for the animated artwork.
+https://www.apache.org/licenses/LICENSE-2.0
+Files used, by Unicode codepoint: 1F44F, 1F602, 1F92F, 1F648, 1F525, 1F64F,
+1F629, 1F91D, 1F921, 1F37F.
+
+These are generic, openly-licensed emoji/SFX packs, not another app's
+proprietary artwork or sound effects.

@@ -29,8 +29,8 @@ export function Avatar({
   presence?: PresenceStatus;
   /** Section 7.3.9: ms timestamp the current turn expires at, drives the timer ring. */
   deadline?: number | null;
-  /** Section 7.5.11: the most recent emote this seat sent, briefly shown as a big sticker pop above the avatar. */
-  emote?: { glyph: string; caption: string } | null;
+  /** Section 7.5.11: the most recent emote this seat sent, briefly shown as a big animated sticker pop above the avatar. */
+  emote?: { anim: string; caption: string } | null;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -41,7 +41,7 @@ export function Avatar({
           className="absolute -top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
           aria-hidden
         >
-          <span className="text-6xl leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">{emote.glyph}</span>
+          <img src={emote.anim} alt="" className="w-16 h-16 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
           <span className="bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
             {emote.caption}
           </span>
