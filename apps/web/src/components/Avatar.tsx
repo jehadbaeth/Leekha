@@ -13,7 +13,7 @@ export function Avatar({
   compact = false,
   presence,
   deadline,
-  emoteGlyph,
+  emote,
 }: {
   name: string;
   score: number;
@@ -29,17 +29,23 @@ export function Avatar({
   presence?: PresenceStatus;
   /** Section 7.3.9: ms timestamp the current turn expires at, drives the timer ring. */
   deadline?: number | null;
-  /** Section 7.5.11: the emoji of the most recent emote this seat sent, briefly shown above the avatar. */
-  emoteGlyph?: string | null;
+  /** Section 7.5.11: the most recent emote this seat sent, briefly shown as a big sticker pop above the avatar. */
+  emote?: { glyph: string; caption: string } | null;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
   return (
     <div className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`}>
-      {emoteGlyph && (
-        <span className="absolute -top-6 text-2xl animate-bounce select-none pointer-events-none" aria-hidden>
-          {emoteGlyph}
-        </span>
+      {emote && (
+        <div
+          className="absolute -top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
+          aria-hidden
+        >
+          <span className="text-6xl leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">{emote.glyph}</span>
+          <span className="bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
+            {emote.caption}
+          </span>
+        </div>
       )}
       <div
         className={`relative w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-opacity ${

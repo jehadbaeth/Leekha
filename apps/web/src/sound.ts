@@ -100,23 +100,58 @@ export function trickEndSound(bigCard: boolean) {
   }
 }
 
-/** A cartoonish little "boing" for emote reactions. */
-export function emoteSound() {
-  const audio = getContext();
-  if (!audio) return;
-  const osc = audio.createOscillator();
-  const g = audio.createGain();
-  osc.type = 'sine';
-  const start = audio.currentTime;
-  osc.frequency.setValueAtTime(320, start);
-  osc.frequency.exponentialRampToValueAtTime(720, start + 0.09);
-  osc.frequency.exponentialRampToValueAtTime(420, start + 0.16);
-  g.gain.setValueAtTime(0.001, start);
-  g.gain.linearRampToValueAtTime(0.12, start + 0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
-  osc.connect(g).connect(audio.destination);
-  osc.start(start);
-  osc.stop(start + 0.2);
+/** A distinct cue per emote (SPEC.md 7.5.11) so reactions are told apart by ear, not just by sight. */
+export function emoteSound(id: string) {
+  switch (id) {
+    case 'nice':
+      noiseBurst(40, 0.15, 2600, 'bandpass');
+      tone(880, 90, 0.1, 'sine', 30);
+      tone(1175, 110, 0.08, 'sine', 90);
+      break;
+    case 'haha':
+      tone(300, 70, 0.1, 'square', 0);
+      tone(360, 70, 0.1, 'square', 80);
+      tone(300, 70, 0.1, 'square', 160);
+      tone(420, 90, 0.1, 'square', 240);
+      break;
+    case 'wow':
+      thump(150, 1100, 220, 0.14);
+      tone(1200, 120, 0.08, 'sine', 200);
+      break;
+    case 'oops':
+      tone(500, 160, 0.12, 'sawtooth', 0);
+      tone(360, 200, 0.12, 'sawtooth', 150);
+      break;
+    case 'fire':
+      noiseBurst(180, 0.12, 6000, 'highpass', 0);
+      thump(200, 60, 120, 0.2, 20);
+      break;
+    case 'thanks':
+      tone(660, 140, 0.1, 'sine', 0);
+      tone(880, 180, 0.1, 'sine', 120);
+      break;
+    case 'ugh':
+      tone(220, 260, 0.12, 'sawtooth', 0);
+      tone(180, 260, 0.1, 'sawtooth', 120);
+      break;
+    case 'gg':
+      tone(523, 100, 0.1, 'sine', 0);
+      tone(659, 100, 0.1, 'sine', 90);
+      tone(784, 160, 0.12, 'sine', 180);
+      break;
+    case 'clown':
+      tone(300, 90, 0.12, 'square', 0);
+      tone(240, 130, 0.12, 'square', 100);
+      break;
+    case 'popcorn':
+      noiseBurst(20, 0.08, 3500, 'bandpass', 0);
+      noiseBurst(20, 0.08, 4200, 'bandpass', 60);
+      noiseBurst(25, 0.09, 3000, 'bandpass', 130);
+      noiseBurst(20, 0.07, 4500, 'bandpass', 210);
+      break;
+    default:
+      tone(320, 90, 0.12, 'sine');
+  }
 }
 
 /** A fast, light patter for the round's deal flourish — many quick taps, over almost as soon as it starts. */

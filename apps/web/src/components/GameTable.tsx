@@ -95,7 +95,7 @@ export function GameTable({
   const revealTimer = useRef<number | null>(null);
   const freezeTimer = useRef<number | null>(null);
   const autoPlayedTrick = useRef<string | null>(null);
-  const [visibleEmotes, setVisibleEmotes] = useState<Partial<Record<Seat, string>>>({});
+  const [visibleEmotes, setVisibleEmotes] = useState<Partial<Record<Seat, { glyph: string; caption: string }>>>({});
   const [showEmotePicker, setShowEmotePicker] = useState(false);
   const [pendingPlay, setPendingPlay] = useState(false);
   const pendingPlayRef = useRef(false);
@@ -137,17 +137,17 @@ export function GameTable({
     }
   }, [turn]);
 
-  // Show each incoming emote above its seat for ~2.5s (SPEC.md 7.5.11).
+  // Show each incoming emote as a big sticker pop above its seat for ~2.5s (SPEC.md 7.5.11).
   useEffect(() => {
     if (!emotes) return;
     const timers: number[] = [];
     for (const seat of [0, 1, 2, 3] as Seat[]) {
       const e = emotes[seat];
       if (!e) continue;
-      const glyph = EMOTE_BY_ID[e.id]?.glyph;
-      if (!glyph) continue;
-      setVisibleEmotes((prev) => ({ ...prev, [seat]: glyph }));
-      if (settings.sound) emoteSound();
+      const def = EMOTE_BY_ID[e.id];
+      if (!def) continue;
+      setVisibleEmotes((prev) => ({ ...prev, [seat]: { glyph: def.glyph, caption: t(def.en, def.ar) } }));
+      if (settings.sound) emoteSound(e.id);
       timers.push(
         window.setTimeout(() => {
           setVisibleEmotes((prev) => ({ ...prev, [seat]: undefined }));
@@ -155,7 +155,8 @@ export function GameTable({
       );
     }
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [emotes ? ([0, 1, 2, 3] as Seat[]).map((s) => emotes[s]?.ts ?? 0).join(',') : '', settings.sound]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emotes ? ([0, 1, 2, 3] as Seat[]).map((s) => emotes[s]?.ts ?? 0).join(',') : '', settings.sound, settings.language]);
 
   // Detect the moment a pass gets applied, to show the "you received" reveal briefly.
   useEffect(() => {
@@ -386,7 +387,7 @@ export function GameTable({
           team={teamOf(topSeat)}
           presence={presence?.[topSeat]}
           deadline={deadlineFor(topSeat)}
-          emoteGlyph={visibleEmotes[topSeat]}
+          emote={visibleEmotes[topSeat]}
         />
       </div>
 
@@ -402,7 +403,7 @@ export function GameTable({
           team={teamOf(leftSeat)}
           presence={presence?.[leftSeat]}
           deadline={deadlineFor(leftSeat)}
-          emoteGlyph={visibleEmotes[leftSeat]}
+          emote={visibleEmotes[leftSeat]}
         />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-1 relative min-h-[120px]">
@@ -434,6 +435,17 @@ export function GameTable({
           {frozenTrick && frozenTrick.points > 0 && (
             <div className="text-amber-300 text-sm font-bold animate-bounce">+{frozenTrick.points} {names[frozenTrick.winner]}</div>
           )}
+          {/* "You" have no avatar slot of your own (SPEC.md 7.2: you're always
+              the hand at the bottom), so your own emote needs a pop of its own
+              here or you'd tap the picker and see nothing happen at all. */}
+          {visibleEmotes[mySeat] && (
+            <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop">
+              <span className="text-6xl leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">{visibleEmotes[mySeat]!.glyph}</span>
+              <span className="bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
+                {visibleEmotes[mySeat]!.caption}
+              </span>
+            </div>
+          )}
         </div>
 
         <Avatar
@@ -446,7 +458,7 @@ export function GameTable({
           team={teamOf(rightSeat)}
           presence={presence?.[rightSeat]}
           deadline={deadlineFor(rightSeat)}
-          emoteGlyph={visibleEmotes[rightSeat]}
+          emote={visibleEmotes[rightSeat]}
         />
       </div>
 
