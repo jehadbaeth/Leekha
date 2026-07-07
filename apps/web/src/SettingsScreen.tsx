@@ -11,11 +11,9 @@ function Toggle({ label, hint, value, onChange }: { label: string; hint?: string
         {hint && <span className="block text-xs text-emerald-300 mt-0.5">{hint}</span>}
       </span>
       <span
-        className={`w-11 h-6 rounded-full flex-shrink-0 relative transition ${value ? 'bg-amber-400' : 'bg-emerald-800'}`}
+        className={`w-11 h-6 p-0.5 rounded-full flex-shrink-0 flex items-center transition-colors ${value ? 'justify-end bg-amber-400' : 'justify-start bg-emerald-800'}`}
       >
-        <span
-          className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : 'translate-x-0.5'}`}
-        />
+        <span className="w-5 h-5 rounded-full bg-white" />
       </span>
     </button>
   );
