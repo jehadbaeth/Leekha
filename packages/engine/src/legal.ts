@@ -21,9 +21,14 @@ export function legalPlaysFor(hand: Card[], trick: TrickState, cfg: RulesConfig)
     }
   } else if (cfg.forcedLeekhaDiscard) {
     // Forced talyeekh: holding the led suit's own Leekha card forces it out
-    // immediately, even if other cards of that suit could follow instead.
+    // immediately, but only once a higher card of that suit is already on the
+    // trick, guaranteeing the Leekha loses. Playing it while it would still be
+    // the trick's highest card of the led suit would win the trick (and its
+    // points) for the holder, defeating the point of forcing it out.
     const leekhaOfSuit = base.filter(isLeekha);
-    if (leekhaOfSuit.length > 0) base = leekhaOfSuit;
+    if (leekhaOfSuit.length > 0 && leekhaOfSuit[0].rank < winningRank(trick, led)) {
+      base = leekhaOfSuit;
+    }
   }
   const leekhasOnTrick = trick.plays.map((p) => p.card).filter(isLeekha);
   const undercutApplies =
@@ -50,6 +55,8 @@ export function isForcedDump(hand: Card[], trick: TrickState, cfg: RulesConfig, 
     return cfg.forcedLeekhaDiscard && leekha.length > 0 && isLeekha(played);
   }
   // Held the led suit: forced only if the suit's own Leekha card had to be
-  // surrendered ahead of other cards of that suit (forced talyeekh).
-  return cfg.forcedLeekhaDiscard && followers.length > 1 && played.suit === led && isLeekha(played);
+  // surrendered ahead of other cards of that suit (forced talyeekh), which
+  // only happens once a higher card of that suit already beats it.
+  if (!cfg.forcedLeekhaDiscard || followers.length <= 1 || played.suit !== led || !isLeekha(played)) return false;
+  return played.rank < winningRank(trick, led);
 }

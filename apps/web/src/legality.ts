@@ -3,6 +3,11 @@ import { isLeekha } from '@leekha/engine';
 import { SUIT_NAME, SUIT_NAME_AR, leekhaBadge } from './cardDisplay';
 import { pick, type Settings } from './settings';
 
+function winningRank(trick: TrickState, led: Card['suit']): number {
+  const ledPlays = trick.plays.filter((p) => p.card.suit === led);
+  return Math.max(...ledPlays.map((p) => p.card.rank));
+}
+
 /**
  * Explains why a card the player tapped is not currently legal, mirroring the
  * branches of legalPlaysFor in packages/engine/src/legal.ts. Used only for
@@ -28,7 +33,9 @@ export function illegalReason(
       return t(`You must follow ${SUIT_NAME[led].toLowerCase()}`, `يجب أن تلحق بـ ${SUIT_NAME_AR[led]}`);
     }
     const leekhaOfSuit = followers.filter(isLeekha);
-    if (cfg.forcedLeekhaDiscard && leekhaOfSuit.length > 0) {
+    const forcedBySuit =
+      cfg.forcedLeekhaDiscard && leekhaOfSuit.length > 0 && leekhaOfSuit[0].rank < winningRank(trick, led);
+    if (forcedBySuit) {
       base = leekhaOfSuit;
       if (!isLeekha(card)) {
         const label = leekhaBadge(leekhaOfSuit[0]) ?? '';
@@ -72,8 +79,11 @@ export function isForcedDumpSituation(hand: Card[], trick: TrickState, cfg: Rule
   if (trick.plays.length === 0) return false;
   const led = trick.plays[0].card.suit;
   const followers = hand.filter((c) => c.suit === led);
-  const leekha = followers.length > 0 ? followers.filter(isLeekha) : hand.filter(isLeekha);
-  return cfg.forcedLeekhaDiscard && leekha.length > 0;
+  if (followers.length === 0) {
+    return cfg.forcedLeekhaDiscard && hand.some(isLeekha);
+  }
+  const leekhaOfSuit = followers.filter(isLeekha);
+  return cfg.forcedLeekhaDiscard && leekhaOfSuit.length > 0 && leekhaOfSuit[0].rank < winningRank(trick, led);
 }
 
 /** The highest Leekha card currently lying on the trick, if the undercut rule is active for it. */

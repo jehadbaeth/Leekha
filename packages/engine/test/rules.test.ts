@@ -65,11 +65,32 @@ describe('forced dump', () => {
     expect(legal.length).toBe(3);
   });
 
-  it('Q♠ is forced (talyeekh) when following a spade lead, even with other spades in hand', () => {
+  it('Q♠ is not forced while nothing on the trick yet beats it', () => {
     const hand = [c('S', 12), c('S', 3)];
-    const t = trick(0, [{ seat: 0, card: c('S', 5) }]);
+    const t = trick(0, [{ seat: 0, card: c('S', 5) }]); // 5 doesn't beat the queen
+    const legal = legalPlaysFor(hand, t, cfg());
+    expect(legal.sort((a, b) => a.rank - b.rank)).toEqual([c('S', 3), c('S', 12)]);
+  });
+
+  it('Q♠ is forced (talyeekh) once a higher spade already beats it on the trick', () => {
+    const hand = [c('S', 12), c('S', 3)];
+    const t = trick(0, [{ seat: 0, card: c('S', 14) }]); // ace already beats the queen
     const legal = legalPlaysFor(hand, t, cfg());
     expect(legal).toEqual([c('S', 12)]);
+  });
+
+  it('K♣ can be held back on a low club lead instead of winning the trick with it', () => {
+    const hand = [c('C', 13), c('C', 4)];
+    const t = trick(0, [{ seat: 0, card: c('C', 2) }]); // 2 doesn't beat the king
+    const legal = legalPlaysFor(hand, t, cfg());
+    expect(legal.sort((a, b) => a.rank - b.rank)).toEqual([c('C', 4), c('C', 13)]);
+  });
+
+  it('K♣ is forced out once the A♣ already beats it on the trick', () => {
+    const hand = [c('C', 13), c('C', 4)];
+    const t = trick(0, [{ seat: 0, card: c('C', 14) }]); // ace already beats the king
+    const legal = legalPlaysFor(hand, t, cfg());
+    expect(legal).toEqual([c('C', 13)]);
   });
 });
 
@@ -98,12 +119,12 @@ describe('trick resolution', () => {
   });
 
   it('forced talyeekh follow is tagged forced, a free follow is not', () => {
-    const hands: any = [[c('S', 5)], [c('S', 12), c('S', 3)], [c('S', 9)], [c('S', 2)]];
+    const hands: any = [[c('S', 14)], [c('S', 12), c('S', 3)], [c('S', 9)], [c('S', 2)]];
     let m = matchWithHands(hands, cfg(), 3);
     const events: any[] = [];
-    let res = playCard(m, 0, c('S', 5));
+    let res = playCard(m, 0, c('S', 14)); // ace led, already beats the queen
     events.push(...res.events);
-    res = playCard(res.state, 1, c('S', 12)); // forced: Q♠ held alongside another spade
+    res = playCard(res.state, 1, c('S', 12)); // forced: ace already beats the Q♠
     events.push(...res.events);
     res = playCard(res.state, 2, c('S', 9)); // free follow: no leekha involved
     events.push(...res.events);
