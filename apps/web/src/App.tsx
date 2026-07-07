@@ -142,6 +142,7 @@ export default function App() {
           onRemoveBot={online.removeBot}
           onReady={online.setReady}
           onStart={online.startGame}
+          onConfigure={online.configure}
           onLeave={() => {
             online.leaveRoom();
             setMode('local');

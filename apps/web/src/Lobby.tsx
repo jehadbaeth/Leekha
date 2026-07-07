@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Seat } from '@leekha/engine';
+import type { RulesConfig, Seat } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
 import { pick, type Settings } from './settings';
 
@@ -13,6 +13,19 @@ const LEVEL_LABEL: Record<BotLevel, { en: string; ar: string }> = {
   medium: { en: 'medium', ar: 'متوسط' },
   hard: { en: 'hard', ar: 'صعب' },
 };
+
+// Presets for "how long can a turn sit idle before it's auto-played", in ms.
+// 0 means no timeout (armPlayTimer/armPassTimer in apps/server/src/room.ts
+// treat <= 0 as disabled). Two AFK strikes at this same seat flips it to bot
+// control (see Room.strikeAndAutoPass / onPlayTimeout), so the real wait
+// before takeover is roughly double whatever is picked here.
+const PLAY_TIMER_PRESETS_MS = [15_000, 25_000, 45_000, 60_000, 90_000, 0];
+const PASS_TIMER_PRESETS_MS = [20_000, 45_000, 60_000, 90_000, 120_000, 0];
+
+function formatTimerMs(ms: number, language: Settings['language']): string {
+  if (ms <= 0) return pick(language, 'No limit', 'بلا حد');
+  return pick(language, `${ms / 1000}s`, `${ms / 1000} ث`);
+}
 
 /**
  * SPEC.md section 7.1 item 2: room code, share link, a 4 seat mini table with
@@ -32,6 +45,7 @@ export function Lobby({
   onReady,
   onStart,
   onLeave,
+  onConfigure,
 }: {
   roomState: RoomState | null;
   roomCode: string | null;
@@ -42,6 +56,7 @@ export function Lobby({
   onReady: (ready: boolean) => void;
   onStart: () => void;
   onLeave: () => void;
+  onConfigure: (config: RulesConfig) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [pickerSeat, setPickerSeat] = useState<Seat | null>(null);
@@ -190,6 +205,61 @@ export function Lobby({
             </div>
           );
         })}
+      </div>
+
+      {/* Section 12: how long an idle seat gets before it's auto-played, and
+          before two such strikes flip it to bot control (Room.flipToBot).
+          Host-editable only, and only before the match starts. */}
+      <div className="w-full max-w-xs rounded-xl border border-emerald-700 bg-emerald-950/40 p-3 flex flex-col gap-2">
+        <p className="text-[10px] uppercase tracking-wide text-emerald-300">
+          {t('Idle timers', 'مؤقتات الخمول')}
+        </p>
+        <label className="flex items-center justify-between gap-2 text-xs text-emerald-100">
+          {t('Time to play a card', 'الوقت للعب ورقة')}
+          {isHost ? (
+            <select
+              className="bg-emerald-900 border border-emerald-700 rounded px-2 py-1 text-xs text-white"
+              value={roomState.config.timers.playMs}
+              onChange={(e) =>
+                onConfigure({ ...roomState.config, timers: { ...roomState.config.timers, playMs: Number(e.target.value) } })
+              }
+            >
+              {PLAY_TIMER_PRESETS_MS.map((ms) => (
+                <option key={ms} value={ms}>
+                  {formatTimerMs(ms, language)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-semibold">{formatTimerMs(roomState.config.timers.playMs, language)}</span>
+          )}
+        </label>
+        <label className="flex items-center justify-between gap-2 text-xs text-emerald-100">
+          {t('Time to pass cards', 'الوقت لتمرير الأوراق')}
+          {isHost ? (
+            <select
+              className="bg-emerald-900 border border-emerald-700 rounded px-2 py-1 text-xs text-white"
+              value={roomState.config.timers.passMs}
+              onChange={(e) =>
+                onConfigure({ ...roomState.config, timers: { ...roomState.config.timers, passMs: Number(e.target.value) } })
+              }
+            >
+              {PASS_TIMER_PRESETS_MS.map((ms) => (
+                <option key={ms} value={ms}>
+                  {formatTimerMs(ms, language)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-semibold">{formatTimerMs(roomState.config.timers.passMs, language)}</span>
+          )}
+        </label>
+        <p className="text-[10px] text-emerald-400">
+          {t(
+            'Missing two turns in a row hands your seat to a bot.',
+            'تفويت دورين متتاليين يسلّم مقعدك إلى روبوت.',
+          )}
+        </p>
       </div>
 
       {mySlot && !mySlot.isBot && (
