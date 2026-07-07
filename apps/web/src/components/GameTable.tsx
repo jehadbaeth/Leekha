@@ -286,6 +286,7 @@ export function GameTable({
         <Avatar
           name={names[topSeat]}
           score={view.scores[topSeat]}
+          roundScore={view.eatenPoints[topSeat]}
           isTurn={turn === topSeat}
           isDealer={dealer === topSeat}
           danger={dangerFor(topSeat)}
@@ -301,6 +302,7 @@ export function GameTable({
         <Avatar
           name={names[leftSeat]}
           score={view.scores[leftSeat]}
+          roundScore={view.eatenPoints[leftSeat]}
           isTurn={turn === leftSeat}
           isDealer={dealer === leftSeat}
           danger={dangerFor(leftSeat)}
@@ -344,6 +346,7 @@ export function GameTable({
         <Avatar
           name={names[rightSeat]}
           score={view.scores[rightSeat]}
+          roundScore={view.eatenPoints[rightSeat]}
           isTurn={turn === rightSeat}
           isDealer={dealer === rightSeat}
           danger={dangerFor(rightSeat)}
@@ -356,6 +359,12 @@ export function GameTable({
 
       {/* HUD strip */}
       <div className="flex items-center justify-center gap-3 text-[11px] text-emerald-200 bg-emerald-950/60 py-1.5 px-2">
+        <span
+          className={`font-semibold px-1.5 rounded ${dangerFor(mySeat) ? 'bg-red-600 text-white' : 'text-amber-200'}`}
+        >
+          {t(`You: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`, `أنت: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`)}
+        </span>
+        <span>&middot;</span>
         <span>{t(`Trick ${view.trickNumber}/13`, `الأخذة ${view.trickNumber}/13`)}</span>
         <span>&middot;</span>
         <span>{t(`Target ${view.config.targetScore}`, `الهدف ${view.config.targetScore}`)}</span>

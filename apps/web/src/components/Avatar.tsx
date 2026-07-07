@@ -5,6 +5,7 @@ export type PresenceStatus = 'connected' | 'reconnecting' | 'bot';
 export function Avatar({
   name,
   score,
+  roundScore,
   isTurn,
   isDealer,
   danger,
@@ -16,6 +17,8 @@ export function Avatar({
 }: {
   name: string;
   score: number;
+  /** Points this seat has eaten so far in the current round, resets each round. */
+  roundScore: number;
   isTurn: boolean;
   isDealer: boolean;
   danger: boolean;
@@ -62,7 +65,7 @@ export function Avatar({
         {reconnecting && <span className="text-[9px] bg-slate-600 text-white rounded px-1">reconnecting</span>}
       </span>
       <span className={`text-xs font-semibold px-1.5 rounded ${danger ? 'bg-red-600 text-white' : 'text-amber-200'}`}>
-        {score}
+        {roundScore} / {score}
       </span>
     </div>
   );
