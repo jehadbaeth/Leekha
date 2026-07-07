@@ -6,6 +6,7 @@ import {
   playCard,
   viewFor,
   defaultConfig,
+  IllegalAction,
   type Card,
   type GameEvent,
   type MatchState,
@@ -73,8 +74,12 @@ export function useGame() {
     (cards: [Card, Card, Card]) => {
       const m = matchRef.current;
       if (!m) return;
-      const next = commitPass(m, 0, cards);
-      setMatch(next);
+      try {
+        const next = commitPass(m, 0, cards);
+        setMatch(next);
+      } catch (err) {
+        if (!(err instanceof IllegalAction)) throw err;
+      }
     },
     [setMatch],
   );
@@ -83,9 +88,13 @@ export function useGame() {
     (card: Card) => {
       const m = matchRef.current;
       if (!m) return;
-      const { state, events } = playCard(m, 0, card);
-      setMatch(state);
-      pushEvents(events);
+      try {
+        const { state, events } = playCard(m, 0, card);
+        setMatch(state);
+        pushEvents(events);
+      } catch (err) {
+        if (!(err instanceof IllegalAction)) throw err;
+      }
     },
     [setMatch, pushEvents],
   );
@@ -112,8 +121,12 @@ export function useGame() {
           if (!m || m.phase !== 'passing' || m.round.passes[seat] !== null) return;
           const view = viewFor(m, seat);
           const cards = botsRef.current[seat].choosePass(view);
-          const next = commitPass(m, seat, cards);
-          setMatch(next);
+          try {
+            const next = commitPass(m, seat, cards);
+            setMatch(next);
+          } catch (err) {
+            if (!(err instanceof IllegalAction)) throw err;
+          }
         }, randomDelay('pass'));
       }
     } else if (match.phase === 'playing') {
@@ -128,9 +141,13 @@ export function useGame() {
             if (turnSeatOf(m.round.currentTrick) !== turn) return; // stale timer
             const view = viewFor(m, turn);
             const card = botsRef.current[turn].choosePlay(view);
-            const { state, events } = playCard(m, turn, card);
-            setMatch(state);
-            pushEvents(events);
+            try {
+              const { state, events } = playCard(m, turn, card);
+              setMatch(state);
+              pushEvents(events);
+            } catch (err) {
+              if (!(err instanceof IllegalAction)) throw err;
+            }
           }, randomDelay('play'));
         }
       }
