@@ -285,6 +285,9 @@ export function useOnlineGame() {
   const sendEmote = useCallback((id: string) => {
     socketRef.current!.send({ type: 'emote', id });
   }, []);
+  const reclaimSeat = useCallback(() => {
+    socketRef.current!.send({ type: 'seat.reclaim' });
+  }, []);
 
   return {
     status,
@@ -312,5 +315,6 @@ export function useOnlineGame() {
     play,
     rematch,
     sendEmote,
+    reclaimSeat,
   };
 }

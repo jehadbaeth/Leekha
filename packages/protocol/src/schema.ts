@@ -61,6 +61,7 @@ export const GamePassMsg = z.object({ type: z.literal('game.pass'), cards: z.tup
 export const GamePlayMsg = z.object({ type: z.literal('game.play'), card: CardSchema });
 export const GameResyncMsg = z.object({ type: z.literal('game.resync') });
 export const EmoteMsg = z.object({ type: z.literal('emote'), id: z.string() });
+export const SeatReclaimMsg = z.object({ type: z.literal('seat.reclaim') });
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   AuthMsg,
@@ -77,6 +78,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   GamePlayMsg,
   GameResyncMsg,
   EmoteMsg,
+  SeatReclaimMsg,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;

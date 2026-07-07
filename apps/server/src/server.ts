@@ -162,6 +162,11 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
             break;
           }
 
+          case 'seat.reclaim': {
+            if (state.seat !== null) currentRoom()?.reclaimSeat(state.seat);
+            break;
+          }
+
           case 'emote': {
             const room = currentRoom();
             if (room && state.seat !== null) {

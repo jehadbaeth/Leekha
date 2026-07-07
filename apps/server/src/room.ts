@@ -516,6 +516,15 @@ export class Room {
     if (this.phase === 'lobby') this.broadcastRoomState();
   }
 
+  /** A still-connected player taking back a seat that AFK strikes flipped to bot control, without disconnecting first. */
+  reclaimSeat(seat: Seat): void {
+    const slot = this.seats[seat];
+    if (!slot.isBot || !slot.token) return; // not bot-controlled, or an intentional lobby bot with no owner to reclaim it
+    slot.isBot = false;
+    slot.afkStrikes = 0;
+    this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'connected' });
+  }
+
   seatForToken(token: string): Seat | null {
     return this.seats.find((s) => s.token === token)?.seat ?? null;
   }

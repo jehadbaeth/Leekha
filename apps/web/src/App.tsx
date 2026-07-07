@@ -182,6 +182,7 @@ export default function App() {
           turnDeadline={online.turnDeadline}
           emotes={online.emotes}
           onEmote={online.sendEmote}
+          onReclaimSeat={online.reclaimSeat}
           settings={settings}
           onCommitPass={online.pass}
           onPlayCard={online.play}
