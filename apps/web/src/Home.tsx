@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Settings } from './settings';
+import { pick, type Settings } from './settings';
 
 export function Home({
   settings,
@@ -26,6 +26,8 @@ export function Home({
   const [name, setName] = useState(settings.displayName);
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '');
   const [showJoin, setShowJoin] = useState(!!initialJoinCode);
+  const L = settings.language;
+  const t = (en: string, ar: string) => pick(L, en, ar);
 
   function commitName() {
     onUpdateSettings({ displayName: name.trim() });
@@ -34,17 +36,17 @@ export function Home({
   return (
     <div className="min-h-full flex flex-col items-center justify-center px-6 py-10 gap-8 bg-felt-950">
       <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-white">Leekha</h1>
-        <p className="text-emerald-200 mt-1 text-sm">The Idlib variant &middot; ليخة</p>
+        <h1 className="text-4xl font-bold tracking-tight text-white">{t('Leekha', 'ليخة')}</h1>
+        <p className="text-emerald-200 mt-1 text-sm">{t('The Idlib variant · ليخة', 'نسخة إدلب · Leekha')}</p>
       </div>
 
       <div className="w-full max-w-xs flex flex-col gap-4">
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wide text-emerald-200">Display name</span>
+          <span className="text-xs uppercase tracking-wide text-emerald-200">{t('Display name', 'الاسم')}</span>
           <input
             className="rounded-lg px-3 py-2 text-slate-900 bg-white"
             value={name}
-            placeholder="Guest"
+            placeholder={t('Guest', 'ضيف')}
             maxLength={20}
             onChange={(e) => setName(e.target.value)}
             onBlur={commitName}
@@ -58,7 +60,7 @@ export function Home({
             onPlayVsBots();
           }}
         >
-          Play vs Bots
+          {t('Play vs Bots', 'العب ضد الروبوتات')}
         </button>
 
         <button
@@ -68,7 +70,7 @@ export function Home({
             onCreateRoom(name.trim());
           }}
         >
-          Create Room
+          {t('Create Room', 'إنشاء غرفة')}
         </button>
 
         {!showJoin ? (
@@ -76,12 +78,12 @@ export function Home({
             className="rounded-xl border border-emerald-500 text-emerald-100 font-semibold py-3 text-lg active:scale-[0.98] transition"
             onClick={() => setShowJoin(true)}
           >
-            Join Room
+            {t('Join Room', 'الانضمام إلى غرفة')}
           </button>
         ) : (
           <div className="flex flex-col gap-2 bg-emerald-950/60 border border-emerald-700 rounded-xl p-3">
             <label className="flex flex-col gap-1">
-              <span className="text-xs uppercase tracking-wide text-emerald-200">Room code</span>
+              <span className="text-xs uppercase tracking-wide text-emerald-200">{t('Room code', 'رمز الغرفة')}</span>
               <input
                 className="rounded-lg px-3 py-2 text-slate-900 bg-white tracking-widest uppercase text-center font-mono text-lg"
                 value={joinCode}
@@ -100,10 +102,10 @@ export function Home({
                   onJoinRoom(name.trim(), joinCode);
                 }}
               >
-                Join
+                {t('Join', 'انضمام')}
               </button>
               <button className="rounded-lg border border-emerald-600 text-emerald-100 px-3 py-2" onClick={() => setShowJoin(false)}>
-                Cancel
+                {t('Cancel', 'إلغاء')}
               </button>
             </div>
           </div>
@@ -111,11 +113,11 @@ export function Home({
 
         <div className="flex gap-3 justify-center text-sm">
           <button className="underline text-emerald-100" onClick={onHowToPlay}>
-            How to Play
+            {t('How to Play', 'طريقة اللعب')}
           </button>
           <span className="text-emerald-400">&middot;</span>
           <button className="underline text-emerald-100" onClick={onSettings}>
-            Settings
+            {t('Settings', 'الإعدادات')}
           </button>
         </div>
 

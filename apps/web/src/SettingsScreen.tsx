@@ -1,4 +1,4 @@
-import type { Settings } from './settings';
+import { pick, type Settings } from './settings';
 
 function Toggle({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -30,16 +30,17 @@ export function SettingsScreen({
   onUpdate: (patch: Partial<Settings>) => void;
   onBack: () => void;
 }) {
+  const t = (en: string, ar: string) => pick(settings.language, en, ar);
   return (
     <div className="min-h-full bg-felt-950 text-white px-6 py-8">
       <button className="text-sm underline text-emerald-200 mb-6" onClick={onBack}>
-        ← Back
+        {t('← Back', '→ رجوع')}
       </button>
-      <h2 className="text-2xl font-bold mb-4">Settings</h2>
+      <h2 className="text-2xl font-bold mb-4">{t('Settings', 'الإعدادات')}</h2>
 
       <div className="max-w-md">
         <div className="flex items-center justify-between py-3 border-b border-emerald-800">
-          <span className="text-sm">Language</span>
+          <span className="text-sm">{t('Language', 'اللغة')}</span>
           <div className="flex gap-2">
             <button
               className={`px-3 py-1 rounded-full text-sm ${settings.language === 'en' ? 'bg-amber-400 text-emerald-950' : 'bg-emerald-800'}`}
@@ -57,21 +58,32 @@ export function SettingsScreen({
         </div>
 
         <Toggle
-          label="Confirm before playing a card"
-          hint="Tap to raise a card, tap again to confirm. Turn off for single-tap play."
+          label={t('Confirm before playing a card', 'تأكيد قبل لعب الورقة')}
+          hint={t(
+            'Tap to raise a card, tap again to confirm. Turn off for single-tap play.',
+            'اضغط لرفع الورقة، واضغط مرة أخرى للتأكيد. أوقف هذا الخيار للعب بضغطة واحدة.',
+          )}
           value={settings.confirmBeforePlay}
           onChange={(v) => onUpdate({ confirmBeforePlay: v })}
         />
         <Toggle
-          label="Auto play when only one legal card"
-          hint="Skips the confirm step when you have no real choice."
+          label={t('Auto play when only one legal card', 'اللعب التلقائي عند وجود ورقة قانونية واحدة')}
+          hint={t('Skips the confirm step when you have no real choice.', 'يتخطى خطوة التأكيد عندما لا يوجد خيار حقيقي.')}
           value={settings.autoPlaySingleLegal}
           onChange={(v) => onUpdate({ autoPlaySingleLegal: v })}
         />
-        <Toggle label="Four color deck" value={settings.fourColorDeck} onChange={(v) => onUpdate({ fourColorDeck: v })} />
-        <Toggle label="Sound" value={settings.sound} onChange={(v) => onUpdate({ sound: v })} />
-        <Toggle label="Haptics" value={settings.haptics} onChange={(v) => onUpdate({ haptics: v })} />
-        <Toggle label="Reduced motion" value={settings.reducedMotion} onChange={(v) => onUpdate({ reducedMotion: v })} />
+        <Toggle
+          label={t('Four color deck', 'أوراق بأربعة ألوان')}
+          value={settings.fourColorDeck}
+          onChange={(v) => onUpdate({ fourColorDeck: v })}
+        />
+        <Toggle label={t('Sound', 'الصوت')} value={settings.sound} onChange={(v) => onUpdate({ sound: v })} />
+        <Toggle label={t('Haptics', 'الاهتزاز')} value={settings.haptics} onChange={(v) => onUpdate({ haptics: v })} />
+        <Toggle
+          label={t('Reduced motion', 'تقليل الحركة')}
+          value={settings.reducedMotion}
+          onChange={(v) => onUpdate({ reducedMotion: v })}
+        />
       </div>
     </div>
   );

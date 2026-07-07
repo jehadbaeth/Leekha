@@ -1,5 +1,6 @@
 import type { Card, Seat } from '@leekha/engine';
 import { leekhaBadge } from '../cardDisplay';
+import { pick, type Settings } from '../settings';
 
 export function RoundSummary({
   names,
@@ -9,6 +10,7 @@ export function RoundSummary({
   target,
   dealer,
   dealerReason,
+  language,
   onContinue,
 }: {
   names: Record<Seat, string>;
@@ -18,13 +20,15 @@ export function RoundSummary({
   target: number;
   dealer: Seat;
   dealerReason: string;
+  language: Settings['language'];
   onContinue: () => void;
 }) {
+  const t = (en: string, ar: string) => pick(language, en, ar);
   const seats: Seat[] = [0, 1, 2, 3];
   return (
     <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 z-20">
       <div className="bg-emerald-950 border border-emerald-700 rounded-2xl p-5 w-full max-w-sm flex flex-col gap-4">
-        <h2 className="text-xl font-bold text-white text-center">Round summary</h2>
+        <h2 className="text-xl font-bold text-white text-center">{t('Round summary', 'ملخص الجولة')}</h2>
         <div className="flex flex-col gap-2">
           {seats.map((s) => {
             const danger = totals[s] >= target - 30;
@@ -47,7 +51,7 @@ export function RoundSummary({
         </div>
         <p className="text-xs text-emerald-200 text-center">{dealerReason}</p>
         <button className="rounded-lg bg-amber-400 text-emerald-950 font-semibold py-2.5" onClick={onContinue}>
-          Continue
+          {t('Continue', 'متابعة')}
         </button>
       </div>
     </div>

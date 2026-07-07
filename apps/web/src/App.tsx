@@ -116,7 +116,7 @@ export default function App() {
         />
       )}
 
-      {screen === 'howto' && <HowToPlay onBack={() => setScreen('home')} />}
+      {screen === 'howto' && <HowToPlay onBack={() => setScreen('home')} settings={settings} />}
 
       {screen === 'settings' && (
         <SettingsScreen settings={settings} onUpdate={updateSettings} onBack={() => setScreen('home')} />
@@ -127,6 +127,7 @@ export default function App() {
           roomState={online.roomState}
           roomCode={online.roomState?.roomCode ?? null}
           mySeat={online.mySeat}
+          language={settings.language}
           onAddBot={online.addBot}
           onRemoveBot={online.removeBot}
           onReady={online.setReady}

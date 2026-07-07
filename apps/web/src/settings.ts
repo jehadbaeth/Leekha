@@ -40,3 +40,8 @@ export function saveSettings(s: Settings): void {
     // ignore storage failures (private mode, quota, etc.)
   }
 }
+
+/** Picks the Arabic string when the language setting is 'ar', English otherwise (SPEC.md 15 Phase 4: full RTL). */
+export function pick(lang: Settings['language'], en: string, ar: string): string {
+  return lang === 'ar' ? ar : en;
+}

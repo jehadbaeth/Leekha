@@ -1,5 +1,6 @@
 import type { Card, Suit } from '@leekha/engine';
 import { isLeekha } from '@leekha/engine';
+import type { Settings } from './settings';
 
 export const SUIT_SYMBOL: Record<Suit, string> = {
   S: '♠',
@@ -13,6 +14,13 @@ export const SUIT_NAME: Record<Suit, string> = {
   H: 'Hearts',
   D: 'Diamonds',
   C: 'Clubs',
+};
+
+export const SUIT_NAME_AR: Record<Suit, string> = {
+  S: 'البستوني',
+  H: 'الهارت',
+  D: 'الديناري',
+  C: 'الشبة',
 };
 
 export function rankLabel(rank: Card['rank']): string {
@@ -31,7 +39,16 @@ export function rankFullName(rank: Card['rank']): string {
   return String(rank);
 }
 
-export function cardName(c: Card): string {
+export function rankFullNameAr(rank: Card['rank']): string {
+  if (rank === 14) return 'الآس';
+  if (rank === 13) return 'الشايب';
+  if (rank === 12) return 'البنت';
+  if (rank === 11) return 'الولد';
+  return String(rank);
+}
+
+export function cardName(c: Card, language: Settings['language'] = 'en'): string {
+  if (language === 'ar') return `${rankFullNameAr(c.rank)} ${SUIT_NAME_AR[c.suit]}`;
   return `${rankFullName(c.rank)} of ${SUIT_NAME[c.suit]}`;
 }
 

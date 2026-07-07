@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import type { Seat } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
+import { pick, type Settings } from './settings';
 
 type RoomState = Extract<ServerMessage, { type: 'room.state' }>;
 type BotLevel = 'easy' | 'medium' | 'hard';
 
 const SEATS: Seat[] = [0, 1, 2, 3];
 const LEVELS: BotLevel[] = ['easy', 'medium', 'hard'];
+const LEVEL_LABEL: Record<BotLevel, { en: string; ar: string }> = {
+  easy: { en: 'easy', ar: 'سهل' },
+  medium: { en: 'medium', ar: 'متوسط' },
+  hard: { en: 'hard', ar: 'صعب' },
+};
 
 /**
  * SPEC.md section 7.1 item 2: room code, share link, a 4 seat mini table with
@@ -20,6 +26,7 @@ export function Lobby({
   roomState,
   roomCode,
   mySeat,
+  language,
   onAddBot,
   onRemoveBot,
   onReady,
@@ -29,6 +36,7 @@ export function Lobby({
   roomState: RoomState | null;
   roomCode: string | null;
   mySeat: Seat | null;
+  language: Settings['language'];
   onAddBot: (seat: Seat, level: BotLevel) => void;
   onRemoveBot: (seat: Seat) => void;
   onReady: (ready: boolean) => void;
@@ -37,13 +45,14 @@ export function Lobby({
 }) {
   const [copied, setCopied] = useState(false);
   const [pickerSeat, setPickerSeat] = useState<Seat | null>(null);
+  const t = (en: string, ar: string) => pick(language, en, ar);
 
   if (!roomState || !roomCode) {
     return (
       <div className="min-h-full flex flex-col items-center justify-center gap-4 bg-felt-950 text-emerald-100">
-        <p>Connecting to room…</p>
+        <p>{t('Connecting to room…', 'جارٍ الاتصال بالغرفة…')}</p>
         <button className="underline text-sm" onClick={onLeave}>
-          Cancel
+          {t('Cancel', 'إلغاء')}
         </button>
       </div>
     );
@@ -55,7 +64,7 @@ export function Lobby({
   const mySlot = mySeat !== null ? roomState.seats[mySeat] : null;
 
   async function share() {
-    const text = `Join my Leekha room: ${roomCode}`;
+    const text = t(`Join my Leekha room: ${roomCode}`, `انضم إلى غرفتي في ليخة: ${roomCode}`);
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Leekha', text, url: joinLink });
@@ -87,19 +96,19 @@ export function Lobby({
   return (
     <div className="min-h-full flex flex-col items-center gap-6 bg-felt-950 px-5 py-8 overflow-y-auto">
       <div className="text-center">
-        <p className="text-emerald-200 text-xs uppercase tracking-wide">Room code</p>
+        <p className="text-emerald-200 text-xs uppercase tracking-wide">{t('Room code', 'رمز الغرفة')}</p>
         <button
           className="text-4xl font-bold tracking-[0.3em] text-amber-300 font-mono"
           onClick={copyCode}
-          title="Tap to copy"
+          title={t('Tap to copy', 'اضغط للنسخ')}
         >
           {roomCode}
         </button>
-        {copied && <p className="text-emerald-300 text-xs mt-1">Copied!</p>}
+        {copied && <p className="text-emerald-300 text-xs mt-1">{t('Copied!', 'تم النسخ!')}</p>}
         <div className="flex gap-2 mt-2">
           <a
             className="rounded-lg bg-[#25D366] hover:brightness-95 text-emerald-950 text-sm font-semibold px-4 py-2 flex items-center gap-1.5"
-            href={`https://wa.me/?text=${encodeURIComponent(`Join my Leekha room: ${roomCode}\n${joinLink}`)}`}
+            href={`https://wa.me/?text=${encodeURIComponent(t(`Join my Leekha room: ${roomCode}`, `انضم إلى غرفتي في ليخة: ${roomCode}`) + '\n' + joinLink)}`}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -109,7 +118,7 @@ export function Lobby({
             className="rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-semibold px-4 py-2"
             onClick={share}
           >
-            Other apps
+            {t('Other apps', 'تطبيقات أخرى')}
           </button>
         </div>
       </div>
@@ -128,19 +137,19 @@ export function Lobby({
               } ${isMe ? 'ring-2 ring-amber-300' : ''}`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase text-emerald-300">Seat {seat}</span>
+                <span className="text-[10px] uppercase text-emerald-300">{t(`Seat ${seat}`, `المقعد ${seat}`)}</span>
                 {slot.occupied && !slot.isBot && (
                   <span className={`text-[10px] rounded px-1 ${slot.ready ? 'bg-emerald-500 text-emerald-950' : 'bg-slate-600 text-white'}`}>
-                    {slot.ready ? '✓ ready' : 'not ready'}
+                    {slot.ready ? t('✓ ready', '✓ جاهز') : t('not ready', 'غير جاهز')}
                   </span>
                 )}
               </div>
               <div className="text-sm font-semibold text-white truncate">
-                {slot.isBot ? `🤖 ${slot.name} (${slot.botLevel})` : slot.occupied ? slot.name : 'Empty'}
-                {isMe && ' (you)'}
+                {slot.isBot ? `🤖 ${slot.name} (${LEVEL_LABEL[slot.botLevel ?? 'easy'][language]})` : slot.occupied ? slot.name : t('Empty', 'فارغ')}
+                {isMe && t(' (you)', ' (أنت)')}
               </div>
               {!slot.connected && slot.occupied && !slot.isBot && (
-                <span className="text-[10px] text-red-400">disconnected</span>
+                <span className="text-[10px] text-red-400">{t('disconnected', 'غير متصل')}</span>
               )}
 
               {isHost && !slot.occupied && !slot.isBot && (
@@ -149,20 +158,20 @@ export function Lobby({
                     className="text-xs rounded-lg bg-amber-400 text-emerald-950 font-semibold px-2 py-1 w-full"
                     onClick={() => setPickerSeat(pickerSeat === seat ? null : seat)}
                   >
-                    + Add bot
+                    {t('+ Add bot', '+ إضافة روبوت')}
                   </button>
                   {pickerSeat === seat && (
                     <div className="absolute z-10 mt-1 flex flex-col gap-1 bg-emerald-950 border border-emerald-700 rounded-lg p-1 w-full">
                       {LEVELS.map((lvl) => (
                         <button
                           key={lvl}
-                          className="text-xs text-left px-2 py-1 rounded hover:bg-emerald-800 text-emerald-100 capitalize"
+                          className="text-xs text-left px-2 py-1 rounded hover:bg-emerald-800 text-emerald-100"
                           onClick={() => {
                             onAddBot(seat, lvl);
                             setPickerSeat(null);
                           }}
                         >
-                          {lvl}
+                          {LEVEL_LABEL[lvl][language]}
                         </button>
                       ))}
                     </div>
@@ -175,7 +184,7 @@ export function Lobby({
                   className="text-xs rounded-lg border border-red-400 text-red-300 px-2 py-1"
                   onClick={() => onRemoveBot(seat)}
                 >
-                  Remove bot
+                  {t('Remove bot', 'إزالة الروبوت')}
                 </button>
               )}
             </div>
@@ -190,7 +199,7 @@ export function Lobby({
           }`}
           onClick={() => onReady(!mySlot.ready)}
         >
-          {mySlot.ready ? '✓ Ready' : 'I am ready'}
+          {mySlot.ready ? t('✓ Ready', '✓ جاهز') : t('I am ready', 'أنا جاهز')}
         </button>
       )}
 
@@ -200,13 +209,13 @@ export function Lobby({
           className="rounded-xl bg-amber-400 disabled:opacity-30 text-emerald-950 font-bold py-3 px-8 text-lg"
           onClick={onStart}
         >
-          Start game
+          {t('Start game', 'ابدأ اللعبة')}
         </button>
       )}
-      {!isHost && <p className="text-emerald-300 text-xs">Waiting for the host to start&hellip;</p>}
+      {!isHost && <p className="text-emerald-300 text-xs">{t('Waiting for the host to start…', 'بانتظار أن يبدأ المضيف اللعبة…')}</p>}
 
       <button className="text-emerald-400 text-xs underline" onClick={onLeave}>
-        Leave room
+        {t('Leave room', 'مغادرة الغرفة')}
       </button>
     </div>
   );

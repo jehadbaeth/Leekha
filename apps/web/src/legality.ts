@@ -1,19 +1,27 @@
 import type { Card, TrickState, RulesConfig } from '@leekha/engine';
 import { isLeekha } from '@leekha/engine';
-import { SUIT_NAME } from './cardDisplay';
+import { SUIT_NAME, SUIT_NAME_AR } from './cardDisplay';
+import { pick, type Settings } from './settings';
 
 /**
  * Explains why a card the player tapped is not currently legal, mirroring the
  * branches of legalPlaysFor in packages/engine/src/legal.ts. Used only for
  * player-facing messaging; it never changes what is actually legal.
  */
-export function illegalReason(hand: Card[], trick: TrickState, cfg: RulesConfig, card: Card): string {
+export function illegalReason(
+  hand: Card[],
+  trick: TrickState,
+  cfg: RulesConfig,
+  card: Card,
+  language: Settings['language'] = 'en',
+): string {
+  const t = (en: string, ar: string) => pick(language, en, ar);
   if (trick.plays.length === 0) return '';
   const led = trick.plays[0].card.suit;
   const followers = hand.filter((c) => c.suit === led);
 
   if (followers.length > 0) {
-    return `You must follow ${SUIT_NAME[led].toLowerCase()}`;
+    return t(`You must follow ${SUIT_NAME[led].toLowerCase()}`, `يجب أن تلحق بـ ${SUIT_NAME_AR[led]}`);
   }
 
   const leekha = hand.filter(isLeekha);
@@ -24,7 +32,7 @@ export function illegalReason(hand: Card[], trick: TrickState, cfg: RulesConfig,
     cfg.undercutRule !== 'off' && leekhasOnTrick.length > 0 && (!freeDiscard || cfg.undercutBindsDiscards);
 
   if (mustDump && !isLeekha(card)) {
-    return 'Leekha rule: you must play 10♦, Q♠ or K♣';
+    return t('Leekha rule: you must play 10♦, Q♠ or K♣', 'قاعدة الليخة: يجب أن تلعب 10♦ أو Q♠ أو K♣');
   }
 
   if (undercutApplies) {
@@ -37,11 +45,11 @@ export function illegalReason(hand: Card[], trick: TrickState, cfg: RulesConfig,
     if (under.length > 0 && card.rank >= ceiling) {
       const topLeekha = leekhasOnTrick.sort((a, b) => b.rank - a.rank)[0];
       const label = topLeekha.suit === 'D' ? '10♦' : topLeekha.suit === 'S' ? 'Q♠' : 'K♣';
-      return `Undercut rule: you must play below the ${label}`;
+      return t(`Undercut rule: you must play below the ${label}`, `قاعدة اللعب تحت: يجب أن تلعب أقل من ${label}`);
     }
   }
 
-  return 'That card is not legal right now';
+  return t('That card is not legal right now', 'هذه الورقة غير مسموحة الآن');
 }
 
 /** True when a void player with no follow-suit cards is currently forced to dump a Leekha card. */

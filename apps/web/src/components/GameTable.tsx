@@ -8,7 +8,7 @@ import { RoundSummary } from './RoundSummary';
 import { MatchEnd } from './MatchEnd';
 import { cardKey, cardName, isLeekha } from '../cardDisplay';
 import { illegalReason, isForcedDumpSituation, undercutMarkerCard } from '../legality';
-import type { Settings } from '../settings';
+import { pick, type Settings } from '../settings';
 import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, vibrate } from '../sound';
 import { EMOTES, EMOTE_BY_ID } from '../emotes';
 
@@ -76,6 +76,7 @@ export function GameTable({
   onRematch: () => void;
   onHome: () => void;
 }) {
+  const t = (en: string, ar: string) => pick(settings.language, en, ar);
   const mySeat = view.seat;
   const rightSeat = nextSeat(mySeat);
   const topSeat = partnerOf(mySeat);
@@ -197,7 +198,7 @@ export function GameTable({
     if (view.phase !== 'playing' || !isMyTurn || !view.legal) return;
     const legal = view.legal.some((c) => cardKey(c) === cardKey(card));
     if (!legal) {
-      setReasonToast(illegalReason(view.hand, view.currentTrick, view.config, card));
+      setReasonToast(illegalReason(view.hand, view.currentTrick, view.config, card, settings.language));
       window.setTimeout(() => setReasonToast(null), 2200);
       return;
     }
@@ -279,12 +280,12 @@ export function GameTable({
                     <CardFace card={p.card} fourColor={settings.fourColorDeck} />
                     {isUndercutMarker && (
                       <span className="absolute -top-2 -right-2 text-[8px] bg-sky-500 text-white rounded-full px-1 font-bold">
-                        play under
+                        {t('play under', 'العب أقل')}
                       </span>
                     )}
                   </div>
                   {p.forced && (
-                    <span className="text-[9px] bg-red-600 text-white rounded px-1 font-bold animate-pulse">forced</span>
+                    <span className="text-[9px] bg-red-600 text-white rounded px-1 font-bold animate-pulse">{t('forced', 'إجباري')}</span>
                   )}
                 </div>
               );
@@ -313,16 +314,16 @@ export function GameTable({
 
       {/* HUD strip */}
       <div className="flex items-center justify-center gap-3 text-[11px] text-emerald-200 bg-emerald-950/60 py-1.5 px-2">
-        <span>Trick {view.trickNumber}/13</span>
+        <span>{t(`Trick ${view.trickNumber}/13`, `الأخذة ${view.trickNumber}/13`)}</span>
         <span>&middot;</span>
-        <span>Target {view.config.targetScore}</span>
+        <span>{t(`Target ${view.config.targetScore}`, `الهدف ${view.config.targetScore}`)}</span>
         <span>&middot;</span>
-        <span>Dealer: {names[dealer]}</span>
+        <span>{t(`Dealer: ${names[dealer]}`, `الموزّع: ${names[dealer]}`)}</span>
         {lastCompletedTrick && (
           <>
             <span>&middot;</span>
             <button className="underline" onClick={() => setShowLastTrick(true)}>
-              Last trick
+              {t('Last trick', 'الأخذة الأخيرة')}
             </button>
           </>
         )}
@@ -343,7 +344,7 @@ export function GameTable({
               <button
                 key={e.id}
                 className="text-2xl w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-800"
-                title={e.en}
+                title={t(e.en, e.ar)}
                 onClick={() => {
                   onEmote(e.id);
                   setShowEmotePicker(false);
@@ -363,7 +364,11 @@ export function GameTable({
             className="w-full text-left bg-emerald-900/70 rounded-lg px-3 py-1.5 text-xs text-emerald-100"
             onClick={() => setShowMemo((v) => !v)}
           >
-            {showMemo ? '▾' : '▸'} You passed to {passRecipient}: {myPassedMemo.map((c) => cardName(c)).join(', ')}
+            {showMemo ? '▾' : '▸'}{' '}
+            {t(
+              `You passed to ${passRecipient}: ${myPassedMemo.map((c) => cardName(c)).join(', ')}`,
+              `مرّرت إلى ${passRecipient}: ${myPassedMemo.map((c) => cardName(c, 'ar')).join('، ')}`,
+            )}
           </button>
         </div>
       )}
@@ -409,7 +414,7 @@ export function GameTable({
                 setRaised(null);
               }}
             >
-              Play {cardName(raised)}
+              {t(`Play ${cardName(raised)}`, `العب ${cardName(raised, 'ar')}`)}
             </button>
           </div>
         )}
@@ -423,6 +428,7 @@ export function GameTable({
           committed={view.youPassed !== null}
           passProgress={passProgress}
           fourColor={settings.fourColorDeck}
+          language={settings.language}
           onConfirm={onCommitPass}
         />
       )}
@@ -436,7 +442,11 @@ export function GameTable({
           eatenCards={view.eatenCards}
           target={view.config.targetScore}
           dealer={view.dealer}
-          dealerReason={`${names[view.dealer]} ate ${view.eatenPoints[view.dealer]}, ${names[view.dealer]} deals next.`}
+          dealerReason={t(
+            `${names[view.dealer]} ate ${view.eatenPoints[view.dealer]}, ${names[view.dealer]} deals next.`,
+            `أكل ${names[view.dealer]} ${view.eatenPoints[view.dealer]}، ${names[view.dealer]} يوزّع تالياً.`,
+          )}
+          language={settings.language}
           onContinue={onAdvanceRound}
         />
       )}
@@ -448,6 +458,7 @@ export function GameTable({
           totals={view.scores}
           losingTeam={matchResult.losingTeam!}
           bustSeat={matchResult.bustSeat!}
+          language={settings.language}
           onRematch={onRematch}
           onHome={onHome}
         />
@@ -457,7 +468,7 @@ export function GameTable({
       {showLastTrick && lastCompletedTrick && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20" onClick={() => setShowLastTrick(false)}>
           <div className="bg-emerald-950 border border-emerald-700 rounded-2xl p-5 flex flex-col items-center gap-3">
-            <h3 className="text-white font-semibold">Last trick</h3>
+            <h3 className="text-white font-semibold">{t('Last trick', 'الأخذة الأخيرة')}</h3>
             <div className="flex gap-2">
               {lastCompletedTrick.map((p) => (
                 <div key={p.seat} className="flex flex-col items-center gap-1">
@@ -467,7 +478,7 @@ export function GameTable({
               ))}
             </div>
             <button className="text-xs underline text-emerald-200" onClick={() => setShowLastTrick(false)}>
-              Close
+              {t('Close', 'إغلاق')}
             </button>
           </div>
         </div>
