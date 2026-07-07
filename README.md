@@ -5,6 +5,16 @@ in the Hearts family. Full ruleset, design rationale, and the phased build
 plan live in [`SPEC.md`](./SPEC.md). Contribution conventions for this repo
 live in [`CLAUDE.md`](./CLAUDE.md).
 
+Deeper documentation for reviewers:
+
+- [`docs/GAME_RULES.md`](./docs/GAME_RULES.md) — the rules as actually
+  enforced by the engine, in plain language.
+- [`docs/SYSTEM_DESIGN.md`](./docs/SYSTEM_DESIGN.md) — architecture, data
+  model, protocol, security model, testing strategy, and a section on
+  known gaps stated honestly rather than glossed over.
+- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — every supported way to run
+  this in production, including Redis persistence and reverse proxy setup.
+
 Play solo against bots, or create a room and share a link, WhatsApp works
 best for this audience, so up to four humans can play with bots filling any
 empty seats. English and Arabic (full RTL) are both supported.
@@ -86,22 +96,9 @@ docker build -t leekha .
 docker run -p 8080:8080 leekha
 ```
 
-The container serves the web app's static files and the socket.io endpoint
-from the same Node process on `$PORT` (default `8080`).
-
-### Environment variables
-
-| Variable        | Required | Purpose                                                                                  |
-|-----------------|----------|-------------------------------------------------------------------------------------------|
-| `PORT`          | no       | Port the server listens on. Defaults to `8080`.                                          |
-| `WEB_DIST_PATH` | no       | Path to the built web client's static files. Defaults to the bundled `apps/web/dist`.    |
-| `REDIS_URL`     | no       | When set, room state is persisted to Redis so in-flight games survive a server restart. Without it, rooms live in memory only (a restart ends all active games), which is fine for MVP deploys. |
-
-Redis persistence is optional (SPEC.md Section 8.2/Phase 4): each room
-snapshots itself to a `leekha:room:{code}` key on every state change with a
-6 hour TTL, and on boot the server restores any rooms still in Redis,
-including reconnecting seat tokens, so a client that reconnects after a
-restart resumes exactly where it left off.
+See [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for environment variables,
+optional Redis persistence, reverse proxy/TLS setup, and platform-specific
+notes (Fly.io, Railway, a bare VPS with Caddy).
 
 ## Localization
 
