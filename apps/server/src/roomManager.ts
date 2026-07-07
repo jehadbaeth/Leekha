@@ -1,8 +1,9 @@
 import type { Server } from 'socket.io';
 import { defaultConfig } from '@leekha/engine';
-import type { RulesConfig } from '@leekha/engine';
+import type { RulesConfig, Seat } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
 import { Room, type Emit } from './room.js';
+import type { Persistence } from './persistence.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -18,7 +19,10 @@ const GAME_OVER_IDLE_MS = 5 * 60 * 1000;
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
-  constructor(private io: Server) {}
+  constructor(
+    private io: Server,
+    private persistence: Persistence | null = null,
+  ) {}
 
   private makeEmit(room: Room): Emit {
     return (seat, msg) => {
@@ -31,12 +35,23 @@ export class RoomManager {
     };
   }
 
+  private register(room: Room): void {
+    room.setEmit(this.makeEmit(room));
+    room.setOnChange(() => this.persist(room.code));
+    this.rooms.set(room.code, room);
+  }
+
+  private persist(code: string): void {
+    const room = this.rooms.get(code);
+    if (room) this.persistence?.save(code, room.serialize());
+  }
+
   create(config: RulesConfig = defaultConfig): Room {
     let code = randomCode();
     while (this.rooms.has(code)) code = randomCode();
     const room = new Room(code, config, () => {});
-    room.setEmit(this.makeEmit(room));
-    this.rooms.set(code, room);
+    this.register(room);
+    this.persist(code);
     return room;
   }
 
@@ -49,6 +64,27 @@ export class RoomManager {
     if (!room) return;
     room.destroy();
     this.rooms.delete(code);
+    this.persistence?.remove(code);
+  }
+
+  /**
+   * Restores rooms saved to Redis by a previous process (SPEC.md 9.5). Returns
+   * the seat tokens found in those rooms so the caller can reseed its
+   * socket-reconnect index — tokens live on the room's own seats, so nothing
+   * else needs separate persistence.
+   */
+  async restore(): Promise<{ token: string; roomCode: string; seat: Seat }[]> {
+    if (!this.persistence) return [];
+    const snapshots = await this.persistence.loadAll();
+    const tokens: { token: string; roomCode: string; seat: Seat }[] = [];
+    for (const snapshot of snapshots) {
+      const room = Room.fromSnapshot(snapshot, () => {});
+      this.register(room);
+      for (const slot of room.seats) {
+        if (slot.token) tokens.push({ token: slot.token, roomCode: room.code, seat: slot.seat });
+      }
+    }
+    return tokens;
   }
 
   sweep(): void {

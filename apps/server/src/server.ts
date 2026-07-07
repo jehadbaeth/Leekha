@@ -5,6 +5,7 @@ import { ClientMessageSchema, type ClientMessage } from '@leekha/protocol';
 import { RoomManager } from './roomManager.js';
 import type { Room } from './room.js';
 import { createStaticHandler } from './staticFiles.js';
+import { createPersistence } from './persistence.js';
 
 interface SocketState {
   name: string | null;
@@ -12,7 +13,7 @@ interface SocketState {
   seat: Seat | null;
 }
 
-export function createApp(options: { webDist?: string } = {}) {
+export function createApp(options: { webDist?: string; redisUrl?: string } = {}) {
   const serveStatic = options.webDist ? createStaticHandler(options.webDist) : null;
   const httpServer = createServer((req, res) => {
     if (serveStatic && !(req.url ?? '').startsWith('/socket.io/')) {
@@ -20,8 +21,19 @@ export function createApp(options: { webDist?: string } = {}) {
     }
   });
   const io = new Server(httpServer, { cors: { origin: '*' } });
-  const manager = new RoomManager(io);
+  const persistence = createPersistence(options.redisUrl);
+  const manager = new RoomManager(io, persistence);
   const tokenIndex = new Map<string, { roomCode: string; seat: Seat }>();
+
+  if (persistence) {
+    manager
+      .restore()
+      .then((tokens) => {
+        for (const t of tokens) tokenIndex.set(t.token, { roomCode: t.roomCode, seat: t.seat });
+        console.log(`[redis] restored ${tokens.length} seat token(s) across recovered rooms`);
+      })
+      .catch((err) => console.error('[redis] room restore failed:', err));
+  }
 
   const sweepInterval = setInterval(() => manager.sweep(), 60_000);
   sweepInterval.unref?.();

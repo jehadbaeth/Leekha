@@ -6,7 +6,7 @@ const PORT = Number(process.env.PORT ?? 8080);
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const webDist = process.env.WEB_DIST_PATH ?? join(__dirname, '../web-dist');
 
-const { httpServer } = createApp({ webDist });
+const { httpServer } = createApp({ webDist, redisUrl: process.env.REDIS_URL });
 
 httpServer.listen(PORT, () => {
   console.log(`Leekha server listening on :${PORT}`);

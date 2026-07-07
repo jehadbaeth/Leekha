@@ -14,7 +14,8 @@ import {
 } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
 import { botForLevel } from './bot.js';
-import type { SeatSlot } from './types.js';
+import type { RoomPhase, SeatSlot } from './types.js';
+import type { RoomSnapshot } from './persistence.js';
 
 const SEATS: Seat[] = [0, 1, 2, 3];
 const ROUND_ADVANCE_DELAY_MS = 4000;
@@ -46,10 +47,11 @@ export class Room {
   seats: SeatSlot[] = SEATS.map(emptySeat);
   hostSeat: Seat = 0;
   config: RulesConfig;
-  phase: 'lobby' | 'game' = 'lobby';
+  phase: RoomPhase = 'lobby';
   match: MatchState | null = null;
   private seq = 0;
   private emit: Emit;
+  private onChange: (() => void) | null = null;
   private passTimer: ReturnType<typeof setTimeout> | null = null;
   private playTimer: ReturnType<typeof setTimeout> | null = null;
   private roundAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -66,12 +68,50 @@ export class Room {
     this.emit = emit;
   }
 
+  /** Called after every state-changing operation, used by RoomManager to snapshot to Redis (SPEC.md 9.5). */
+  setOnChange(onChange: () => void): void {
+    this.onChange = onChange;
+  }
+
   private nextSeq(): number {
     return ++this.seq;
   }
 
   private touch(): void {
     this.lastActivity = Date.now();
+  }
+
+  /** A snapshot suitable for JSON persistence; sockets never survive a restart so connection state is dropped. */
+  serialize(): RoomSnapshot {
+    return {
+      code: this.code,
+      config: this.config,
+      phase: this.phase,
+      hostSeat: this.hostSeat,
+      match: this.match,
+      seats: this.seats.map((s) => ({ ...s, connected: false, socketId: null })),
+    };
+  }
+
+  /** Rebuilds a Room from a Redis snapshot and re-arms whatever clock the in-flight phase needs. */
+  static fromSnapshot(snapshot: RoomSnapshot, emit: Emit): Room {
+    const room = new Room(snapshot.code, snapshot.config, emit);
+    room.phase = snapshot.phase;
+    room.hostSeat = snapshot.hostSeat;
+    room.match = snapshot.match;
+    room.seats = snapshot.seats;
+    room.touch();
+    if (room.phase === 'game' && room.match) {
+      if (room.match.phase === 'passing') {
+        room.armPassTimer();
+        room.scheduleBotPasses();
+      } else if (room.match.phase === 'playing') {
+        room.beginTurn();
+      } else if (room.match.phase === 'roundEnd') {
+        room.roundAdvanceTimer = setTimeout(() => room.beginRound(), ROUND_ADVANCE_DELAY_MS);
+      }
+    }
+    return room;
   }
 
   // ---- lobby ----
@@ -97,6 +137,7 @@ export class Room {
       config: this.config,
       hostSeat: this.hostSeat,
     });
+    this.onChange?.();
   }
 
   findOpenSeat(): Seat | null {
@@ -269,6 +310,7 @@ export class Room {
     this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'bot' });
     this.scheduleBotPasses();
     this.scheduleBotPlayIfDue();
+    this.onChange?.();
   }
 
   private onPlayTimeout(): void {
@@ -324,6 +366,7 @@ export class Room {
     } else {
       this.scheduleBotPasses();
     }
+    this.onChange?.();
   }
 
   private scheduleBotPasses(): void {
@@ -395,6 +438,7 @@ export class Room {
     const { state, events } = playCard(this.match, seat, card);
     this.match = state;
     this.emitPlayEvents(seat, card, events);
+    this.onChange?.();
   }
 
   private emitPlayEvents(seat: Seat, card: Card, events: GameEvent[]): void {

@@ -13,6 +13,7 @@
     "@leekha/bots": "workspace:*",
     "@leekha/engine": "workspace:*",
     "@leekha/protocol": "workspace:*",
+    "ioredis": "^5.4.1",
     "nanoid": "^5.0.7",
     "socket.io": "^4.8.0",
     "zod": "^3.23.8"
