@@ -10,6 +10,7 @@ import { cardKey, cardName, isLeekha } from '../cardDisplay';
 import { illegalReason, isForcedDumpSituation, undercutMarkerCard } from '../legality';
 import type { Settings } from '../settings';
 import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, vibrate } from '../sound';
+import { EMOTES, EMOTE_BY_ID } from '../emotes';
 
 // Online events arrive as ServerMessage (type 'game.trickEnd') while local
 // events arrive as engine GameEvent (type 'trickEnd'); accept either spelling.
@@ -47,6 +48,8 @@ export function GameTable({
   matchResult,
   presence,
   turnDeadline,
+  emotes,
+  onEmote,
   settings,
   onCommitPass,
   onPlayCard,
@@ -63,6 +66,9 @@ export function GameTable({
   matchResult?: MatchResult;
   presence?: Record<Seat, PresenceStatus>;
   turnDeadline?: { seat: Seat; deadline: number | null } | null;
+  /** Online only (SPEC.md 7.5.11): the most recent emote id per seat, keyed with a timestamp so repeats retrigger. */
+  emotes?: Record<Seat, { id: string; ts: number } | null>;
+  onEmote?: (id: string) => void;
   settings: Settings;
   onCommitPass: (cards: [Card, Card, Card]) => void;
   onPlayCard: (card: Card) => void;
@@ -88,9 +94,30 @@ export function GameTable({
   const revealTimer = useRef<number | null>(null);
   const freezeTimer = useRef<number | null>(null);
   const autoPlayedTrick = useRef<string | null>(null);
+  const [visibleEmotes, setVisibleEmotes] = useState<Partial<Record<Seat, string>>>({});
+  const [showEmotePicker, setShowEmotePicker] = useState(false);
 
   const turn = view.phase === 'playing' ? turnSeatOf(view.currentTrick) : null;
   const isMyTurn = turn === mySeat && !!view.legal;
+
+  // Show each incoming emote above its seat for ~2.5s (SPEC.md 7.5.11).
+  useEffect(() => {
+    if (!emotes) return;
+    const timers: number[] = [];
+    for (const seat of [0, 1, 2, 3] as Seat[]) {
+      const e = emotes[seat];
+      if (!e) continue;
+      const glyph = EMOTE_BY_ID[e.id]?.glyph;
+      if (!glyph) continue;
+      setVisibleEmotes((prev) => ({ ...prev, [seat]: glyph }));
+      timers.push(
+        window.setTimeout(() => {
+          setVisibleEmotes((prev) => ({ ...prev, [seat]: undefined }));
+        }, 2500),
+      );
+    }
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [emotes ? ([0, 1, 2, 3] as Seat[]).map((s) => emotes[s]?.ts ?? 0).join(',') : '']);
 
   // Detect the moment a pass gets applied, to show the "you received" reveal briefly.
   useEffect(() => {
@@ -222,6 +249,7 @@ export function GameTable({
           team={teamOf(topSeat)}
           presence={presence?.[topSeat]}
           deadline={deadlineFor(topSeat)}
+          emoteGlyph={visibleEmotes[topSeat]}
         />
       </div>
 
@@ -236,6 +264,7 @@ export function GameTable({
           team={teamOf(leftSeat)}
           presence={presence?.[leftSeat]}
           deadline={deadlineFor(leftSeat)}
+          emoteGlyph={visibleEmotes[leftSeat]}
         />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-1 relative min-h-[120px]">
@@ -278,6 +307,7 @@ export function GameTable({
           team={teamOf(rightSeat)}
           presence={presence?.[rightSeat]}
           deadline={deadlineFor(rightSeat)}
+          emoteGlyph={visibleEmotes[rightSeat]}
         />
       </div>
 
@@ -296,7 +326,35 @@ export function GameTable({
             </button>
           </>
         )}
+        {onEmote && (
+          <>
+            <span>&middot;</span>
+            <button className="underline" onClick={() => setShowEmotePicker((v) => !v)}>
+              😊
+            </button>
+          </>
+        )}
       </div>
+
+      {showEmotePicker && onEmote && (
+        <div className="absolute inset-x-0 top-10 z-20 flex justify-center">
+          <div className="grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
+            {EMOTES.map((e) => (
+              <button
+                key={e.id}
+                className="text-2xl w-10 h-10 flex items-center justify-center rounded-lg hover:bg-emerald-800"
+                title={e.en}
+                onClick={() => {
+                  onEmote(e.id);
+                  setShowEmotePicker(false);
+                }}
+              >
+                {e.glyph}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Passed memo chip */}
       {myPassedMemo && (

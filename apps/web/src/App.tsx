@@ -168,6 +168,8 @@ export default function App() {
           matchResult={online.matchResult}
           presence={online.presence}
           turnDeadline={online.turnDeadline}
+          emotes={online.emotes}
+          onEmote={online.sendEmote}
           settings={settings}
           onCommitPass={online.pass}
           onPlayCard={online.play}

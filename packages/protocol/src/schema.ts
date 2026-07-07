@@ -114,6 +114,7 @@ export const GameRoundEndMsg = z.object({ type: z.literal('game.roundEnd'), seq:
 export const GameOverMsg = z.object({ type: z.literal('game.over'), seq: z.number().int().nonnegative(), roomCode: z.string(), losingTeam: z.union([z.literal(0), z.literal(1)]), bustSeat: SeatSchema, totals: z.tuple([z.number(), z.number(), z.number(), z.number()]) });
 export const PresenceMsg = z.object({ type: z.literal('presence'), seq: z.number().int().nonnegative(), roomCode: z.string(), seat: SeatSchema, status: z.enum(['connected', 'reconnecting', 'bot']) });
 export const ErrorMsg = z.object({ type: z.literal('error'), code: z.string(), message: z.string() });
+export const ServerEmoteMsg = z.object({ type: z.literal('emote'), seat: SeatSchema, id: z.string() });
 
 export const ServerMessageSchema = z.discriminatedUnion('type', [
   RoomStateMsg,
@@ -129,6 +130,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   GameOverMsg,
   PresenceMsg,
   ErrorMsg,
+  ServerEmoteMsg,
 ]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

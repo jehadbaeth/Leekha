@@ -54,6 +54,12 @@ export function useOnlineGame() {
     3: 'connected',
   });
   const [lastError, setLastError] = useState<string | null>(null);
+  const [emotes, setEmotes] = useState<Record<Seat, { id: string; ts: number } | null>>({
+    0: null,
+    1: null,
+    2: null,
+    3: null,
+  });
   const [events, setEvents] = useState<OnlineEventLogItem[]>([]);
   const eventIdRef = useRef(0);
   const sessionRef = useRef<StoredSession | null>(null);
@@ -167,6 +173,10 @@ export function useOnlineGame() {
           setPresence((prev) => ({ ...prev, [msg.seat]: msg.status }));
           break;
         }
+        case 'emote': {
+          setEmotes((prev) => ({ ...prev, [msg.seat]: { id: msg.id, ts: Date.now() } }));
+          break;
+        }
         case 'error': {
           setLastError(msg.message);
           break;
@@ -272,6 +282,9 @@ export function useOnlineGame() {
   const rematch = useCallback(() => {
     socketRef.current!.send({ type: 'room.start' });
   }, []);
+  const sendEmote = useCallback((id: string) => {
+    socketRef.current!.send({ type: 'emote', id });
+  }, []);
 
   return {
     status,
@@ -283,6 +296,7 @@ export function useOnlineGame() {
     matchResult,
     turnDeadline,
     presence,
+    emotes,
     lastError,
     events,
     clearEvent,
@@ -297,5 +311,6 @@ export function useOnlineGame() {
     pass,
     play,
     rematch,
+    sendEmote,
   };
 }

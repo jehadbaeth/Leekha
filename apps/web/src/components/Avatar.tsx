@@ -12,6 +12,7 @@ export function Avatar({
   compact = false,
   presence,
   deadline,
+  emoteGlyph,
 }: {
   name: string;
   score: number;
@@ -25,11 +26,18 @@ export function Avatar({
   presence?: PresenceStatus;
   /** Section 7.3.9: ms timestamp the current turn expires at, drives the timer ring. */
   deadline?: number | null;
+  /** Section 7.5.11: the emoji of the most recent emote this seat sent, briefly shown above the avatar. */
+  emoteGlyph?: string | null;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
   return (
-    <div className={`flex flex-col items-center gap-0.5 ${compact ? '' : ''}`}>
+    <div className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`}>
+      {emoteGlyph && (
+        <span className="absolute -top-6 text-2xl animate-bounce select-none pointer-events-none" aria-hidden>
+          {emoteGlyph}
+        </span>
+      )}
       <div
         className={`relative w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-opacity ${
           team === 0 ? 'bg-sky-700 border-sky-400' : 'bg-rose-700 border-rose-400'
