@@ -1,0 +1,519 @@
+import { nanoid } from 'nanoid';
+import {
+  Card,
+  GameEvent,
+  IllegalAction,
+  MatchState,
+  RulesConfig,
+  Seat,
+  commitPass,
+  newMatch,
+  playCard,
+  startRound,
+  viewFor,
+} from '@leekha/engine';
+import type { ServerMessage } from '@leekha/protocol';
+import { botForLevel } from './bot.js';
+import type { SeatSlot } from './types.js';
+
+const SEATS: Seat[] = [0, 1, 2, 3];
+const ROUND_ADVANCE_DELAY_MS = 4000;
+const BOT_MIN_DELAY_MS = 600;
+const BOT_MAX_DELAY_MS = 1800;
+
+function botThinkDelay(): number {
+  return BOT_MIN_DELAY_MS + Math.random() * (BOT_MAX_DELAY_MS - BOT_MIN_DELAY_MS);
+}
+
+function emptySeat(seat: Seat): SeatSlot {
+  return {
+    seat,
+    token: null,
+    name: null,
+    isBot: false,
+    botLevel: null,
+    ready: false,
+    connected: false,
+    socketId: null,
+    afkStrikes: 0,
+  };
+}
+
+export type Emit = (seat: Seat | null, msg: ServerMessage) => void;
+
+export class Room {
+  code: string;
+  seats: SeatSlot[] = SEATS.map(emptySeat);
+  hostSeat: Seat = 0;
+  config: RulesConfig;
+  phase: 'lobby' | 'game' = 'lobby';
+  match: MatchState | null = null;
+  private seq = 0;
+  private emit: Emit;
+  private passTimer: ReturnType<typeof setTimeout> | null = null;
+  private playTimer: ReturnType<typeof setTimeout> | null = null;
+  private roundAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
+  private disconnectTimers = new Map<Seat, ReturnType<typeof setTimeout>>();
+  lastActivity = Date.now();
+
+  constructor(code: string, config: RulesConfig, emit: Emit) {
+    this.code = code;
+    this.config = config;
+    this.emit = emit;
+  }
+
+  setEmit(emit: Emit): void {
+    this.emit = emit;
+  }
+
+  private nextSeq(): number {
+    return ++this.seq;
+  }
+
+  private touch(): void {
+    this.lastActivity = Date.now();
+  }
+
+  // ---- lobby ----
+
+  seatSlotSchema() {
+    return this.seats.map((s) => ({
+      seat: s.seat,
+      occupied: s.name !== null,
+      name: s.name ?? undefined,
+      isBot: s.isBot,
+      botLevel: s.botLevel ?? undefined,
+      ready: s.ready,
+      connected: s.connected,
+    }));
+  }
+
+  broadcastRoomState(): void {
+    this.emit(null, {
+      type: 'room.state',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      seats: this.seatSlotSchema(),
+      config: this.config,
+      hostSeat: this.hostSeat,
+    });
+  }
+
+  findOpenSeat(): Seat | null {
+    return this.seats.find((s) => s.name === null && !s.isBot)?.seat ?? null;
+  }
+
+  sit(seat: Seat, name: string, socketId: string): string {
+    this.touch();
+    const slot = this.seats[seat];
+    if (slot.name !== null || slot.isBot) throw new IllegalAction('seat-taken', 'That seat is occupied');
+    slot.name = name;
+    slot.isBot = false;
+    slot.token = nanoid(24);
+    slot.connected = true;
+    slot.socketId = socketId;
+    slot.ready = false;
+    if (!this.seats.some((s) => s.name !== null && s.seat !== seat)) this.hostSeat = seat;
+    this.broadcastRoomState();
+    return slot.token;
+  }
+
+  addBot(seat: Seat, level: 'easy' | 'medium' | 'hard'): void {
+    this.touch();
+    if (this.phase !== 'lobby') throw new IllegalAction('bad-phase', 'Can only add bots in the lobby');
+    const slot = this.seats[seat];
+    if (slot.name !== null) throw new IllegalAction('seat-taken', 'That seat is occupied');
+    slot.isBot = true;
+    slot.botLevel = level;
+    slot.name = `Bot ${seat}`;
+    slot.ready = true;
+    slot.connected = true;
+    this.broadcastRoomState();
+  }
+
+  removeBot(seat: Seat): void {
+    this.touch();
+    if (this.phase !== 'lobby') throw new IllegalAction('bad-phase', 'Can only remove bots in the lobby');
+    const slot = this.seats[seat];
+    if (!slot.isBot) throw new IllegalAction('not-a-bot', 'That seat is not a bot');
+    this.seats[seat] = emptySeat(seat);
+    this.broadcastRoomState();
+  }
+
+  configure(config: RulesConfig): void {
+    this.touch();
+    if (this.phase !== 'lobby') throw new IllegalAction('bad-phase', 'Can only configure the room in the lobby');
+    this.config = config;
+    this.broadcastRoomState();
+  }
+
+  setReady(seat: Seat, ready: boolean): void {
+    this.touch();
+    const slot = this.seats[seat];
+    if (slot.isBot) return;
+    slot.ready = ready;
+    this.broadcastRoomState();
+  }
+
+  canStart(): boolean {
+    return this.seats.every((s) => (s.name !== null || s.isBot) && (s.isBot || s.ready));
+  }
+
+  start(): void {
+    this.touch();
+    if (this.phase === 'lobby') {
+      if (!this.canStart()) throw new IllegalAction('not-ready', 'All four seats must be filled and humans ready');
+      this.match = newMatch(this.config, nanoid(16));
+      this.phase = 'game';
+      this.beginRound();
+      return;
+    }
+    // Rematch: only valid once the previous match is over.
+    if (this.match && this.match.phase === 'gameOver') {
+      this.match = newMatch(this.config, nanoid(16));
+      this.beginRound();
+      return;
+    }
+    throw new IllegalAction('bad-phase', 'A match is already in progress');
+  }
+
+  // ---- game ----
+
+  private beginRound(): void {
+    if (!this.match) return;
+    this.match = startRound(this.match);
+    for (const seat of SEATS) {
+      this.emit(seat, {
+        type: 'game.dealt',
+        seq: this.nextSeq(),
+        roomCode: this.code,
+        hand: this.match.round.hands[seat],
+        dealer: this.match.dealer,
+        roundIndex: this.match.roundIndex,
+      });
+    }
+    this.sendAllSnapshots();
+    this.armPassTimer();
+    this.emit(null, {
+      type: 'game.passPrompt',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      deadline: Date.now() + this.config.timers.passMs,
+    });
+    this.scheduleBotPasses();
+  }
+
+  private sendAllSnapshots(): void {
+    if (!this.match) return;
+    for (const seat of SEATS) this.sendSnapshot(seat);
+  }
+
+  sendSnapshot(seat: Seat): void {
+    if (!this.match) return;
+    this.emit(seat, {
+      type: 'game.snapshot',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      view: viewFor(this.match, seat),
+    });
+  }
+
+  private clearPassTimer(): void {
+    if (this.passTimer) clearTimeout(this.passTimer);
+    this.passTimer = null;
+  }
+
+  private clearPlayTimer(): void {
+    if (this.playTimer) clearTimeout(this.playTimer);
+    this.playTimer = null;
+  }
+
+  private armPassTimer(): void {
+    this.clearPassTimer();
+    if (this.config.timers.passMs <= 0) return;
+    this.passTimer = setTimeout(() => this.onPassTimeout(), this.config.timers.passMs);
+  }
+
+  private armPlayTimer(): void {
+    this.clearPlayTimer();
+    if (this.config.timers.playMs <= 0) return;
+    this.playTimer = setTimeout(() => this.onPlayTimeout(), this.config.timers.playMs);
+  }
+
+  private onPassTimeout(): void {
+    if (!this.match || this.match.phase !== 'passing') return;
+    for (const seat of SEATS) {
+      if (this.match.phase !== 'passing') break;
+      if (this.match.round.passes[seat] !== null) continue;
+      const slot = this.seats[seat];
+      if (slot.isBot) continue;
+      this.strikeAndAutoPass(seat);
+    }
+  }
+
+  private strikeAndAutoPass(seat: Seat): void {
+    if (!this.match) return;
+    const slot = this.seats[seat];
+    slot.afkStrikes++;
+    const bot = botForLevel('easy');
+    const cards = bot.choosePass(viewFor(this.match, seat));
+    this.commitPassInternal(seat, cards);
+    if (slot.afkStrikes >= 2) this.flipToBot(seat);
+  }
+
+  private flipToBot(seat: Seat): void {
+    const slot = this.seats[seat];
+    if (slot.isBot) return;
+    slot.isBot = true;
+    slot.botLevel = slot.botLevel ?? 'easy';
+    this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'bot' });
+    this.scheduleBotPasses();
+    this.scheduleBotPlayIfDue();
+  }
+
+  private onPlayTimeout(): void {
+    if (!this.match || this.match.phase !== 'playing') return;
+    const seat = this.actingSeat();
+    if (seat === null) return;
+    const slot = this.seats[seat];
+    if (slot.isBot) return;
+    slot.afkStrikes++;
+    const bot = botForLevel('easy');
+    const card = bot.choosePlay(viewFor(this.match, seat));
+    this.applyPlay(seat, card);
+    if (slot.afkStrikes >= 2) this.flipToBot(seat);
+  }
+
+  private actingSeat(): Seat | null {
+    if (!this.match || this.match.phase !== 'playing') return null;
+    for (const seat of SEATS) {
+      if (viewFor(this.match, seat).legal !== null) return seat;
+    }
+    return null;
+  }
+
+  pass(seat: Seat, cards: [Card, Card, Card]): void {
+    this.touch();
+    if (!this.match || this.match.phase !== 'passing') throw new IllegalAction('bad-phase', 'Not in the passing phase');
+    this.commitPassInternal(seat, cards);
+  }
+
+  private commitPassInternal(seat: Seat, cards: [Card, Card, Card] | Card[]): void {
+    if (!this.match) return;
+    this.match = commitPass(this.match, seat, cards as Card[]);
+    const committed = SEATS.filter((s) => this.match!.round.passes[s] !== null);
+    this.emit(null, {
+      type: 'game.passProgress',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      seatsCommitted: committed,
+    });
+
+    if (this.match.phase === 'playing') {
+      this.clearPassTimer();
+      for (const s of SEATS) {
+        this.emit(s, {
+          type: 'game.passReveal',
+          seq: this.nextSeq(),
+          roomCode: this.code,
+          received: this.match.round.passes[(((s + 3) % 4) as Seat)] as [Card, Card, Card],
+        });
+      }
+      this.sendAllSnapshots();
+      this.beginTurn();
+    } else {
+      this.scheduleBotPasses();
+    }
+  }
+
+  private scheduleBotPasses(): void {
+    if (!this.match || this.match.phase !== 'passing') return;
+    for (const seat of SEATS) {
+      if (this.match.round.passes[seat] !== null) continue;
+      if (!this.seats[seat].isBot) continue;
+      const level = this.seats[seat].botLevel ?? 'medium';
+      setTimeout(() => {
+        if (!this.match || this.match.phase !== 'passing') return;
+        if (this.match.round.passes[seat] !== null) return;
+        const bot = botForLevel(level);
+        this.commitPassInternal(seat, bot.choosePass(viewFor(this.match, seat)));
+      }, botThinkDelay());
+    }
+  }
+
+  private beginTurn(): void {
+    if (!this.match || this.match.phase !== 'playing') return;
+    const seat = this.actingSeat();
+    if (seat === null) return;
+    this.armPlayTimer();
+    const view = viewFor(this.match, seat);
+    this.emit(seat, {
+      type: 'game.turn',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      seat,
+      deadline: this.config.timers.playMs > 0 ? Date.now() + this.config.timers.playMs : null,
+      legal: view.legal ?? undefined,
+    });
+    for (const other of SEATS) {
+      if (other === seat) continue;
+      this.emit(other, {
+        type: 'game.turn',
+        seq: this.nextSeq(),
+        roomCode: this.code,
+        seat,
+        deadline: this.config.timers.playMs > 0 ? Date.now() + this.config.timers.playMs : null,
+      });
+    }
+    this.scheduleBotPlayIfDue();
+  }
+
+  private scheduleBotPlayIfDue(): void {
+    if (!this.match || this.match.phase !== 'playing') return;
+    const seat = this.actingSeat();
+    if (seat === null || !this.seats[seat].isBot) return;
+    const level = this.seats[seat].botLevel ?? 'medium';
+    setTimeout(() => {
+      if (!this.match || this.match.phase !== 'playing') return;
+      if (this.actingSeat() !== seat) return;
+      const bot = botForLevel(level);
+      const card = bot.choosePlay(viewFor(this.match, seat));
+      this.applyPlay(seat, card);
+    }, botThinkDelay());
+  }
+
+  play(seat: Seat, card: Card): void {
+    this.touch();
+    if (!this.match || this.match.phase !== 'playing') throw new IllegalAction('bad-phase', 'Not in the playing phase');
+    if (this.actingSeat() !== seat) throw new IllegalAction('not-your-turn', "It is not this seat's turn");
+    this.applyPlay(seat, card);
+  }
+
+  private applyPlay(seat: Seat, card: Card): void {
+    if (!this.match) return;
+    this.clearPlayTimer();
+    const { state, events } = playCard(this.match, seat, card);
+    this.match = state;
+    this.emitPlayEvents(seat, card, events);
+  }
+
+  private emitPlayEvents(seat: Seat, card: Card, events: GameEvent[]): void {
+    for (const ev of events) {
+      if (ev.type === 'played') {
+        this.emit(null, {
+          type: 'game.played',
+          seq: this.nextSeq(),
+          roomCode: this.code,
+          seat: ev.seat,
+          card: ev.card,
+          forced: ev.forced,
+        });
+      } else if (ev.type === 'trickEnd') {
+        this.emit(null, {
+          type: 'game.trickEnd',
+          seq: this.nextSeq(),
+          roomCode: this.code,
+          winner: ev.winner,
+          points: ev.points,
+          cards: ev.cards,
+        });
+      } else if (ev.type === 'roundEnd') {
+        this.emit(null, {
+          type: 'game.roundEnd',
+          seq: this.nextSeq(),
+          roomCode: this.code,
+          eaten: ev.eaten,
+          totals: ev.totals,
+        });
+        this.sendAllSnapshots();
+        if (this.roundAdvanceTimer) clearTimeout(this.roundAdvanceTimer);
+        this.roundAdvanceTimer = setTimeout(() => this.beginRound(), ROUND_ADVANCE_DELAY_MS);
+      } else if (ev.type === 'gameOver') {
+        this.emit(null, {
+          type: 'game.over',
+          seq: this.nextSeq(),
+          roomCode: this.code,
+          losingTeam: ev.losingTeam,
+          bustSeat: ev.bustSeat,
+          totals: ev.totals,
+        });
+        this.sendAllSnapshots();
+      }
+    }
+    if (this.match && this.match.phase === 'playing') {
+      this.beginTurn();
+    }
+  }
+
+  // ---- presence / reconnection ----
+
+  resync(seat: Seat): void {
+    if (this.match) this.sendSnapshot(seat);
+    else this.broadcastRoomState();
+  }
+
+  bindSocket(seat: Seat, socketId: string): void {
+    const slot = this.seats[seat];
+    slot.socketId = socketId;
+    slot.connected = true;
+    const timer = this.disconnectTimers.get(seat);
+    if (timer) {
+      clearTimeout(timer);
+      this.disconnectTimers.delete(seat);
+    }
+    const wasBot = slot.isBot;
+    if (wasBot && slot.token) {
+      // A human reclaiming a seat that had been flipped to bot control regains it now;
+      // any bot move already in flight for the current turn still resolves (see scheduleBotPlayIfDue).
+      slot.isBot = false;
+      slot.afkStrikes = 0;
+    }
+    this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'connected' });
+    if (this.phase === 'lobby') this.broadcastRoomState();
+  }
+
+  seatForToken(token: string): Seat | null {
+    return this.seats.find((s) => s.token === token)?.seat ?? null;
+  }
+
+  disconnectSocket(socketId: string): void {
+    const slot = this.seats.find((s) => s.socketId === socketId);
+    if (!slot || slot.isBot) return;
+    slot.connected = false;
+    slot.socketId = null;
+    if (this.phase === 'lobby') {
+      this.broadcastRoomState();
+      return;
+    }
+    this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat: slot.seat, status: 'reconnecting' });
+    const timer = setTimeout(() => this.flipToBot(slot.seat), 15_000);
+    this.disconnectTimers.set(slot.seat, timer);
+  }
+
+  leave(seat: Seat): void {
+    const slot = this.seats[seat];
+    if (this.phase === 'lobby') {
+      this.seats[seat] = emptySeat(seat);
+      if (this.hostSeat === seat) {
+        const nextHost = this.seats.find((s) => s.name !== null && !s.isBot);
+        if (nextHost) this.hostSeat = nextHost.seat;
+      }
+      this.broadcastRoomState();
+    } else {
+      slot.connected = false;
+      slot.socketId = null;
+      this.flipToBot(seat);
+    }
+  }
+
+  humanCount(): number {
+    return this.seats.filter((s) => s.name !== null && !s.isBot).length;
+  }
+
+  destroy(): void {
+    this.clearPassTimer();
+    this.clearPlayTimer();
+    if (this.roundAdvanceTimer) clearTimeout(this.roundAdvanceTimer);
+    for (const t of this.disconnectTimers.values()) clearTimeout(t);
+  }
+}
