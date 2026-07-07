@@ -17,10 +17,10 @@ export const SUIT_NAME: Record<Suit, string> = {
 };
 
 export const SUIT_NAME_AR: Record<Suit, string> = {
-  S: 'البستوني',
-  H: 'الهارت',
-  D: 'الديناري',
-  C: 'الشبة',
+  S: 'البستون',
+  H: 'الكوبه',
+  D: 'الدينار',
+  C: 'السنك',
 };
 
 export function rankLabel(rank: Card['rank']): string {
