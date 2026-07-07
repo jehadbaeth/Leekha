@@ -4,6 +4,7 @@ import { IllegalAction, type Seat, defaultConfig } from '@leekha/engine';
 import { ClientMessageSchema, type ClientMessage } from '@leekha/protocol';
 import { RoomManager } from './roomManager.js';
 import type { Room } from './room.js';
+import { createStaticHandler } from './staticFiles.js';
 
 interface SocketState {
   name: string | null;
@@ -11,8 +12,13 @@ interface SocketState {
   seat: Seat | null;
 }
 
-export function createApp() {
-  const httpServer = createServer();
+export function createApp(options: { webDist?: string } = {}) {
+  const serveStatic = options.webDist ? createStaticHandler(options.webDist) : null;
+  const httpServer = createServer((req, res) => {
+    if (serveStatic && !(req.url ?? '').startsWith('/socket.io/')) {
+      void serveStatic(req, res);
+    }
+  });
   const io = new Server(httpServer, { cors: { origin: '*' } });
   const manager = new RoomManager(io);
   const tokenIndex = new Map<string, { roomCode: string; seat: Seat }>();
