@@ -97,6 +97,24 @@ describe('Room.findOpenSeat', () => {
   });
 });
 
+describe('Room.humanCount', () => {
+  it('still counts a seat AFK-flipped to bot control, since its token can still be reclaimed', () => {
+    const { room } = makeRoom();
+    seatSoloHumanWithBots(room);
+    expect(room.humanCount()).toBe(1);
+    (room as unknown as { flipToBot(seat: number): void }).flipToBot(0);
+    expect(room.seats[0].isBot).toBe(true);
+    expect(room.humanCount()).toBe(1);
+  });
+
+  it('does not count a lobby-added bot, which never holds a token', () => {
+    const { room } = makeRoom();
+    room.sit(0, 'Alice', 'sock-0');
+    room.addBot(1, 'medium');
+    expect(room.humanCount()).toBe(1);
+  });
+});
+
 describe('Room.sit — bot seat takeover', () => {
   it('lets a new human sit into a seat a bot is playing, replacing the bot', () => {
     const { room } = makeRoom();

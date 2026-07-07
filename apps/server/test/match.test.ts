@@ -209,4 +209,37 @@ describe('apps/server end to end', () => {
     expect(room.seats[1].isBot).toBe(false);
     expect(room.seats[1].name).toBe('Bob');
   });
+
+  it('keeps a solo human\'s room alive after an AFK bot-flip so seat.reclaim still works later', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const SHORT_TIMER_CONFIG = { ...FAST_CONFIG, timers: { passMs: 300, playMs: 300 } };
+    const createAck = await send(host, { type: 'room.create', config: SHORT_TIMER_CONFIG });
+    const roomCode = createAck.code as string;
+
+    fire(host, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(host, { type: 'room.ready', ready: true });
+
+    const botTakeover = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'bot', 25_000);
+    fire(host, { type: 'room.start' });
+    await botTakeover;
+
+    // This is the bug report: "take back control does nothing when you leave it
+    // long enough" — regression-tests that RoomManager.sweep() doesn't destroy
+    // the room out from under a still-tokened, merely-AFK seat (see room.ts's
+    // humanCount()).
+    const room = app.manager.get(roomCode)!;
+    expect(room.humanCount()).toBeGreaterThan(0);
+    app.manager.sweep();
+    expect(app.manager.get(roomCode)).toBe(room);
+
+    const reclaimedPromise = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'connected', 5000);
+    fire(host, { type: 'seat.reclaim' });
+    const reclaimed = await reclaimedPromise;
+    expect(reclaimed.roomCode).toBe(roomCode);
+  }, 30_000);
 });

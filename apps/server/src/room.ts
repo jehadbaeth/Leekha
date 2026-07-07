@@ -610,8 +610,15 @@ export class Room {
     }
   }
 
+  /**
+   * Seats a human still owns, including one AFK-flipped to bot control — it
+   * still holds a token its owner could reclaim, so RoomManager.sweep() must
+   * not treat the room as abandoned just because a bot is playing it right
+   * now (SPEC.md 11). A lobby-added bot never receives a token, so this
+   * excludes those correctly without checking isBot at all.
+   */
   humanCount(): number {
-    return this.seats.filter((s) => s.name !== null && !s.isBot).length;
+    return this.seats.filter((s) => s.token !== null).length;
   }
 
   destroy(): void {
