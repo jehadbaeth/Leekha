@@ -144,5 +144,69 @@ describe('apps/server end to end', () => {
 
     const presence = await botTakeover;
     expect(presence.roomCode).toBe(roomCode);
+
+    // Bug report: "take back control does nothing even if you never left the match."
+    // Seat 0's socket never disconnected, so this exercises seat.reclaim's still-connected path.
+    const reclaimedPromise = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'connected', 5000);
+    fire(host, { type: 'seat.reclaim' });
+    const reclaimed = await reclaimedPromise;
+    expect(reclaimed.roomCode).toBe(roomCode);
   }, 30_000);
+
+  it('restarts the match when a solo human votes rematch after game over', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const createAck = await send(host, { type: 'room.create', config: FAST_CONFIG });
+    const roomCode = createAck.code as string;
+
+    fire(host, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(host, { type: 'room.ready', ready: true });
+    fire(host, { type: 'room.start' });
+    await waitFor(host, (m) => m.type === 'game.dealt', 5000);
+
+    // Force the match straight to game over rather than playing out a full 201-point game.
+    const room = app.manager.get(roomCode)!;
+    room.match = { ...room.match, phase: 'gameOver' } as typeof room.match;
+
+    const dealtAgainPromise = waitFor(host, (m) => m.type === 'game.dealt', 5000);
+    fire(host, { type: 'room.rematch' });
+    await dealtAgainPromise;
+    expect(room.match?.phase).not.toBe('gameOver');
+  });
+
+  it('lets a new player join and take over a bot seat mid-match instead of room-full', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const createAck = await send(host, { type: 'room.create', config: FAST_CONFIG });
+    const roomCode = createAck.code as string;
+
+    fire(host, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(host, { type: 'room.ready', ready: true });
+    fire(host, { type: 'room.start' });
+    await waitFor(host, (m) => m.type === 'game.dealt', 5000);
+
+    const newcomer = connect(port);
+    sockets.push(newcomer);
+    await new Promise<void>((r) => newcomer.on('connect', r));
+    fire(newcomer, { type: 'auth', name: 'Bob' });
+    const snapshotPromise = waitFor(newcomer, (m) => m.type === 'game.snapshot', 5000);
+    const joinAck = await send(newcomer, { type: 'room.join', code: roomCode });
+    expect(joinAck.error).toBeUndefined();
+    fire(newcomer, { type: 'auth', name: 'Bob', seatToken: joinAck.seatToken });
+    fire(newcomer, { type: 'game.resync' });
+    const snapshot = await snapshotPromise;
+    expect(snapshot.roomCode).toBe(roomCode);
+
+    const room = app.manager.get(roomCode)!;
+    expect(room.seats[1].isBot).toBe(false);
+    expect(room.seats[1].name).toBe('Bob');
+  });
 });

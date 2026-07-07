@@ -255,6 +255,10 @@ export function useOnlineGame() {
     // seat it just sat us in (see server.ts's 'auth' handler); that bind
     // triggers a fresh room.state broadcast our seat-matching logic above reads.
     socketRef.current!.send({ type: 'auth', name: resolvedName, seatToken: res.seatToken });
+    // If we just took over a bot's seat mid-match, room.state alone carries no
+    // hand/board — game.resync (see room.ts's resync()) is what actually gets
+    // us a game.snapshot so the screen can switch out of the lobby view.
+    socketRef.current!.send({ type: 'game.resync' });
     return true;
   }, []);
 

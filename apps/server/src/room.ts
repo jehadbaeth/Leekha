@@ -141,22 +141,32 @@ export class Room {
     this.onChange?.();
   }
 
+  /** An empty chair, or if none, any bot-occupied seat a human can take over (SPEC.md 11: no seat may ever refuse a human for having a bot in it). */
   findOpenSeat(): Seat | null {
-    return this.seats.find((s) => s.name === null && !s.isBot)?.seat ?? null;
+    const empty = this.seats.find((s) => s.name === null);
+    if (empty) return empty.seat;
+    return this.seats.find((s) => s.isBot)?.seat ?? null;
   }
 
   sit(seat: Seat, name: string, socketId: string): string {
     this.touch();
     const slot = this.seats[seat];
-    if (slot.name !== null || slot.isBot) throw new IllegalAction('seat-taken', 'That seat is occupied');
+    const isTakeover = slot.isBot;
+    if (slot.name !== null && !isTakeover) throw new IllegalAction('seat-taken', 'That seat is occupied');
     slot.name = name;
     slot.isBot = false;
+    slot.botLevel = null;
     slot.token = nanoid(24);
     slot.connected = true;
     slot.socketId = socketId;
-    slot.ready = false;
+    slot.afkStrikes = 0;
+    slot.ready = isTakeover ? slot.ready : false;
     if (!this.seats.some((s) => s.name !== null && s.seat !== seat)) this.hostSeat = seat;
     this.broadcastRoomState();
+    // A takeover replaces whoever (bot or previously-AFK human) held the seat; their
+    // old seat token was just overwritten above, so a stale reconnect attempt with it
+    // will simply fail the token check in the 'auth' handler rather than fight for the seat.
+    if (isTakeover) this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'connected' });
     return slot.token;
   }
 
