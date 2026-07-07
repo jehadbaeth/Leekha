@@ -96,12 +96,22 @@ export function Lobby({
           {roomCode}
         </button>
         {copied && <p className="text-emerald-300 text-xs mt-1">Copied!</p>}
-        <button
-          className="mt-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-semibold px-4 py-2"
-          onClick={share}
-        >
-          Share invite link
-        </button>
+        <div className="flex gap-2 mt-2">
+          <a
+            className="rounded-lg bg-[#25D366] hover:brightness-95 text-emerald-950 text-sm font-semibold px-4 py-2 flex items-center gap-1.5"
+            href={`https://wa.me/?text=${encodeURIComponent(`Join my Leekha room: ${roomCode}\n${joinLink}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            WhatsApp
+          </a>
+          <button
+            className="rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-semibold px-4 py-2"
+            onClick={share}
+          >
+            Other apps
+          </button>
+        </div>
       </div>
 
       {/* 4 seat mini table, team colors: seats 0/2 vs 1/3 */}
