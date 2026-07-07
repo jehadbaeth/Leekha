@@ -139,6 +139,11 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
             break;
           }
 
+          case 'room.rematch': {
+            if (state.seat !== null) currentRoom()?.voteRematch(state.seat);
+            break;
+          }
+
           case 'room.leave': {
             if (state.seat !== null) currentRoom()?.leave(state.seat);
             if (state.roomCode) socket.leave(`room:${state.roomCode}`);

@@ -62,6 +62,7 @@ export const GamePlayMsg = z.object({ type: z.literal('game.play'), card: CardSc
 export const GameResyncMsg = z.object({ type: z.literal('game.resync') });
 export const EmoteMsg = z.object({ type: z.literal('emote'), id: z.string() });
 export const SeatReclaimMsg = z.object({ type: z.literal('seat.reclaim') });
+export const RoomRematchMsg = z.object({ type: z.literal('room.rematch') });
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   AuthMsg,
@@ -79,6 +80,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   GameResyncMsg,
   EmoteMsg,
   SeatReclaimMsg,
+  RoomRematchMsg,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -117,6 +119,13 @@ export const GameOverMsg = z.object({ type: z.literal('game.over'), seq: z.numbe
 export const PresenceMsg = z.object({ type: z.literal('presence'), seq: z.number().int().nonnegative(), roomCode: z.string(), seat: SeatSchema, status: z.enum(['connected', 'reconnecting', 'bot']) });
 export const ErrorMsg = z.object({ type: z.literal('error'), code: z.string(), message: z.string() });
 export const ServerEmoteMsg = z.object({ type: z.literal('emote'), seat: SeatSchema, id: z.string() });
+export const GameRematchVotesMsg = z.object({
+  type: z.literal('game.rematchVotes'),
+  seq: z.number().int().nonnegative(),
+  roomCode: z.string(),
+  seatsVoted: z.array(SeatSchema),
+  seatsNeeded: z.array(SeatSchema),
+});
 
 export const ServerMessageSchema = z.discriminatedUnion('type', [
   RoomStateMsg,
@@ -133,6 +142,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   PresenceMsg,
   ErrorMsg,
   ServerEmoteMsg,
+  GameRematchVotesMsg,
 ]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

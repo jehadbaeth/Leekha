@@ -178,6 +178,7 @@ export default function App() {
           passesApplied={online.passesApplied}
           passProgress={online.passProgress}
           matchResult={online.matchResult}
+          rematchVotes={online.rematchVotes}
           presence={online.presence}
           turnDeadline={online.turnDeadline}
           emotes={online.emotes}

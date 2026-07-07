@@ -49,6 +49,7 @@ export class Room {
   config: RulesConfig;
   phase: RoomPhase = 'lobby';
   match: MatchState | null = null;
+  private rematchVotes = new Set<Seat>();
   private seq = 0;
   private emit: Emit;
   private onChange: (() => void) | null = null;
@@ -202,6 +203,7 @@ export class Room {
 
   start(): void {
     this.touch();
+    this.rematchVotes.clear();
     if (this.phase === 'lobby') {
       if (!this.canStart()) throw new IllegalAction('not-ready', 'All four seats must be filled and humans ready');
       this.match = newMatch(this.config, nanoid(16));
@@ -216,6 +218,37 @@ export class Room {
       return;
     }
     throw new IllegalAction('bad-phase', 'A match is already in progress');
+  }
+
+  /**
+   * A connected human casting a "play again" vote once the match is over.
+   * Bots (lobby-added or AFK-flipped) never need to vote — rematchQuorumMet
+   * treats them as automatic yeses, mirroring canStart()'s ready-check — so a
+   * solo human at a table of bots restarts on their first click, while an
+   * all-human room only restarts once every seat has voted (SPEC.md: "with
+   * votes if it's a multiplayer game").
+   */
+  voteRematch(seat: Seat): void {
+    this.touch();
+    if (!this.match || this.match.phase !== 'gameOver') return;
+    if (this.seats[seat].isBot) return;
+    this.rematchVotes.add(seat);
+    this.broadcastRematchVotes();
+    if (this.rematchQuorumMet()) this.start();
+  }
+
+  private rematchQuorumMet(): boolean {
+    return this.seats.every((s) => s.isBot || this.rematchVotes.has(s.seat));
+  }
+
+  private broadcastRematchVotes(): void {
+    this.emit(null, {
+      type: 'game.rematchVotes',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      seatsVoted: [...this.rematchVotes],
+      seatsNeeded: this.seats.filter((s) => !s.isBot).map((s) => s.seat),
+    });
   }
 
   // ---- game ----
@@ -310,6 +343,12 @@ export class Room {
     this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'bot' });
     this.scheduleBotPasses();
     this.scheduleBotPlayIfDue();
+    // A seat that goes AFK while a rematch vote is pending now counts as an
+    // automatic yes (see rematchQuorumMet); this may be the last holdout.
+    if (this.match?.phase === 'gameOver') {
+      this.broadcastRematchVotes();
+      if (this.rematchQuorumMet()) this.start();
+    }
     this.onChange?.();
   }
 
@@ -482,6 +521,8 @@ export class Room {
           totals: ev.totals,
         });
         this.sendAllSnapshots();
+        this.rematchVotes.clear();
+        this.broadcastRematchVotes();
       }
     }
     if (this.match && this.match.phase === 'playing') {

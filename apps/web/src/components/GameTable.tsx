@@ -51,6 +51,7 @@ export function GameTable({
   emotes,
   onEmote,
   onReclaimSeat,
+  rematchVotes,
   settings,
   onCommitPass,
   onPlayCard,
@@ -72,6 +73,8 @@ export function GameTable({
   onEmote?: (id: string) => void;
   /** Online only (SPEC.md section 12): lets a still-connected player take back a seat that AFK strikes flipped to bot control. */
   onReclaimSeat?: () => void;
+  /** Online only: who has voted to play again once the match ends, and who still needs to (bots are never counted). Absent for local play, where a rematch is a single unilateral click. */
+  rematchVotes?: { seatsVoted: Seat[]; seatsNeeded: Seat[] } | null;
   settings: Settings;
   onCommitPass: (cards: [Card, Card, Card]) => void;
   onPlayCard: (card: Card) => void;
@@ -636,6 +639,8 @@ export function GameTable({
           losingTeam={matchResult.losingTeam!}
           bustSeat={matchResult.bustSeat!}
           language={settings.language}
+          mySeat={mySeat}
+          rematchVotes={rematchVotes}
           onRematch={onRematch}
           onHome={onHome}
         />

@@ -46,6 +46,7 @@ export function useOnlineGame() {
   const [passesApplied, setPassesApplied] = useState(false);
   const [passProgress, setPassProgress] = useState<boolean[]>([false, false, false, false]);
   const [matchResult, setMatchResult] = useState<MatchResult | undefined>(undefined);
+  const [rematchVotes, setRematchVotes] = useState<{ seatsVoted: Seat[]; seatsNeeded: Seat[] } | null>(null);
   const [turnDeadline, setTurnDeadline] = useState<TurnDeadline | null>(null);
   const [presence, setPresence] = useState<Record<Seat, PresenceStatus>>({
     0: 'connected',
@@ -113,6 +114,7 @@ export function useOnlineGame() {
           setPassesApplied(false);
           setPassProgress([false, false, false, false]);
           setMatchResult(undefined);
+          setRematchVotes(null);
           setTurnDeadline(null);
           break;
         }
@@ -171,6 +173,10 @@ export function useOnlineGame() {
         }
         case 'presence': {
           setPresence((prev) => ({ ...prev, [msg.seat]: msg.status }));
+          break;
+        }
+        case 'game.rematchVotes': {
+          setRematchVotes({ seatsVoted: msg.seatsVoted, seatsNeeded: msg.seatsNeeded });
           break;
         }
         case 'emote': {
@@ -272,6 +278,7 @@ export function useOnlineGame() {
     setView(null);
     setMySeat(null);
     setMatchResult(undefined);
+    setRematchVotes(null);
   }, [setMySeat]);
   const pass = useCallback((cards: [Card, Card, Card]) => {
     socketRef.current!.send({ type: 'game.pass', cards });
@@ -280,7 +287,7 @@ export function useOnlineGame() {
     socketRef.current!.send({ type: 'game.play', card });
   }, []);
   const rematch = useCallback(() => {
-    socketRef.current!.send({ type: 'room.start' });
+    socketRef.current!.send({ type: 'room.rematch' });
   }, []);
   const sendEmote = useCallback((id: string) => {
     socketRef.current!.send({ type: 'emote', id });
@@ -297,6 +304,7 @@ export function useOnlineGame() {
     passesApplied,
     passProgress,
     matchResult,
+    rematchVotes,
     turnDeadline,
     presence,
     emotes,
