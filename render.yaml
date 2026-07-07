@@ -1,0 +1,16 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec): lets anyone with
+# a (free, no card required) Render account deploy this repo's single Docker
+# image with "New +" -> "Blueprint" and pointing it at this repo. Free-tier
+# instances sleep after 15 minutes of no traffic and take ~30-50s to wake back
+# up on the next request; fine for a link you hand a few playtesters, not a
+# substitute for a real always-on deploy later.
+services:
+  - type: web
+    name: leekha
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 8080
