@@ -54,6 +54,26 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
       socket.join(`room:${code}`);
     }
 
+    /**
+     * Re-validates state.seat against the room's live SeatSlot before trusting
+     * it. Two ways a seat stops being this connection's to act on, neither of
+     * which ever touches this connection's own state directly: a takeover
+     * (Room.sit) repoints seats[seat].socketId to the new occupant, and AFK
+     * strikes (Room.flipToBot) flip isBot to true while this socket is still
+     * connected and its socketId is still on file. Without checking isBot too,
+     * an idle-flipped player who never disconnected could keep playing turns
+     * through the bot that's now supposed to be covering their seat.
+     */
+    function mySeat(): Seat | null {
+      if (state.seat === null) return null;
+      const room = currentRoom();
+      if (!room || room.seats[state.seat].socketId !== socket.id || room.seats[state.seat].isBot) {
+        state.seat = null;
+        return null;
+      }
+      return state.seat;
+    }
+
     socket.on('msg', (raw: unknown, ack?: (res: unknown) => void) => {
       const parsed = ClientMessageSchema.safeParse(raw);
       if (!parsed.success) {
@@ -106,6 +126,8 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               state.seat = null;
               joinSocketIoRoom(room.code);
               socket.emit('msg', room.roomStateMessage());
+              const pub = room.publicSnapshotMessage();
+              if (pub) socket.emit('msg', pub);
               ack?.({ observer: true });
               break;
             }
@@ -129,7 +151,8 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               ack?.({ error: 'not-found' });
               break;
             }
-            if (state.seat !== null) {
+            const seatNow = mySeat();
+            if (seatNow !== null && seatNow !== msg.seat) {
               ack?.({ error: 'already-seated' });
               break;
             }
@@ -157,28 +180,31 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
 
           case 'room.configure': {
             const room = currentRoom();
-            if (room && state.seat === room.hostSeat) room.configure(msg.config);
+            if (room && mySeat() === room.hostSeat) room.configure(msg.config);
             break;
           }
 
           case 'room.ready': {
-            if (state.seat !== null) currentRoom()?.setReady(state.seat, msg.ready);
+            const seat = mySeat();
+            if (seat !== null) currentRoom()?.setReady(seat, msg.ready);
             break;
           }
 
           case 'room.start': {
             const room = currentRoom();
-            if (room && state.seat === room.hostSeat) room.start();
+            if (room && mySeat() === room.hostSeat) room.start();
             break;
           }
 
           case 'room.rematch': {
-            if (state.seat !== null) currentRoom()?.voteRematch(state.seat);
+            const seat = mySeat();
+            if (seat !== null) currentRoom()?.voteRematch(seat);
             break;
           }
 
           case 'room.leave': {
-            if (state.seat !== null) currentRoom()?.leave(state.seat);
+            const seat = mySeat();
+            if (seat !== null) currentRoom()?.leave(seat);
             if (state.roomCode) socket.leave(`room:${state.roomCode}`);
             state.roomCode = null;
             state.seat = null;
@@ -186,31 +212,41 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
           }
 
           case 'game.pass': {
-            if (state.seat !== null) currentRoom()?.pass(state.seat, msg.cards);
+            const seat = mySeat();
+            if (seat !== null) currentRoom()?.pass(seat, msg.cards);
             break;
           }
 
           case 'game.play': {
-            if (state.seat !== null) currentRoom()?.play(state.seat, msg.card);
+            const seat = mySeat();
+            if (seat !== null) currentRoom()?.play(seat, msg.card);
             break;
           }
 
           case 'game.resync': {
-            if (state.seat !== null) currentRoom()?.resync(state.seat);
-            break;
-          }
-
-          case 'seat.reclaim': {
-            if (state.seat !== null) currentRoom()?.reclaimSeat(state.seat);
+            const room = currentRoom();
+            if (!room) break;
+            const seat = mySeat();
+            if (seat !== null) {
+              room.resync(seat);
+            } else {
+              // Observer resync: no seat to hand to Room.resync, so deliver the
+              // room snapshot plus (if a match is running) a public spectator
+              // snapshot directly to this socket instead of the seated path.
+              socket.emit('msg', room.roomStateMessage());
+              const pub = room.publicSnapshotMessage();
+              if (pub) socket.emit('msg', pub);
+            }
             break;
           }
 
           case 'emote': {
             const room = currentRoom();
-            if (room && state.seat !== null) {
+            const seat = mySeat();
+            if (room && seat !== null) {
               // Broadcast is intentionally out of band from ServerMessageSchema for MVP scope
               // (emotes are not persisted or validated beyond the client's own id list).
-              io.to(`room:${room.code}`).emit('msg', { type: 'emote', seat: state.seat, id: msg.id });
+              io.to(`room:${room.code}`).emit('msg', { type: 'emote', seat, id: msg.id });
             }
             break;
           }

@@ -87,6 +87,11 @@ export default function App() {
     return base;
   }, [online.roomState]);
 
+  // The unified sidelines list (SPEC.md 11): every bot-controlled seat is
+  // claimable by any human without one, whether they're a brand-new observer
+  // or an existing player whose own seat went idle and got flipped to a bot.
+  const claimableSeats: Seat[] = ([0, 1, 2, 3] as Seat[]).filter((s) => online.presence[s] === 'bot');
+
   const localNames: Record<Seat, string> = {
     0: settings.displayName || 'You',
     1: BOT_NAMES[1],
@@ -143,7 +148,6 @@ export default function App() {
           onReady={online.setReady}
           onStart={online.startGame}
           onConfigure={online.configure}
-          onClaimSeat={online.claimSeat}
           onLeave={() => {
             online.leaveRoom();
             setMode('local');
@@ -179,12 +183,15 @@ export default function App() {
           passesApplied={online.passesApplied}
           passProgress={online.passProgress}
           matchResult={online.matchResult}
-          rematchVotes={online.rematchVotes}
+          rematchVotes={online.mySeat !== null ? online.rematchVotes : undefined}
           presence={online.presence}
           turnDeadline={online.turnDeadline}
           emotes={online.emotes}
           onEmote={online.sendEmote}
-          onReclaimSeat={online.reclaimSeat}
+          onReclaimSeat={online.mySeat !== null ? () => online.claimSeat(online.mySeat!) : undefined}
+          spectator={online.mySeat === null}
+          claimableSeats={claimableSeats}
+          onClaimSeat={online.claimSeat}
           settings={settings}
           onCommitPass={online.pass}
           onPlayCard={online.play}

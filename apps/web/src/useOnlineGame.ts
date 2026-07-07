@@ -89,6 +89,11 @@ export function useOnlineGame() {
         case 'room.state': {
           roomStateRef.current = msg;
           setRoomState(msg);
+          setPresence(() => {
+            const next = { 0: 'connected', 1: 'connected', 2: 'connected', 3: 'connected' } as Record<Seat, PresenceStatus>;
+            for (const slot of msg.seats) next[slot.seat] = slot.isBot ? 'bot' : slot.connected ? 'connected' : 'reconnecting';
+            return next;
+          });
           if (mySeatRef.current === null && pendingJoinRef.current) {
             const { token, name } = pendingJoinRef.current;
             const slot = msg.seats.find((s) => s.occupied && !s.isBot && s.name === name);
@@ -105,6 +110,21 @@ export function useOnlineGame() {
         case 'game.snapshot': {
           setView(msg.view);
           setMySeat(msg.view.seat);
+          setPassesApplied(msg.view.phase !== 'passing');
+          setPassProgress(msg.view.youPassed ? [true, true, true, true] : [false, false, false, false]);
+          if (msg.view.phase === 'gameOver') {
+            setMatchResult((prev) => prev ?? { over: true });
+          }
+          break;
+        }
+        case 'game.publicSnapshot': {
+          // Only ever apply while unseated: a seat<->observer transition race
+          // must never let a blanked (hand: [], legal: null) view stomp a
+          // seated player's real hand, so this checks the ref (not state,
+          // which could be a render behind) rather than trusting the server's
+          // own observer-only targeting alone.
+          if (mySeatRef.current !== null) break;
+          setView(msg.view);
           setPassesApplied(msg.view.phase !== 'passing');
           setPassProgress(msg.view.youPassed ? [true, true, true, true] : [false, false, false, false]);
           if (msg.view.phase === 'gameOver') {
@@ -178,6 +198,20 @@ export function useOnlineGame() {
         }
         case 'presence': {
           setPresence((prev) => ({ ...prev, [msg.seat]: msg.status }));
+          // Room.flipToBot (AFK strikes) only ever announces itself through this
+          // event, never a fresh room.state — so this is the one place a
+          // displaced player's own client learns it lost its seat. Without
+          // clearing mySeat here, a player who goes AFK stays stuck rendering a
+          // frozen "seated" board it no longer controls, with the
+          // game.publicSnapshot handler's mySeatRef guard permanently blocking
+          // it from ever reaching the sidelines claim UI.
+          if (msg.seat === mySeatRef.current && msg.status === 'bot') {
+            setMySeat(null);
+            // sendPublicSnapshot only fires at round boundaries (see room.ts),
+            // so without this the view stays stale (our last private hand)
+            // until the round ends; resync pulls the current public snapshot now.
+            socket.send({ type: 'game.resync' });
+          }
           break;
         }
         case 'game.rematchVotes': {
@@ -325,9 +359,6 @@ export function useOnlineGame() {
   const sendEmote = useCallback((id: string) => {
     socketRef.current!.send({ type: 'emote', id });
   }, []);
-  const reclaimSeat = useCallback(() => {
-    socketRef.current!.send({ type: 'seat.reclaim' });
-  }, []);
 
   return {
     status,
@@ -357,6 +388,5 @@ export function useOnlineGame() {
     play,
     rematch,
     sendEmote,
-    reclaimSeat,
   };
 }

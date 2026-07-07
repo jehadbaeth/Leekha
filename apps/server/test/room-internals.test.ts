@@ -61,20 +61,13 @@ describe('Room.voteRematch', () => {
   });
 });
 
-describe('Room.reclaimSeat', () => {
-  it('does nothing for a seat that never went AFK (never became a bot)', () => {
-    const { room } = makeRoom();
-    seatSoloHumanWithBots(room);
-    room.reclaimSeat(0);
-    expect(room.seats[0].isBot).toBe(false);
-  });
-
-  it('lets a still-connected human take back a seat flipped to bot by AFK strikes', () => {
+describe('Room.sit — self-reclaim (unifies the old seat.reclaim into room.sit)', () => {
+  it('lets a still-connected human take back their own seat flipped to bot by AFK strikes', () => {
     const { room } = makeRoom();
     seatSoloHumanWithBots(room);
     (room as unknown as { flipToBot(seat: number): void }).flipToBot(0);
     expect(room.seats[0].isBot).toBe(true);
-    room.reclaimSeat(0);
+    room.sit(0, 'Alice', 'sock-0');
     expect(room.seats[0].isBot).toBe(false);
   });
 });

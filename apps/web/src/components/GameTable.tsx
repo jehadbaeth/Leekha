@@ -52,6 +52,9 @@ export function GameTable({
   onEmote,
   onReclaimSeat,
   rematchVotes,
+  spectator,
+  claimableSeats,
+  onClaimSeat,
   settings,
   onCommitPass,
   onPlayCard,
@@ -75,6 +78,11 @@ export function GameTable({
   onReclaimSeat?: () => void;
   /** Online only: who has voted to play again once the match ends, and who still needs to (bots are never counted). Absent for local play, where a rematch is a single unilateral click. */
   rematchVotes?: { seatsVoted: Seat[]; seatsNeeded: Seat[] } | null;
+  /** Online only: this socket holds no seat (SPEC.md 11) — view.seat is a fixed, fictitious 0 with hand/legal always blanked, so the hand tray, passing panel, and rematch vote UI must all stay out of the way. */
+  spectator?: boolean;
+  /** Online only: bot-controlled seats a human with no seat can claim, shown as the sidelines list (SPEC.md 11). */
+  claimableSeats?: Seat[];
+  onClaimSeat?: (seat: Seat) => void;
   settings: Settings;
   onCommitPass: (cards: [Card, Card, Card]) => void;
   onPlayCard: (card: Card) => void;
@@ -486,9 +494,11 @@ export function GameTable({
       {/* HUD strip */}
       <div className="flex items-center justify-center gap-3 text-[11px] text-emerald-200 bg-emerald-950/60 py-1.5 px-2">
         <span
-          className={`font-semibold px-1.5 rounded ${dangerFor(mySeat) ? 'bg-red-600 text-white' : 'text-amber-200'}`}
+          className={`font-semibold px-1.5 rounded ${spectator ? 'text-amber-200' : dangerFor(mySeat) ? 'bg-red-600 text-white' : 'text-amber-200'}`}
         >
-          {t(`You: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`, `أنت: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`)}
+          {spectator
+            ? t('👁 Watching', '👁 مشاهدة')
+            : t(`You: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`, `أنت: ${view.eatenPoints[mySeat]} / ${view.scores[mySeat]}`)}
         </span>
         <span>&middot;</span>
         <span>{t(`Trick ${view.trickNumber}/13`, `اللفة ${view.trickNumber}/13`)}</span>
@@ -557,8 +567,50 @@ export function GameTable({
         </div>
       )}
 
+      {/* Spectator's own seat: everyone else gets an Avatar around the trick
+          area, but "you" normally have none there (the hand tray stands in
+          for it) — an observer has no hand, so without this their own
+          synthetic seat 0 would be the only player invisible on screen. */}
+      {spectator && (
+        <div className="flex justify-center pb-1">
+          <Avatar
+            name={names[mySeat]}
+            score={view.scores[mySeat]}
+            roundScore={view.eatenPoints[mySeat]}
+            isTurn={turn === mySeat}
+            isDealer={dealer === mySeat}
+            danger={dangerFor(mySeat)}
+            team={teamOf(mySeat)}
+            presence={presence?.[mySeat]}
+            deadline={deadlineFor(mySeat)}
+          />
+        </div>
+      )}
+
+      {/* Sidelines: every bot-controlled seat a seatless human can claim, per
+          SPEC.md 11's unified list (new joiners and idled-out players alike). */}
+      {spectator && claimableSeats && claimableSeats.length > 0 && onClaimSeat && (
+        <div className="px-2 pb-3 pt-1">
+          <div className="text-[10px] text-emerald-300 mb-1 text-center">
+            {t('Bot-controlled seats you can take:', 'مقاعد يتحكم بها الروبوت يمكنك أخذها:')}
+          </div>
+          <div className="flex gap-2 justify-center flex-wrap">
+            {claimableSeats.map((s) => (
+              <button
+                key={s}
+                className="flex items-center gap-1.5 bg-amber-400 text-emerald-950 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                onClick={() => onClaimSeat(s)}
+              >
+                🤖 {names[s]}
+                <span className="underline">{t('Take seat', 'خذ المقعد')}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Hand */}
-      {view.phase !== 'passing' && (
+      {!spectator && view.phase !== 'passing' && (
         <div className="pb-3 pt-1 px-1">
           <div className="flex justify-center overflow-x-auto px-4">
             {sortHand(view.hand).map((card, i) => {
@@ -601,7 +653,7 @@ export function GameTable({
       )}
 
       {/* Passing overlay */}
-      {view.phase === 'passing' && (
+      {!spectator && view.phase === 'passing' && (
         <PassingPanel
           hand={view.hand}
           recipientName={passRecipient}
@@ -641,6 +693,7 @@ export function GameTable({
           language={settings.language}
           mySeat={mySeat}
           rematchVotes={rematchVotes}
+          hideRematch={spectator}
           onRematch={onRematch}
           onHome={onHome}
         />

@@ -40,7 +40,10 @@ function emptySeat(seat: Seat): SeatSlot {
   };
 }
 
-export type Emit = (seat: Seat | null, msg: ServerMessage) => void;
+// 'observers' targets every connected socket in the room that isn't currently
+// seated (see RoomManager.makeEmit's io.except(seatedSocketIds) implementation).
+export type EmitTarget = Seat | null | 'observers';
+export type Emit = (target: EmitTarget, msg: ServerMessage) => void;
 
 export class Room {
   code: string;
@@ -283,6 +286,7 @@ export class Room {
       });
     }
     this.sendAllSnapshots();
+    this.sendPublicSnapshot();
     this.armPassTimer();
     this.emit(null, {
       type: 'game.passPrompt',
@@ -306,6 +310,29 @@ export class Room {
       roomCode: this.code,
       view: viewFor(this.match, seat),
     });
+  }
+
+  /**
+   * A spectator-safe SeatView built for a fixed, fictitious seat 0: the public
+   * fields (phase/dealer/currentTrick/scores/etc.) are computed independent of
+   * which seat viewFor is called with, only hand/legal/youPassed/youReceived
+   * are seat-specific, and those are blanked here so no hidden state crosses
+   * the wire to a socket that owns no seat.
+   */
+  publicSnapshotMessage(): Extract<ServerMessage, { type: 'game.publicSnapshot' }> | null {
+    if (!this.match) return null;
+    const view = viewFor(this.match, 0);
+    return {
+      type: 'game.publicSnapshot',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      view: { ...view, hand: [], legal: null, youPassed: null, youReceived: null },
+    };
+  }
+
+  private sendPublicSnapshot(): void {
+    const msg = this.publicSnapshotMessage();
+    if (msg) this.emit('observers', msg);
   }
 
   private clearPassTimer(): void {
@@ -417,6 +444,7 @@ export class Room {
         });
       }
       this.sendAllSnapshots();
+      this.sendPublicSnapshot();
       this.beginTurn();
     } else {
       this.scheduleBotPasses();
@@ -525,6 +553,7 @@ export class Room {
           totals: ev.totals,
         });
         this.sendAllSnapshots();
+        this.sendPublicSnapshot();
         if (this.roundAdvanceTimer) clearTimeout(this.roundAdvanceTimer);
         this.roundAdvanceTimer = setTimeout(() => this.beginRound(), ROUND_ADVANCE_DELAY_MS);
       } else if (ev.type === 'gameOver') {
@@ -537,6 +566,7 @@ export class Room {
           totals: ev.totals,
         });
         this.sendAllSnapshots();
+        this.sendPublicSnapshot();
         this.rematchVotes.clear();
         this.broadcastRematchVotes();
       }
@@ -571,15 +601,6 @@ export class Room {
     }
     this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'connected' });
     if (this.phase === 'lobby') this.broadcastRoomState();
-  }
-
-  /** A still-connected player taking back a seat that AFK strikes flipped to bot control, without disconnecting first. */
-  reclaimSeat(seat: Seat): void {
-    const slot = this.seats[seat];
-    if (!slot.isBot || !slot.token) return; // not bot-controlled, or an intentional lobby bot with no owner to reclaim it
-    slot.isBot = false;
-    slot.afkStrikes = 0;
-    this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'connected' });
   }
 
   seatForToken(token: string): Seat | null {

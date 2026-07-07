@@ -2,7 +2,7 @@ import type { Server } from 'socket.io';
 import { defaultConfig } from '@leekha/engine';
 import type { RulesConfig, Seat } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
-import { Room, type Emit } from './room.js';
+import { Room, type Emit, type EmitTarget } from './room.js';
 import type { Persistence } from './persistence.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -25,12 +25,17 @@ export class RoomManager {
   ) {}
 
   private makeEmit(room: Room): Emit {
-    return (seat, msg) => {
-      if (seat === null) {
+    return (target: EmitTarget, msg) => {
+      if (target === null) {
         this.io.to(`room:${room.code}`).emit('msg', msg);
         return;
       }
-      const socketId = room.seats[seat].socketId;
+      if (target === 'observers') {
+        const seatedSocketIds = room.seats.map((s) => s.socketId).filter((id): id is string => id !== null);
+        this.io.to(`room:${room.code}`).except(seatedSocketIds).emit('msg', msg);
+        return;
+      }
+      const socketId = room.seats[target].socketId;
       if (socketId) this.io.to(socketId).emit('msg', msg);
     };
   }
@@ -105,4 +110,4 @@ export class RoomManager {
   }
 }
 
-export type { Room, Emit, ServerMessage };
+export type { Room, Emit, EmitTarget, ServerMessage };

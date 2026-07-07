@@ -146,11 +146,53 @@ describe('apps/server end to end', () => {
     expect(presence.roomCode).toBe(roomCode);
 
     // Bug report: "take back control does nothing even if you never left the match."
-    // Seat 0's socket never disconnected, so this exercises seat.reclaim's still-connected path.
+    // Seat 0's socket never disconnected, so this exercises room.sit's self-reclaim path
+    // (the old dedicated seat.reclaim message was unified into room.sit — SPEC.md 11).
     const reclaimedPromise = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'connected', 5000);
-    fire(host, { type: 'seat.reclaim' });
+    fire(host, { type: 'room.sit', seat: 0 });
     const reclaimed = await reclaimedPromise;
     expect(reclaimed.roomCode).toBe(roomCode);
+  }, 30_000);
+
+  it('treats an idle-flipped seat as no longer the still-connected socket\'s own, even without a takeover', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const SHORT_TIMER_CONFIG = { ...FAST_CONFIG, timers: { passMs: 300, playMs: 300 } };
+    const createAck = await send(host, { type: 'room.create', config: SHORT_TIMER_CONFIG });
+    const roomCode = createAck.code as string;
+
+    fire(host, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(host, { type: 'room.ready', ready: true });
+
+    // Seat 0's socket (host) never disconnects here — it just never answers a
+    // passPrompt or game.turn, so two AFK strikes flip it to bot control while
+    // still fully connected. Bug: mySeat() used to only check socketId
+    // ownership, so this same still-open connection could keep acting on a
+    // seat a bot is now supposed to be covering.
+    const botTakeover = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'bot', 25_000);
+    fire(host, { type: 'room.start' });
+    await botTakeover;
+
+    const room = app.manager.get(roomCode)!;
+    expect(room.seats[0].isBot).toBe(true);
+    expect(room.seats[0].socketId).toBe(host.id);
+
+    const resyncReply = waitFor(
+      host,
+      (m) => m.type === 'game.snapshot' || m.type === 'game.publicSnapshot',
+      5000,
+    );
+    fire(host, { type: 'game.resync' });
+    const reply = await resyncReply;
+    // A still-seated resync (game.snapshot) would mean the AFK-flipped socket
+    // is still treated as owning the seat; it must instead be routed down the
+    // observer path with hand/legal blanked, same as any other spectator.
+    expect(reply.type).toBe('game.publicSnapshot');
+    expect((reply as { view: { hand: unknown[] } }).view.hand).toEqual([]);
   }, 30_000);
 
   it('restarts the match when a solo human votes rematch after game over', async () => {
@@ -242,7 +284,7 @@ describe('apps/server end to end', () => {
     expect(room.seats[1].name).toBe('Bob');
   });
 
-  it('keeps a solo human\'s room alive after an AFK bot-flip so seat.reclaim still works later', async () => {
+  it('keeps a solo human\'s room alive after an AFK bot-flip so self-reclaim via room.sit still works later', async () => {
     const host = connect(port);
     sockets.push(host);
     await new Promise<void>((r) => host.on('connect', r));
@@ -270,8 +312,53 @@ describe('apps/server end to end', () => {
     expect(app.manager.get(roomCode)).toBe(room);
 
     const reclaimedPromise = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'connected', 5000);
-    fire(host, { type: 'seat.reclaim' });
+    fire(host, { type: 'room.sit', seat: 0 });
     const reclaimed = await reclaimedPromise;
     expect(reclaimed.roomCode).toBe(roomCode);
   }, 30_000);
+
+  it('rejects a stale connection from acting on a seat someone else has legitimately taken over', async () => {
+    const a1 = connect(port);
+    sockets.push(a1);
+    await new Promise<void>((r) => a1.on('connect', r));
+    fire(a1, { type: 'auth', name: 'Alice' });
+    const createAck = await send(a1, { type: 'room.create', config: FAST_CONFIG });
+    const seatToken = createAck.seatToken as string;
+    const roomCode = createAck.code as string;
+
+    fire(a1, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(a1, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(a1, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(a1, { type: 'room.ready', ready: true });
+    fire(a1, { type: 'room.start' });
+
+    const dealt = await waitFor(a1, (m) => m.type === 'game.dealt', 5000);
+    const hand = dealt.hand as { suit: string; rank: number }[];
+    fire(a1, { type: 'game.pass', cards: [hand[0], hand[1], hand[2]] });
+
+    // Captured while a1 is still legitimately seat 0's owner — deliberately
+    // before a2 ever connects, so this is unambiguously a real, once-valid turn.
+    const turn = await waitFor(a1, (m) => m.type === 'game.turn' && m.seat === 0 && m.legal, 10_000);
+
+    // a1 never disconnects — a second connection re-authenticates with the same
+    // seatToken (the same scenario as a killed-and-reopened tab, see
+    // apps/server/src/room.ts's bindSocket), which repoints seats[0].socketId
+    // to a2 without a1's own socket ever hearing about it. Nobody has played
+    // yet this trick, so it is still genuinely seat 0's turn when a1 tries.
+    const a2 = connect(port);
+    sockets.push(a2);
+    await new Promise<void>((r) => a2.on('connect', r));
+    fire(a2, { type: 'auth', name: 'Alice', seatToken });
+    await new Promise((r) => setTimeout(r, 100));
+
+    const room = app.manager.get(roomCode)!;
+    const playsBefore = room.match!.round.currentTrick.plays.length;
+    const noPlayedEvent = waitFor(a1, (m) => m.type === 'game.played' && m.seat === 0, 1500).then(
+      () => 'played',
+      () => 'silently-ignored',
+    );
+    fire(a1, { type: 'game.play', card: turn.legal[0] });
+    expect(await noPlayedEvent).toBe('silently-ignored');
+    expect(room.match!.round.currentTrick.plays.length).toBe(playsBefore);
+  }, 20_000);
 });

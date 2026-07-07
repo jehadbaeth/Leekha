@@ -52,6 +52,7 @@ export function MatchEnd({
   language,
   mySeat,
   rematchVotes,
+  hideRematch,
   onRematch,
   onHome,
 }: {
@@ -63,6 +64,8 @@ export function MatchEnd({
   mySeat: Seat;
   /** Online only: vote progress toward a rematch (see GameTable.tsx). Absent for local play, where a rematch is a single unilateral click. */
   rematchVotes?: { seatsVoted: Seat[]; seatsNeeded: Seat[] } | null;
+  /** Observers hold no seat to vote from (their mySeat here is a fixed synthetic 0), so the rematch button would be meaningless. */
+  hideRematch?: boolean;
   onRematch: () => void;
   onHome: () => void;
 }) {
@@ -103,17 +106,19 @@ export function MatchEnd({
           </div>
 
           <div className="flex gap-3 justify-center mt-2">
-            <button
-              className="rounded-lg bg-amber-400 disabled:opacity-60 text-emerald-950 font-semibold px-4 py-2"
-              onClick={onRematch}
-              disabled={iVoted}
-            >
-              {isOnline
-                ? iVoted
-                  ? t(`Waiting for others… (${voteCount})`, `بانتظار الآخرين… (${voteCount})`)
-                  : t(`Play again (${voteCount})`, `العب مرة أخرى (${voteCount})`)
-                : t('Rematch', 'إعادة المباراة')}
-            </button>
+            {!hideRematch && (
+              <button
+                className="rounded-lg bg-amber-400 disabled:opacity-60 text-emerald-950 font-semibold px-4 py-2"
+                onClick={onRematch}
+                disabled={iVoted}
+              >
+                {isOnline
+                  ? iVoted
+                    ? t(`Waiting for others… (${voteCount})`, `بانتظار الآخرين… (${voteCount})`)
+                    : t(`Play again (${voteCount})`, `العب مرة أخرى (${voteCount})`)
+                  : t('Rematch', 'إعادة المباراة')}
+              </button>
+            )}
             <button className="rounded-lg bg-emerald-800 text-white px-4 py-2" onClick={onHome}>
               {t('Back to Home', 'العودة للرئيسية')}
             </button>

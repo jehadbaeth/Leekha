@@ -61,7 +61,6 @@ export const GamePassMsg = z.object({ type: z.literal('game.pass'), cards: z.tup
 export const GamePlayMsg = z.object({ type: z.literal('game.play'), card: CardSchema });
 export const GameResyncMsg = z.object({ type: z.literal('game.resync') });
 export const EmoteMsg = z.object({ type: z.literal('emote'), id: z.string() });
-export const SeatReclaimMsg = z.object({ type: z.literal('seat.reclaim') });
 export const RoomRematchMsg = z.object({ type: z.literal('room.rematch') });
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
@@ -79,7 +78,6 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   GamePlayMsg,
   GameResyncMsg,
   EmoteMsg,
-  SeatReclaimMsg,
   RoomRematchMsg,
 ]);
 
@@ -110,6 +108,10 @@ export const RoomStateMsg = z.object({
 });
 
 export const GameSnapshotMsg = z.object({ type: z.literal('game.snapshot'), seq: z.number().int().nonnegative(), roomCode: z.string(), view: SeatViewSchema });
+// Same shape as game.snapshot but for sockets with no seat (observers): view.hand/legal/
+// youPassed/youReceived are always blanked server-side (see Room.publicSnapshotMessage),
+// since hidden state must never cross the wire to a socket that isn't that seat's owner.
+export const GamePublicSnapshotMsg = z.object({ type: z.literal('game.publicSnapshot'), seq: z.number().int().nonnegative(), roomCode: z.string(), view: SeatViewSchema });
 export const GameDealtMsg = z.object({ type: z.literal('game.dealt'), seq: z.number().int().nonnegative(), roomCode: z.string(), hand: z.array(CardSchema), dealer: SeatSchema, roundIndex: z.number().int() });
 export const GamePassPromptMsg = z.object({ type: z.literal('game.passPrompt'), seq: z.number().int().nonnegative(), roomCode: z.string(), deadline: z.number().int().nullable() });
 export const GamePassProgressMsg = z.object({ type: z.literal('game.passProgress'), seq: z.number().int().nonnegative(), roomCode: z.string(), seatsCommitted: z.array(SeatSchema) });
@@ -133,6 +135,7 @@ export const GameRematchVotesMsg = z.object({
 export const ServerMessageSchema = z.discriminatedUnion('type', [
   RoomStateMsg,
   GameSnapshotMsg,
+  GamePublicSnapshotMsg,
   GameDealtMsg,
   GamePassPromptMsg,
   GamePassProgressMsg,
