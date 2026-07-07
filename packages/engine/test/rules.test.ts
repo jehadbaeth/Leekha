@@ -201,15 +201,31 @@ describe('undercut rule', () => {
     expect(legal.length).toBe(2);
   });
 
-  it('with two leekha cards on the trick the highest sets the ceiling', () => {
+  it('by default (winningCard) the ceiling is the led suit\'s highest card, not the highest cross-suit leekha', () => {
+    // Reported scenario: right opponent opens 8♣, partner plays 4♣, left
+    // opponent is void and dumps 10♦ (a leekha, but off suit). The follower
+    // holds 9♣/3♣/2♣: since 9♣ outranks the 8♣ already on the trick, it must
+    // duck under 8, not just under the cross-suit 10♦.
+    const hand = [c('C', 9), c('C', 3), c('C', 2)];
+    const t = trick(0, [
+      { seat: 0, card: c('C', 8) },
+      { seat: 1, card: c('C', 4) },
+      { seat: 2, card: c('D', 10) },
+    ]);
+    const legal = legalPlaysFor(hand, t, cfg());
+    expect(legal.sort((a, b) => a.rank - b.rank)).toEqual([c('C', 2), c('C', 3)]);
+  });
+
+  it('with the leekhaRank variant, two leekha cards on the trick use the highest as the ceiling', () => {
     // Jack of clubs (11) sits between the two leekha ranks (10 and 13): it only
     // ducks under the trick if the ceiling is the higher leekha (K♣=13), not the lower (10♦=10).
+    // This is specific to the leekhaRank variant, not the winningCard default.
     const hand = [c('C', 11), c('C', 2)]; // led clubs, following suit
     const t = trick(0, [
       { seat: 0, card: c('C', 13) }, // K♣, highest leekha on trick
       { seat: 1, card: c('D', 10) }, // off suit dump, the lower leekha
     ]);
-    const legal = legalPlaysFor(hand, t, cfg());
+    const legal = legalPlaysFor(hand, t, cfg({ undercutRule: 'leekhaRank' }));
     expect(legal.sort((a, b) => a.rank - b.rank)).toEqual([c('C', 2), c('C', 11)]);
   });
 });

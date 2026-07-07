@@ -16,7 +16,7 @@ export const teamOf = (s: Seat): 0 | 1 => (s % 2 === 0 ? 0 : 1);
 export interface RulesConfig {
   targetScore: number; // 201
   forcedLeekhaDiscard: boolean; // true
-  undercutRule: 'leekhaRank' | 'winningCard' | 'off'; // Idlib default 'leekhaRank'
+  undercutRule: 'leekhaRank' | 'winningCard' | 'off'; // Idlib default 'winningCard'
   undercutBindsDiscards: boolean; // false, see Section 3 item 12
   dealerSelection: 'biggestEater' | 'rotateRight'; // Idlib default 'biggestEater'
   leadRestrictions: 'none'; // reserved for variants
@@ -30,7 +30,7 @@ export interface RulesConfig {
 export const defaultConfig: RulesConfig = {
   targetScore: 201,
   forcedLeekhaDiscard: true,
-  undercutRule: 'leekhaRank',
+  undercutRule: 'winningCard',
   undercutBindsDiscards: false,
   dealerSelection: 'biggestEater',
   leadRestrictions: 'none',
