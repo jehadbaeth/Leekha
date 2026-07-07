@@ -4,7 +4,8 @@ This is the human-readable rules reference. It describes what the shipped
 engine actually enforces (`packages/engine`), not just the design intent.
 The full research, rationale, and open-question log live in
 [`SPEC.md`](../SPEC.md) Sections 1 to 5 if you want the "why" behind any of
-these choices.
+these choices. A Levantine Arabic version of this same document is available
+at [`GAME_RULES.ar.md`](./GAME_RULES.ar.md).
 
 ## What kind of game this is
 

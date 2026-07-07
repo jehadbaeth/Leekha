@@ -8,7 +8,7 @@ live in [`CLAUDE.md`](./CLAUDE.md).
 Deeper documentation for reviewers:
 
 - [`docs/GAME_RULES.md`](./docs/GAME_RULES.md) — the rules as actually
-  enforced by the engine, in plain language.
+  enforced by the engine, in plain language ([Levantine Arabic version](./docs/GAME_RULES.ar.md)).
 - [`docs/SYSTEM_DESIGN.md`](./docs/SYSTEM_DESIGN.md) — architecture, data
   model, protocol, security model, testing strategy, and a section on
   known gaps stated honestly rather than glossed over.
