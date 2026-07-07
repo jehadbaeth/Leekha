@@ -97,9 +97,43 @@ export function GameTable({
   const autoPlayedTrick = useRef<string | null>(null);
   const [visibleEmotes, setVisibleEmotes] = useState<Partial<Record<Seat, string>>>({});
   const [showEmotePicker, setShowEmotePicker] = useState(false);
+  const [pendingPlay, setPendingPlay] = useState(false);
+  const pendingPlayRef = useRef(false);
+  const pendingPlayTimer = useRef<number | null>(null);
 
   const turn = view.phase === 'playing' ? turnSeatOf(view.currentTrick) : null;
-  const isMyTurn = turn === mySeat && !!view.legal;
+  const isMyTurn = turn === mySeat && !!view.legal && !pendingPlay;
+
+  // Once a play is sent, block further plays until the turn actually moves on
+  // (locally that's near-instant; online it waits out the round trip to the
+  // server). Without this, a second tap/drag during that window — or a second
+  // finger dragging a different card at the same time, whose gesture handler
+  // captured isMyTurn/legal from before the first play landed — could queue
+  // up a second play attempt before the UI has any sign the first one landed.
+  // pendingPlayRef is checked and set synchronously so two calls arriving in
+  // the same tick can't both slip through; the state copy just drives render.
+  // A short timeout is a safety net in case the play is silently rejected and
+  // the turn never moves, so the hand doesn't lock up for good.
+  function submitPlay(card: Card) {
+    if (pendingPlayRef.current) return;
+    pendingPlayRef.current = true;
+    setPendingPlay(true);
+    if (pendingPlayTimer.current) window.clearTimeout(pendingPlayTimer.current);
+    pendingPlayTimer.current = window.setTimeout(() => {
+      pendingPlayRef.current = false;
+      setPendingPlay(false);
+    }, 2000);
+    onPlayCard(card);
+  }
+
+  useEffect(() => {
+    pendingPlayRef.current = false;
+    setPendingPlay(false);
+    if (pendingPlayTimer.current) {
+      window.clearTimeout(pendingPlayTimer.current);
+      pendingPlayTimer.current = null;
+    }
+  }, [turn]);
 
   // Show each incoming emote above its seat for ~2.5s (SPEC.md 7.5.11).
   useEffect(() => {
@@ -191,8 +225,8 @@ export function GameTable({
     const key = `${view.roundIndex}-${view.trickNumber}-${view.currentTrick.plays.length}`;
     if (autoPlayedTrick.current === key) return;
     autoPlayedTrick.current = key;
-    onPlayCard(view.legal[0]);
-  }, [settings.autoPlaySingleLegal, isMyTurn, view, onPlayCard]);
+    submitPlay(view.legal[0]);
+  }, [settings.autoPlaySingleLegal, isMyTurn, view]);
 
   function tapCard(card: Card) {
     if (view.phase !== 'playing' || !isMyTurn || !view.legal) return;
@@ -203,12 +237,12 @@ export function GameTable({
       return;
     }
     if (!settings.confirmBeforePlay) {
-      onPlayCard(card);
+      submitPlay(card);
       setRaised(null);
       return;
     }
     if (raised && cardKey(raised) === cardKey(card)) {
-      onPlayCard(card);
+      submitPlay(card);
       setRaised(null);
     } else {
       setRaised(card);
@@ -241,10 +275,10 @@ export function GameTable({
       window.removeEventListener('pointerup', onUp);
       const dy = startY - ev.clientY;
       el.style.transition = 'transform 150ms ease, opacity 150ms ease';
-      if (dragging && dy > DRAG_THROW_THRESHOLD && legal) {
+      if (dragging && dy > DRAG_THROW_THRESHOLD && legal && isMyTurn) {
         el.style.transform = 'translateY(-160px) scale(0.85)';
         el.style.opacity = '0';
-        onPlayCard(card);
+        submitPlay(card);
         setRaised(null);
       } else {
         el.style.transform = '';
@@ -462,7 +496,7 @@ export function GameTable({
               <button
                 className="rounded-lg bg-amber-400 text-emerald-950 font-semibold px-5 py-1.5 text-sm"
                 onClick={() => {
-                  onPlayCard(raised);
+                  submitPlay(raised);
                   setRaised(null);
                 }}
               >
