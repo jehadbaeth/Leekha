@@ -468,8 +468,8 @@ export function GameTable({
       {/* Hand */}
       {view.phase !== 'passing' && (
         <div className="pb-3 pt-1 px-1">
-          <div className="flex justify-center flex-wrap gap-1">
-            {sortHand(view.hand).map((card) => {
+          <div className="flex justify-center overflow-x-auto px-4">
+            {sortHand(view.hand).map((card, i) => {
               const legal =
                 view.phase !== 'playing' || !isMyTurn || !view.legal
                   ? true
@@ -482,11 +482,12 @@ export function GameTable({
                   key={cardKey(card)}
                   disabled={view.phase !== 'playing' || !isMyTurn}
                   onPointerDown={(e) => onCardPointerDown(e, card, legal)}
-                  className={`touch-none transition-transform ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
+                  style={{ marginLeft: i === 0 ? 0 : -28, zIndex: isRaised ? 50 : i }}
+                  className={`relative touch-none transition-transform flex-shrink-0 ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
                     justReceived ? 'ring-2 ring-amber-300 rounded-md -translate-y-2' : ''
                   } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
                 >
-                  <CardFace card={card} fourColor={settings.fourColorDeck} />
+                  <CardFace card={card} size="lg" fourColor={settings.fourColorDeck} />
                 </button>
               );
             })}

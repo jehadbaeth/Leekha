@@ -52,7 +52,7 @@ export function PassingPanel({
                     onClick={() => toggle(card)}
                     className={`transition-transform ${isSel ? '-translate-y-3' : ''}`}
                   >
-                    <CardFace card={card} size="sm" fourColor={fourColor} />
+                    <CardFace card={card} size="md" fourColor={fourColor} />
                   </button>
                 );
               })}
