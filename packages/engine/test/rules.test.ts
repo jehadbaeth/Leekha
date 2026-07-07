@@ -65,11 +65,11 @@ describe('forced dump', () => {
     expect(legal.length).toBe(3);
   });
 
-  it('Q♠ is a legal follow to a spade lead', () => {
+  it('Q♠ is forced (talyeekh) when following a spade lead, even with other spades in hand', () => {
     const hand = [c('S', 12), c('S', 3)];
     const t = trick(0, [{ seat: 0, card: c('S', 5) }]);
     const legal = legalPlaysFor(hand, t, cfg());
-    expect(legal).toContainEqual(c('S', 12));
+    expect(legal).toEqual([c('S', 12)]);
   });
 });
 
@@ -95,6 +95,23 @@ describe('trick resolution', () => {
     const trickEnd = res.events.find((e) => e.type === 'trickEnd') as any;
     expect(trickEnd.winner).toBe(3);
     expect(trickEnd.points).toBe(14);
+  });
+
+  it('forced talyeekh follow is tagged forced, a free follow is not', () => {
+    const hands: any = [[c('S', 5)], [c('S', 12), c('S', 3)], [c('S', 9)], [c('S', 2)]];
+    let m = matchWithHands(hands, cfg(), 3);
+    const events: any[] = [];
+    let res = playCard(m, 0, c('S', 5));
+    events.push(...res.events);
+    res = playCard(res.state, 1, c('S', 12)); // forced: Q♠ held alongside another spade
+    events.push(...res.events);
+    res = playCard(res.state, 2, c('S', 9)); // free follow: no leekha involved
+    events.push(...res.events);
+    res = playCard(res.state, 3, c('S', 2));
+    events.push(...res.events);
+    const played = events.filter((e) => e.type === 'played') as any[];
+    expect(played[1].forced).toBe(true);
+    expect(played[2].forced).toBe(false);
   });
 
   it('two players can be forced on the same trick', () => {

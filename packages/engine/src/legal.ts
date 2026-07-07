@@ -19,6 +19,11 @@ export function legalPlaysFor(hand: Card[], trick: TrickState, cfg: RulesConfig)
       base = hand;
       freeDiscard = true; // free discard
     }
+  } else if (cfg.forcedLeekhaDiscard) {
+    // Forced talyeekh: holding the led suit's own Leekha card forces it out
+    // immediately, even if other cards of that suit could follow instead.
+    const leekhaOfSuit = base.filter(isLeekha);
+    if (leekhaOfSuit.length > 0) base = leekhaOfSuit;
   }
   const leekhasOnTrick = trick.plays.map((p) => p.card).filter(isLeekha);
   const undercutApplies =
@@ -38,8 +43,13 @@ export function isForcedDump(hand: Card[], trick: TrickState, cfg: RulesConfig, 
   if (trick.plays.length === 0) return false;
   const led = trick.plays[0].card.suit;
   const followers = hand.filter((c) => c.suit === led);
-  if (followers.length > 0) return false; // could follow suit, not forced
-  if (played.suit === led) return false;
-  const leekha = hand.filter(isLeekha);
-  return cfg.forcedLeekhaDiscard && leekha.length > 0 && isLeekha(played);
+  if (followers.length === 0) {
+    // Void of the led suit: forced only if a Leekha card had to be dumped cross suit.
+    if (played.suit === led) return false;
+    const leekha = hand.filter(isLeekha);
+    return cfg.forcedLeekhaDiscard && leekha.length > 0 && isLeekha(played);
+  }
+  // Held the led suit: forced only if the suit's own Leekha card had to be
+  // surrendered ahead of other cards of that suit (forced talyeekh).
+  return cfg.forcedLeekhaDiscard && followers.length > 1 && played.suit === led && isLeekha(played);
 }

@@ -1,6 +1,6 @@
 import type { Card, TrickState, RulesConfig } from '@leekha/engine';
 import { isLeekha } from '@leekha/engine';
-import { SUIT_NAME, SUIT_NAME_AR } from './cardDisplay';
+import { SUIT_NAME, SUIT_NAME_AR, leekhaBadge } from './cardDisplay';
 import { pick, type Settings } from './settings';
 
 /**
@@ -20,27 +20,42 @@ export function illegalReason(
   const led = trick.plays[0].card.suit;
   const followers = hand.filter((c) => c.suit === led);
 
+  let base: Card[];
+  let freeDiscard = false;
+
   if (followers.length > 0) {
-    return t(`You must follow ${SUIT_NAME[led].toLowerCase()}`, `يجب أن تلحق بـ ${SUIT_NAME_AR[led]}`);
+    if (card.suit !== led) {
+      return t(`You must follow ${SUIT_NAME[led].toLowerCase()}`, `يجب أن تلحق بـ ${SUIT_NAME_AR[led]}`);
+    }
+    const leekhaOfSuit = followers.filter(isLeekha);
+    if (cfg.forcedLeekhaDiscard && leekhaOfSuit.length > 0) {
+      base = leekhaOfSuit;
+      if (!isLeekha(card)) {
+        const label = leekhaBadge(leekhaOfSuit[0]) ?? '';
+        return t(`Leekha rule: you must play ${label}`, `قاعدة الليخة: يجب أن تلعب ${label}`);
+      }
+    } else {
+      base = followers;
+    }
+  } else {
+    const leekha = hand.filter(isLeekha);
+    const mustDump = cfg.forcedLeekhaDiscard && leekha.length > 0;
+    base = mustDump ? leekha : hand;
+    freeDiscard = !mustDump;
+    if (mustDump && !isLeekha(card)) {
+      return t('Leekha rule: you must play 10♦, Q♠ or K♣', 'قاعدة الليخة: يجب أن تلعب 10♦ أو Q♠ أو K♣');
+    }
   }
 
-  const leekha = hand.filter(isLeekha);
-  const mustDump = cfg.forcedLeekhaDiscard && leekha.length > 0;
   const leekhasOnTrick = trick.plays.map((p) => p.card).filter(isLeekha);
-  const freeDiscard = !mustDump;
   const undercutApplies =
     cfg.undercutRule !== 'off' && leekhasOnTrick.length > 0 && (!freeDiscard || cfg.undercutBindsDiscards);
-
-  if (mustDump && !isLeekha(card)) {
-    return t('Leekha rule: you must play 10♦, Q♠ or K♣', 'قاعدة الليخة: يجب أن تلعب 10♦ أو Q♠ أو K♣');
-  }
 
   if (undercutApplies) {
     const ceiling =
       cfg.undercutRule === 'leekhaRank'
         ? Math.max(...leekhasOnTrick.map((c) => c.rank))
         : Math.max(...trick.plays.filter((p) => p.card.suit === led).map((p) => p.card.rank));
-    const base = mustDump ? leekha : hand;
     const under = base.filter((c) => c.rank < ceiling);
     if (under.length > 0 && card.rank >= ceiling) {
       const topLeekha = leekhasOnTrick.sort((a, b) => b.rank - a.rank)[0];
@@ -52,13 +67,12 @@ export function illegalReason(
   return t('That card is not legal right now', 'هذه الورقة غير مسموحة الآن');
 }
 
-/** True when a void player with no follow-suit cards is currently forced to dump a Leekha card. */
+/** True when the current player is forced to surrender a Leekha card right now, either by following suit with the led suit's own Leekha card or by dumping one while void. */
 export function isForcedDumpSituation(hand: Card[], trick: TrickState, cfg: RulesConfig): boolean {
   if (trick.plays.length === 0) return false;
   const led = trick.plays[0].card.suit;
   const followers = hand.filter((c) => c.suit === led);
-  if (followers.length > 0) return false;
-  const leekha = hand.filter(isLeekha);
+  const leekha = followers.length > 0 ? followers.filter(isLeekha) : hand.filter(isLeekha);
   return cfg.forcedLeekhaDiscard && leekha.length > 0;
 }
 
