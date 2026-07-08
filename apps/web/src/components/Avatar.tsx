@@ -14,6 +14,7 @@ export function Avatar({
   presence,
   deadline,
   emote,
+  emoteDirection = 'up',
 }: {
   name: string;
   score: number;
@@ -31,6 +32,9 @@ export function Avatar({
   deadline?: number | null;
   /** Section 7.5.11: the most recent emote this seat sent, briefly shown as a big animated sticker pop above the avatar. */
   emote?: { anim: string; caption: string; ts: number } | null;
+  /** 'down' for seats sitting close to the top of the viewport (e.g. the partner
+   * seat), where popping the sticker upward from '-top-20' pushes it off-screen. */
+  emoteDirection?: 'up' | 'down';
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -39,7 +43,7 @@ export function Avatar({
       {emote && (
         <div
           key={emote.ts}
-          className="absolute -top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
+          className={`absolute ${emoteDirection === 'down' ? 'top-full mt-1' : '-top-20'} left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop`}
           aria-hidden
         >
           <img src={emote.anim} alt="" className="w-16 h-16 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />

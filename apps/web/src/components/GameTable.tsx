@@ -404,6 +404,7 @@ export function GameTable({
           presence={presence?.[topSeat]}
           deadline={deadlineFor(topSeat)}
           emote={visibleEmotes[topSeat]}
+          emoteDirection="down"
         />
       </div>
 
