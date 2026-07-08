@@ -154,12 +154,21 @@ export function GameTable({
   }, [turn]);
 
   // Show each incoming emote as a big sticker pop above its seat for ~2.5s (SPEC.md 7.5.11).
+  // This effect re-runs whenever ANY seat's ts changes (it has to, since a single
+  // effect can't have a per-seat dependency list), so it must only act on seats
+  // whose ts is actually new since last processed — otherwise every still-truthy
+  // entry in `emotes` (which never resets to null once a seat has ever fired) gets
+  // replayed alongside the real new one: its sound replays, and if its own display
+  // window had already elapsed, its sticker pops again as a "ghost" of an emote
+  // that was sent long ago, whenever anyone else fires a fresh one.
+  const lastEmoteTsRef = useRef<Record<Seat, number>>({ 0: 0, 1: 0, 2: 0, 3: 0 });
   useEffect(() => {
     if (!emotes) return;
     const timers: number[] = [];
     for (const seat of [0, 1, 2, 3] as Seat[]) {
       const e = emotes[seat];
-      if (!e) continue;
+      if (!e || e.ts === lastEmoteTsRef.current[seat]) continue;
+      lastEmoteTsRef.current[seat] = e.ts;
       const def = EMOTE_BY_ID[e.id];
       if (!def) continue;
       setVisibleEmotes((prev) => ({ ...prev, [seat]: { anim: def.anim, caption: t(def.en, def.ar), ts: e.ts } }));
