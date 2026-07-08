@@ -473,6 +473,23 @@ export function GameTable({
         />
       </div>
 
+      {/* Passed memo chip: sits above the HUD strip, not below it, so it never
+          crowds the hand tray underneath and clips the tops of the fanned cards. */}
+      {myPassedMemo && (
+        <div className="px-2 pb-1">
+          <button
+            className="w-full text-left bg-emerald-900/70 rounded-lg px-3 py-1.5 text-xs text-emerald-100"
+            onClick={() => setShowMemo((v) => !v)}
+          >
+            {showMemo ? '▾' : '▸'}{' '}
+            {t(
+              `You passed to ${passRecipient}: ${myPassedMemo.map((c) => cardName(c)).join(', ')}`,
+              `مرّرت إلى ${passRecipient}: ${myPassedMemo.map((c) => cardName(c, 'ar')).join('، ')}`,
+            )}
+          </button>
+        </div>
+      )}
+
       {/* HUD strip */}
       <div className="flex items-center justify-center gap-3 text-[11px] text-emerald-200 bg-emerald-950/60 py-1.5 px-2">
         <span
@@ -496,18 +513,23 @@ export function GameTable({
             </button>
           </>
         )}
-        {onEmote && (
-          <>
-            <span>&middot;</span>
-            <button className="underline" onClick={() => setShowEmotePicker((v) => !v)}>
-              😊
-            </button>
-          </>
-        )}
       </div>
 
+      {/* Emote button: a standalone floating button in the top-right corner
+          rather than a small underline in the HUD strip, so it's easy to hit
+          on a phone and never wraps into the status text. */}
+      {onEmote && (
+        <button
+          className="absolute top-2 right-2 z-20 w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
+          onClick={() => setShowEmotePicker((v) => !v)}
+          aria-label={t('Emotes', 'الرموز التعبيرية')}
+        >
+          😊
+        </button>
+      )}
+
       {showEmotePicker && onEmote && (
-        <div className="absolute inset-x-0 top-10 z-20 flex justify-center">
+        <div className="absolute top-14 right-2 z-20">
           <div className="grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
             {EMOTES.map((e) => (
               <button
@@ -523,22 +545,6 @@ export function GameTable({
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Passed memo chip */}
-      {myPassedMemo && (
-        <div className="px-2 pb-1">
-          <button
-            className="w-full text-left bg-emerald-900/70 rounded-lg px-3 py-1.5 text-xs text-emerald-100"
-            onClick={() => setShowMemo((v) => !v)}
-          >
-            {showMemo ? '▾' : '▸'}{' '}
-            {t(
-              `You passed to ${passRecipient}: ${myPassedMemo.map((c) => cardName(c)).join(', ')}`,
-              `مرّرت إلى ${passRecipient}: ${myPassedMemo.map((c) => cardName(c, 'ar')).join('، ')}`,
-            )}
-          </button>
         </div>
       )}
 
