@@ -253,7 +253,11 @@ export function useOnlineGame() {
       const stored = loadSession();
       if (stored) {
         sessionRef.current = stored;
-        socket.send({ type: 'auth', name: '', seatToken: stored.seatToken });
+        // Reconnect rebinds purely on seatToken server-side (see server.ts's
+        // 'auth' handler); name is a required, non-empty field on the wire
+        // regardless, so send a placeholder rather than '' which would fail
+        // AuthMsg's min(1) validation and surface as a raw error on screen.
+        socket.send({ type: 'auth', name: 'Guest', seatToken: stored.seatToken });
         socket.send({ type: 'game.resync' });
       }
     });
