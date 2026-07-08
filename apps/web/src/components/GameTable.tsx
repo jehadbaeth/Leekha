@@ -641,12 +641,21 @@ export function GameTable({
               });
             return (
               <>
+                {/* Each row's box has to be taller than the cards it holds: the
+                    per-card rotate/lift transform (and the raised-card pop-up)
+                    render outside the cards' own layout box, and overflow-x-auto
+                    forces the browser to clip the y-axis too (CSS overflow spec:
+                    an axis left "visible" next to a non-visible one computes to
+                    "auto"), so a box sized to exactly fit the un-transformed
+                    card was cropping their rotated/lifted edges. items-center
+                    splits that extra height evenly above and below each row;
+                    the overlap margin below is retuned to match. */}
                 {backRow.length > 0 && (
-                  <div className="flex justify-center overflow-x-auto px-4 -mb-6 @[480px]:-mb-8">
+                  <div className="flex items-center justify-center overflow-x-auto px-4 min-h-[116px] @[480px]:min-h-[156px] -mb-[60px] @[480px]:-mb-[76px]">
                     {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
                   </div>
                 )}
-                <div className="flex justify-center overflow-x-auto px-4">
+                <div className="flex items-center justify-center overflow-x-auto px-4 min-h-[116px] @[480px]:min-h-[156px]">
                   {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
                 </div>
               </>
