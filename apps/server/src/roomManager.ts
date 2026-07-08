@@ -31,12 +31,24 @@ export class RoomManager {
         return;
       }
       if (target === 'observers') {
-        const seatedSocketIds = room.seats.map((s) => s.socketId).filter((id): id is string => id !== null);
+        // A seat AFK-flipped to bot control keeps its original occupant's stale
+        // socketId (see room.ts's flipToBot) - excluding it here would silently
+        // cut that connection off from every public snapshot, since it's really
+        // an observer now regardless of what socketId is still on file.
+        const seatedSocketIds = room.seats
+          .filter((s) => !s.isBot)
+          .map((s) => s.socketId)
+          .filter((id): id is string => id !== null);
         this.io.to(`room:${room.code}`).except(seatedSocketIds).emit('msg', msg);
         return;
       }
-      const socketId = room.seats[target].socketId;
-      if (socketId) this.io.to(socketId).emit('msg', msg);
+      const slot = room.seats[target];
+      // A bot-controlled seat's socketId is stale, not a live occupant - see the
+      // comment above. Delivering a seat-scoped message (game.snapshot, game.dealt,
+      // game.turn's legal cards, game.passReveal) there would hand a private,
+      // seated view straight back to whoever used to sit there, including their
+      // own resurrected mySeat on the client and the bot's actual hand.
+      if (slot.socketId && !slot.isBot) this.io.to(slot.socketId).emit('msg', msg);
     };
   }
 

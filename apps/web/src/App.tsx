@@ -188,7 +188,6 @@ export default function App() {
           turnDeadline={online.turnDeadline}
           emotes={online.emotes}
           onEmote={online.sendEmote}
-          onReclaimSeat={online.mySeat !== null ? () => online.claimSeat(online.mySeat!) : undefined}
           spectator={online.mySeat === null}
           claimableSeats={claimableSeats}
           onClaimSeat={online.claimSeat}

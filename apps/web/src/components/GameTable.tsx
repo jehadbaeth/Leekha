@@ -50,7 +50,6 @@ export function GameTable({
   turnDeadline,
   emotes,
   onEmote,
-  onReclaimSeat,
   rematchVotes,
   spectator,
   claimableSeats,
@@ -74,8 +73,6 @@ export function GameTable({
   /** Online only (SPEC.md 7.5.11): the most recent emote id per seat, keyed with a timestamp so repeats retrigger. */
   emotes?: Record<Seat, { id: string; ts: number } | null>;
   onEmote?: (id: string) => void;
-  /** Online only (SPEC.md section 12): lets a still-connected player take back a seat that AFK strikes flipped to bot control. */
-  onReclaimSeat?: () => void;
   /** Online only: who has voted to play again once the match ends, and who still needs to (bots are never counted). Absent for local play, where a rematch is a single unilateral click. */
   rematchVotes?: { seatsVoted: Seat[]; seatsNeeded: Seat[] } | null;
   /** Online only: this socket holds no seat (SPEC.md 11) — view.seat is a fixed, fictitious 0 with hand/legal always blanked, so the hand tray, passing panel, and rematch vote UI must all stay out of the way. */
@@ -475,21 +472,6 @@ export function GameTable({
           emote={visibleEmotes[rightSeat]}
         />
       </div>
-
-      {/* "You" have no avatar slot to attach a robot badge to (see the emote
-          pop above for the same structural gap), so a seat that AFK strikes
-          flipped to bot control gets its own reclaim banner here instead. */}
-      {presence?.[mySeat] === 'bot' && onReclaimSeat && (
-        <div className="px-2 pb-1">
-          <button
-            className="w-full flex items-center justify-between gap-2 bg-amber-400 text-emerald-950 rounded-lg px-3 py-2 text-xs font-semibold animate-pulse"
-            onClick={onReclaimSeat}
-          >
-            <span>🤖 {t('A bot is playing for you while you were away', 'روبوت يلعب مكانك لأنك كنت غائباً')}</span>
-            <span className="underline whitespace-nowrap">{t('Take back control', 'استعادة التحكم')}</span>
-          </button>
-        </div>
-      )}
 
       {/* HUD strip */}
       <div className="flex items-center justify-center gap-3 text-[11px] text-emerald-200 bg-emerald-950/60 py-1.5 px-2">

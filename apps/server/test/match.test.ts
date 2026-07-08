@@ -195,6 +195,50 @@ describe('apps/server end to end', () => {
     expect((reply as { view: { hand: unknown[] } }).view.hand).toEqual([]);
   }, 30_000);
 
+  it('never re-seats an AFK-flipped socket at the next round boundary, and keeps it on the public feed', async () => {
+    const host = connect(port);
+    sockets.push(host);
+    await new Promise<void>((r) => host.on('connect', r));
+    fire(host, { type: 'auth', name: 'Alice' });
+    const SHORT_TIMER_CONFIG = { ...FAST_CONFIG, timers: { passMs: 300, playMs: 300 } };
+    const createAck = await send(host, { type: 'room.create', config: SHORT_TIMER_CONFIG });
+
+    fire(host, { type: 'room.addBot', seat: 1, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 2, level: 'medium' });
+    fire(host, { type: 'room.addBot', seat: 3, level: 'medium' });
+    fire(host, { type: 'room.ready', ready: true });
+
+    const botTakeover = waitFor(host, (m) => m.type === 'presence' && m.seat === 0 && m.status === 'bot', 25_000);
+    fire(host, { type: 'room.start' });
+    await botTakeover;
+
+    // Bug report: a whole new round's worth of seat-scoped broadcasts
+    // (game.dealt, game.snapshot, game.turn) used to still land on this same,
+    // never-disconnected socket because Room.flipToBot never clears
+    // seats[0].socketId. That silently re-seated the client (setMySeat back
+    // to 0) every round, resurrecting a "take control back" affordance for a
+    // seat that is no longer this connection's to reclaim that way.
+    const seenTypes = new Set<string>();
+    host.on('msg', (m: { type: string }) => seenTypes.add(m.type));
+
+    // All four seats are now bot-driven (seat 0 via AFK flip, 1-3 lobby bots),
+    // so the round plays itself to completion with no human input at all -
+    // slower than a human-driven round since every single play now waits out
+    // a bot think delay (see botThinkDelay in room.ts). An observer never gets
+    // the per-seat game.dealt at all (that's exactly what the fix stops), so
+    // watch for the round boundary via game.publicSnapshot's roundIndex instead.
+    const nextRoundPublicSnapshot = waitFor(
+      host,
+      (m) => m.type === 'game.publicSnapshot' && m.view.roundIndex > 0,
+      150_000,
+    );
+    await nextRoundPublicSnapshot;
+
+    expect(seenTypes.has('game.snapshot')).toBe(false);
+    expect(seenTypes.has('game.dealt')).toBe(false);
+    expect(seenTypes.has('game.publicSnapshot')).toBe(true);
+  }, 160_000);
+
   it('lands a stale-token reconnect on an AFK-flipped seat as an observer instead of silently un-flipping it', async () => {
     const host = connect(port);
     sockets.push(host);
