@@ -698,12 +698,12 @@ export function GameTable({
                     splits that extra height evenly above and below each row;
                     the overlap margin below is retuned to match. */}
                 {backRow.length > 0 && (
-                  <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[136px] @[480px]:min-h-[176px] -mb-[68px] @[480px]:-mb-[84px]">
+                  <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px] -mb-[60px] @[480px]:-mb-[76px]">
                     {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
                     <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
                   </div>
                 )}
-                <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[136px] @[480px]:min-h-[176px]">
+                <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px]">
                   {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
                   <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
                 </div>
