@@ -559,9 +559,12 @@ export function GameTable({
       {/* Emote button: a standalone floating button anchored near the bottom
           hand tray (not the top-right corner) so it's within easy thumb
           reach on a phone, and its picker pops up above it, over the table,
-          instead of covering the hand. The hand-tray rows reserve a right
-          margin (pr-16/pr-20 above) exactly this button's footprint, so a
-          full 13-card hand's fan never renders underneath it. */}
+          instead of covering the hand. The hand-tray rows end in a fixed-width
+          spacer (not padding) matching this button's footprint: padding-right
+          on an overflow-x-auto row is unreliable at max-scroll on mobile
+          WebKit/Blink (it can collapse, letting the last card slide back
+          underneath), but a real flex child's width always counts toward
+          scrollWidth. */}
       {onEmote && (
         <button
           className="absolute bottom-2 right-2 z-20 w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
@@ -695,12 +698,14 @@ export function GameTable({
                     splits that extra height evenly above and below each row;
                     the overlap margin below is retuned to match. */}
                 {backRow.length > 0 && (
-                  <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-16 @[480px]:pr-20 min-h-[136px] @[480px]:min-h-[176px] -mb-[68px] @[480px]:-mb-[84px]">
+                  <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[136px] @[480px]:min-h-[176px] -mb-[68px] @[480px]:-mb-[84px]">
                     {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
+                    <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
                   </div>
                 )}
-                <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-16 @[480px]:pr-20 min-h-[136px] @[480px]:min-h-[176px]">
+                <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[136px] @[480px]:min-h-[176px]">
                   {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
+                  <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
                 </div>
               </>
             );
