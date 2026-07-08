@@ -417,8 +417,8 @@ export function GameTable({
           emote={visibleEmotes[leftSeat]}
         />
 
-        <div className="flex-1 flex flex-col items-center justify-center gap-1 relative min-h-[120px]">
-          <div className="relative w-32 h-32">
+        <div className="flex-1 flex flex-col items-center justify-center gap-1 relative min-h-[150px] @[480px]:min-h-[200px]">
+          <div className="relative w-36 h-36 @[480px]:w-48 @[480px]:h-48">
             {trickPlays.map((p) => {
               const pos = posFor(p.seat);
               const isWinner = winnerSeatForHighlight === p.seat;
@@ -426,7 +426,7 @@ export function GameTable({
               return (
                 <div key={p.seat} className={`absolute ${pos} flex flex-col items-center gap-0.5`}>
                   <div className={`relative ${isWinner ? 'ring-2 ring-amber-300 rounded-md' : ''}`}>
-                    <CardFace card={p.card} fourColor={settings.fourColorDeck} />
+                    <CardFace card={p.card} size="lg" fourColor={settings.fourColorDeck} />
                     {isUndercutMarker && (
                       <span className="absolute -top-2 -right-2 text-[8px] bg-sky-500 text-white rounded-full px-1 font-bold">
                         {t('play under', 'العب أقل')}
@@ -651,11 +651,11 @@ export function GameTable({
                     splits that extra height evenly above and below each row;
                     the overlap margin below is retuned to match. */}
                 {backRow.length > 0 && (
-                  <div className="flex items-center justify-center overflow-x-auto px-4 min-h-[116px] @[480px]:min-h-[156px] -mb-[60px] @[480px]:-mb-[76px]">
+                  <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-16 @[480px]:pr-20 min-h-[136px] @[480px]:min-h-[176px] -mb-[68px] @[480px]:-mb-[84px]">
                     {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
                   </div>
                 )}
-                <div className="flex items-center justify-center overflow-x-auto px-4 min-h-[116px] @[480px]:min-h-[156px]">
+                <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-16 @[480px]:pr-20 min-h-[136px] @[480px]:min-h-[176px]">
                   {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
                 </div>
               </>
@@ -732,7 +732,7 @@ export function GameTable({
             <div className="flex gap-2">
               {lastCompletedTrick.map((p) => (
                 <div key={p.seat} className="flex flex-col items-center gap-1">
-                  <CardFace card={p.card} fourColor={settings.fourColorDeck} />
+                  <CardFace card={p.card} size="lg" fourColor={settings.fourColorDeck} />
                   <span className="text-[10px] text-emerald-200">{names[p.seat]}</span>
                 </div>
               ))}
