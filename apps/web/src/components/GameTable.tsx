@@ -591,33 +591,61 @@ export function GameTable({
         </div>
       )}
 
-      {/* Hand */}
+      {/* Hand: two fanned rows instead of one long scrolling strip, so cards
+          read bigger and closer together thumb-reach-wise on a phone screen.
+          The bigger half sits in the front (bottom) row, closer to the thumb;
+          a slight per-card rotation/lift arcs each row like a held fan. */}
       {!spectator && view.phase !== 'passing' && (
         <div className="pb-3 pt-1 px-1">
-          <div className="flex justify-center overflow-x-auto px-4">
-            {sortHand(view.hand).map((card, i) => {
-              const legal =
-                view.phase !== 'playing' || !isMyTurn || !view.legal
-                  ? true
-                  : view.legal.some((c) => cardKey(c) === cardKey(card));
-              const isRaised = raised && cardKey(raised) === cardKey(card);
-              const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
-              const pulseForced = forcedDumpActive && legal && isLeekha(card);
-              return (
-                <button
-                  key={cardKey(card)}
-                  disabled={view.phase !== 'playing' || !isMyTurn}
-                  onPointerDown={(e) => onCardPointerDown(e, card, legal)}
-                  style={{ zIndex: isRaised ? 50 : i }}
-                  className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : '-ml-4 @[480px]:-ml-6'} ${isRaised ? '-translate-y-4' : ''} ${!legal ? 'opacity-40 translate-y-1' : ''} ${
-                    justReceived ? 'ring-2 ring-amber-300 rounded-md -translate-y-2' : ''
-                  } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
-                >
-                  <CardFace card={card} size="lg" fourColor={settings.fourColorDeck} />
-                </button>
-              );
-            })}
-          </div>
+          {(() => {
+            const cards = sortHand(view.hand);
+            const backRow = cards.slice(0, Math.floor(cards.length / 2));
+            const frontRow = cards.slice(Math.floor(cards.length / 2));
+            const renderRow = (row: Card[], rowOffset: number, extraClass: string) =>
+              row.map((card, i) => {
+                const legal =
+                  view.phase !== 'playing' || !isMyTurn || !view.legal
+                    ? true
+                    : view.legal.some((c) => cardKey(c) === cardKey(card));
+                const isRaised = raised && cardKey(raised) === cardKey(card);
+                const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
+                const pulseForced = forcedDumpActive && legal && isLeekha(card);
+                const center = (row.length - 1) / 2;
+                const arcOffset = i - center;
+                const rotateDeg = row.length > 1 ? arcOffset * 3 : 0;
+                const liftPx = Math.round(Math.abs(arcOffset) * 2) + (!legal ? 4 : 0) + (justReceived ? -8 : 0);
+                // The inline transform below always wins over any Tailwind transform
+                // utility class in the cascade, so every case that used to nudge the
+                // card (raised, illegal, just-received) has to fold into this one
+                // computed value instead of a separate translate-y-* class.
+                const transform = isRaised ? 'translateY(-16px) rotate(0deg)' : `rotate(${rotateDeg}deg) translateY(${liftPx}px)`;
+                return (
+                  <button
+                    key={cardKey(card)}
+                    disabled={view.phase !== 'playing' || !isMyTurn}
+                    onPointerDown={(e) => onCardPointerDown(e, card, legal)}
+                    style={{ zIndex: isRaised ? 50 : rowOffset + i, transform }}
+                    className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : extraClass} ${!legal ? 'opacity-40' : ''} ${
+                      justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
+                    } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
+                  >
+                    <CardFace card={card} size="xl" fourColor={settings.fourColorDeck} />
+                  </button>
+                );
+              });
+            return (
+              <>
+                {backRow.length > 0 && (
+                  <div className="flex justify-center overflow-x-auto px-4 -mb-6 @[480px]:-mb-8">
+                    {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
+                  </div>
+                )}
+                <div className="flex justify-center overflow-x-auto px-4">
+                  {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
+                </div>
+              </>
+            );
+          })()}
           {isMyTurn && settings.confirmBeforePlay && raised && (
             <div className="flex justify-center mt-2">
               <button

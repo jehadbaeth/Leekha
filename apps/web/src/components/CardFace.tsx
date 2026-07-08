@@ -8,7 +8,7 @@ export function CardFace({
   faceDown = false,
 }: {
   card: Card;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   fourColor?: boolean;
   faceDown?: boolean;
 }) {
@@ -17,7 +17,9 @@ export function CardFace({
       ? 'w-8 h-11 text-xs'
       : size === 'lg'
         ? 'w-11 h-16 text-sm @[480px]:w-16 @[480px]:h-24 @[480px]:text-xl'
-        : 'w-12 h-16 text-base';
+        : size === 'xl'
+          ? 'w-14 h-20 text-base @[480px]:w-20 @[480px]:h-28 @[480px]:text-2xl'
+          : 'w-12 h-16 text-base';
   if (faceDown) {
     return (
       <div
