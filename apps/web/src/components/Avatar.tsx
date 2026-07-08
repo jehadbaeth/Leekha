@@ -65,10 +65,14 @@ export function Avatar({
         )}
         {isTurn && deadline != null && <TimerRing deadline={deadline} />}
       </div>
-      <span className="text-[11px] text-emerald-100 max-w-[64px] truncate flex items-center gap-1">
-        {name}
-        {isBot && <span className="text-[9px] bg-slate-600 text-white rounded px-1">bot is playing</span>}
-        {reconnecting && <span className="text-[9px] bg-slate-600 text-white rounded px-1">reconnecting</span>}
+      <span className="flex flex-col items-center max-w-[64px]">
+        <span className="text-[11px] text-emerald-100 truncate max-w-full">{name}</span>
+        {isBot && (
+          <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">bot is playing</span>
+        )}
+        {reconnecting && (
+          <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">reconnecting</span>
+        )}
       </span>
       <span className={`text-xs font-semibold px-1.5 rounded ${danger ? 'bg-red-600 text-white' : 'text-amber-200'}`}>
         {roundScore} / {score}
