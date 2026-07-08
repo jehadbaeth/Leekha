@@ -35,7 +35,12 @@ export function PassingPanel({
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-end pb-4 pointer-events-none">
+    // pb reserves room for GameTable's floating home button (top-left, so no
+    // conflict) and emote button (bottom-right, ~52px incl. margin): the
+    // panel's own content sits entirely above that band instead of trying to
+    // dodge the button sideways, which would only work as long as no row of
+    // passing cards happens to reach the right edge.
+    <div className="absolute inset-0 flex flex-col items-center justify-end pb-16 @[480px]:pb-20 pointer-events-none">
       <div className="pointer-events-auto flex flex-col items-center gap-3 w-full px-4">
         {!committed ? (
           <>
