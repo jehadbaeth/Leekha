@@ -23,6 +23,20 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+/* Hand-tray rows keep overflow-x: auto for edge-case horizontal drag/scroll,
+   but Tailwind has no utility for hiding the scrollbar itself, and leaving
+   an axis "visible" next to a non-visible one makes the browser compute
+   both as auto (CSS Overflow spec) -- so the bar shows up even when it's
+   only barely needed. Hide it while keeping the scroll behavior. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* A big, playful sticker pop for table-talk emotes (SPEC.md 7.5.11), inspired
    by the oversized animated reactions in Jawaker-style card apps: it flies
    in past full size, wobbles twice, holds, then drops away. */
