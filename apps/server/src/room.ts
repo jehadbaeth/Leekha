@@ -382,8 +382,17 @@ export class Room {
     const slot = this.seats[seat];
     if (slot.isBot) return;
     slot.isBot = true;
-    slot.botLevel = slot.botLevel ?? 'easy';
+    slot.botLevel = slot.botLevel ?? 'hard';
+    // The seat is no longer this player's place (SPEC.md 11 item 4): it goes
+    // right back on the sidelines under its own bot name, same as a
+    // lobby-added bot, rather than keeping the idled-out human's name on a
+    // seat someone else may claim next.
+    slot.name = `Bot ${seat}`;
     this.emit(null, { type: 'presence', seq: this.nextSeq(), roomCode: this.code, seat, status: 'bot' });
+    // room.state (not just the presence status) has to go out here too, or
+    // every client's cached seat roster keeps showing the idled-out human's
+    // name until some unrelated event happens to refresh it.
+    this.broadcastRoomState();
     this.scheduleBotPasses();
     this.scheduleBotPlayIfDue();
     // A seat that goes AFK while a rematch vote is pending now counts as an
