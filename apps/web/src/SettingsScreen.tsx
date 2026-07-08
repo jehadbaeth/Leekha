@@ -1,4 +1,4 @@
-import { pick, type Settings } from './settings';
+import { pick, TRICK_PAUSE_PRESETS_MS, type Settings } from './settings';
 
 function Toggle({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -82,6 +82,26 @@ export function SettingsScreen({
           value={settings.reducedMotion}
           onChange={(v) => onUpdate({ reducedMotion: v })}
         />
+
+        <div className="flex items-center justify-between py-3 border-b border-emerald-800">
+          <span>
+            <span className="block text-sm text-white">{t('Trick pause', 'مدة توقف اللفة')}</span>
+            <span className="block text-xs text-emerald-300 mt-0.5">
+              {t('How long the finished trick stays on screen before clearing.', 'مدة بقاء اللفة المكتملة على الشاشة قبل مسحها.')}
+            </span>
+          </span>
+          <select
+            className="bg-emerald-800 text-white text-sm rounded-lg px-2 py-1.5"
+            value={settings.trickPauseMs}
+            onChange={(e) => onUpdate({ trickPauseMs: Number(e.target.value) })}
+          >
+            {TRICK_PAUSE_PRESETS_MS.map((ms) => (
+              <option key={ms} value={ms}>
+                {t(`${ms / 1000}s`, `${ms / 1000} ث`)}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   );

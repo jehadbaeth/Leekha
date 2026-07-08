@@ -7,9 +7,14 @@ export interface Settings {
   haptics: boolean;
   reducedMotion: boolean;
   fourColorDeck: boolean;
+  /** How long a finished trick stays frozen on screen before clearing, in ms (see the freeze effect in GameTable.tsx). */
+  trickPauseMs: number;
 }
 
 const KEY = 'leekha.settings.v1';
+
+/** Presets for the "how long does a finished trick stay on screen" setting, in ms. */
+export const TRICK_PAUSE_PRESETS_MS = [500, 900, 1500, 2500];
 
 export const defaultSettings: Settings = {
   displayName: '',
@@ -20,6 +25,7 @@ export const defaultSettings: Settings = {
   haptics: true,
   reducedMotion: false,
   fourColorDeck: false,
+  trickPauseMs: 900,
 };
 
 export function loadSettings(): Settings {

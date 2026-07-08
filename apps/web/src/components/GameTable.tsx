@@ -246,7 +246,7 @@ export function GameTable({
       if (completed) {
         setFrozenTrick({ leader: completed[0]?.seat ?? 0, plays: completed, winner: ev.winner, points: ev.points });
         if (freezeTimer.current) window.clearTimeout(freezeTimer.current);
-        const ms = settings.reducedMotion ? 50 : 900;
+        const ms = settings.reducedMotion ? 50 : settings.trickPauseMs;
         freezeTimer.current = window.setTimeout(() => setFrozenTrick(null), ms);
       }
       clearEvent(item.id);
@@ -254,7 +254,7 @@ export function GameTable({
     for (const item of events) {
       if (!isEventType(item.event.type, 'trickEnd')) clearEvent(item.id);
     }
-  }, [events, clearEvent, view.playedCards, settings.reducedMotion]);
+  }, [events, clearEvent, view.playedCards, settings.reducedMotion, settings.trickPauseMs]);
 
   // Auto play when exactly one legal card and the setting is on.
   useEffect(() => {
