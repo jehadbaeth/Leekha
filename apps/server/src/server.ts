@@ -84,7 +84,10 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
     socket.on('msg', (raw: unknown, ack?: (res: unknown) => void) => {
       const parsed = ClientMessageSchema.safeParse(raw);
       if (!parsed.success) {
-        sendError('bad-message', parsed.error.message);
+        // Never relay parsed.error.message: zod's ZodError.message is the raw
+        // JSON-stringified issues array, meant for developers, not a string
+        // fit to show a player (see the client's Home.tsx joinError render).
+        sendError('bad-message', 'That message was malformed.');
         return;
       }
       const msg: ClientMessage = parsed.data;
