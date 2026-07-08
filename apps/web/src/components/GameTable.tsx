@@ -11,6 +11,7 @@ import { illegalReason, isForcedDumpSituation, undercutMarkerCard } from '../leg
 import { pick, type Settings } from '../settings';
 import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, emoteSound, dealSound, vibrate } from '../sound';
 import { EMOTES, EMOTE_BY_ID } from '../emotes';
+import { useRoomShare } from '../roomShare';
 
 // Online events arrive as ServerMessage (type 'game.trickEnd') while local
 // events arrive as engine GameEvent (type 'trickEnd'); accept either spelling.
@@ -60,6 +61,7 @@ export function GameTable({
   onAdvanceRound,
   onRematch,
   onHome,
+  roomCode,
 }: {
   view: SeatView;
   names: Record<Seat, string>;
@@ -86,6 +88,8 @@ export function GameTable({
   onAdvanceRound: () => void;
   onRematch: () => void;
   onHome: () => void;
+  /** Online only: lets the room-code share button render inside the game screen too, not just the pre-game Lobby (SPEC.md 7.1 item 2). */
+  roomCode?: string | null;
 }) {
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
   const mySeat = view.seat;
@@ -113,6 +117,7 @@ export function GameTable({
   const pendingPlayTimer = useRef<number | null>(null);
   const [dealFx, setDealFx] = useState(false);
   const [dealStarted, setDealStarted] = useState(false);
+  const { copied: codeCopied, share: shareRoom } = useRoomShare(roomCode ?? null, settings.language);
 
   const turn = view.phase === 'playing' ? turnSeatOf(view.currentTrick) : null;
   const isMyTurn = turn === mySeat && !!view.legal && !pendingPlay;
@@ -515,9 +520,48 @@ export function GameTable({
         )}
       </div>
 
-      {/* Emote button: a standalone floating button in the top-right corner
-          rather than a small underline in the HUD strip, so it's easy to hit
-          on a phone and never wraps into the status text. */}
+      {/* Top-left cluster: a way back to the first/home screen mid-game
+          (previously only reachable once the match had fully ended, via
+          MatchEnd's own "Back to Home" button — there was no way out of an
+          in-progress game), plus the room-code share chip when online. Both
+          hidden once MatchEnd is on screen so its own Back to Home isn't
+          duplicated. */}
+      {!(view.phase === 'gameOver' && matchResult?.over) && (
+        <div className="absolute top-2 left-2 z-20 flex flex-col items-start gap-1">
+          <div className="flex items-center gap-1">
+            <button
+              className="flex items-center justify-center w-9 h-9 bg-emerald-900/80 border border-emerald-700 rounded-full shadow-lg active:scale-95"
+              onClick={() => {
+                if (window.confirm(t('Leave this game and return to the home screen?', 'مغادرة اللعبة والعودة إلى الشاشة الرئيسية؟'))) {
+                  onHome();
+                }
+              }}
+              aria-label={t('Back to home', 'العودة للرئيسية')}
+            >
+              🏠
+            </button>
+            {roomCode && (
+              <button
+                className="flex items-center gap-1 bg-emerald-900/80 border border-emerald-700 rounded-full px-3 py-2 text-xs font-mono font-semibold shadow-lg active:scale-95"
+                onClick={shareRoom}
+                aria-label={t('Share room code', 'مشاركة رمز الغرفة')}
+              >
+                🔗 {roomCode}
+              </button>
+            )}
+          </div>
+          {codeCopied && (
+            <span className="bg-black/75 text-white text-[10px] rounded-full px-2 py-0.5">{t('Copied!', 'تم النسخ!')}</span>
+          )}
+        </div>
+      )}
+
+      {/* Emote button: a standalone floating button anchored near the bottom
+          hand tray (not the top-right corner) so it's within easy thumb
+          reach on a phone, and its picker pops up above it, over the table,
+          instead of covering the hand. The hand-tray rows reserve a right
+          margin (pr-16/pr-20 above) exactly this button's footprint, so a
+          full 13-card hand's fan never renders underneath it. */}
       {onEmote && (
         <button
           className="absolute top-2 right-2 z-20 w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"

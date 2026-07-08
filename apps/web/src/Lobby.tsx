@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { RulesConfig, Seat } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
 import { pick, type Settings } from './settings';
+import { useRoomShare } from './roomShare';
 
 type RoomState = Extract<ServerMessage, { type: 'room.state' }>;
 type BotLevel = 'easy' | 'medium' | 'hard';
@@ -58,9 +59,9 @@ export function Lobby({
   onLeave: () => void;
   onConfigure: (config: RulesConfig) => void;
 }) {
-  const [copied, setCopied] = useState(false);
   const [pickerSeat, setPickerSeat] = useState<Seat | null>(null);
   const t = (en: string, ar: string) => pick(language, en, ar);
+  const { copied, joinLink, share, copyCode } = useRoomShare(roomCode, language);
 
   if (!roomState || !roomCode) {
     return (
@@ -75,38 +76,7 @@ export function Lobby({
 
   const isHost = mySeat !== null && mySeat === roomState.hostSeat;
   const canStart = roomState.seats.every((s) => (s.occupied || s.isBot) && (s.isBot || s.ready));
-  const joinLink = `${window.location.origin}${window.location.pathname}?join=${roomCode}`;
   const mySlot = mySeat !== null ? roomState.seats[mySeat] : null;
-
-  async function share() {
-    const text = t(`Join my Leekha room: ${roomCode}`, `انضم إلى غرفتي في ليخة: ${roomCode}`);
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Leekha', text, url: joinLink });
-        return;
-      } catch {
-        // user cancelled the share sheet or it failed; fall through to copy
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(joinLink);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard unavailable; the link is still visible on screen to copy manually
-    }
-  }
-
-  async function copyCode() {
-    if (!roomCode) return;
-    try {
-      await navigator.clipboard.writeText(roomCode);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // ignore
-    }
-  }
 
   return (
     <div className="min-h-full flex flex-col items-center gap-6 bg-felt-950 px-5 py-8 overflow-y-auto">

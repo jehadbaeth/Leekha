@@ -191,6 +191,7 @@ export default function App() {
           spectator={online.mySeat === null}
           claimableSeats={claimableSeats}
           onClaimSeat={online.claimSeat}
+          roomCode={online.roomState?.roomCode ?? null}
           settings={settings}
           onCommitPass={online.pass}
           onPlayCard={online.play}
