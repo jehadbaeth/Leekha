@@ -625,7 +625,7 @@ export function GameTable({
                     disabled={view.phase !== 'playing' || !isMyTurn}
                     onPointerDown={(e) => onCardPointerDown(e, card, legal)}
                     style={{ zIndex: isRaised ? 50 : rowOffset + i, transform }}
-                    className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : extraClass} ${!legal ? 'opacity-40' : ''} ${
+                    className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : extraClass} ${!legal ? 'grayscale-[65%] brightness-[0.72]' : ''} ${
                       justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
                     } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
                   >
