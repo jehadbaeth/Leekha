@@ -564,7 +564,7 @@ export function GameTable({
           full 13-card hand's fan never renders underneath it. */}
       {onEmote && (
         <button
-          className="absolute top-2 right-2 z-20 w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
+          className="absolute bottom-2 right-2 z-20 w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
           onClick={() => setShowEmotePicker((v) => !v)}
           aria-label={t('Emotes', 'الرموز التعبيرية')}
         >
@@ -573,7 +573,7 @@ export function GameTable({
       )}
 
       {showEmotePicker && onEmote && (
-        <div className="absolute top-14 right-2 z-20">
+        <div className="absolute bottom-14 right-2 z-20">
           <div className="grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
             {EMOTES.map((e) => (
               <button
