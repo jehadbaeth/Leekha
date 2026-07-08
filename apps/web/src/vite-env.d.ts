@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Base URL of apps/server's socket.io endpoint. Defaults to http://localhost:8080 in dev. */
+  /** Base URL of apps/server's socket.io endpoint. Defaults to http://localhost:8080 in dev, or the page's own origin in production. */
   readonly VITE_SERVER_URL?: string;
 }
 

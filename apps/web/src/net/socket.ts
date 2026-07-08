@@ -1,8 +1,15 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ClientMessage, ServerMessage } from '@leekha/protocol';
 
+// In production the client and server are the same single-image deployment
+// (see root Dockerfile), so whatever host:port served this page is also
+// where the socket lives — a hardcoded localhost fallback would only ever
+// work on the machine running the container itself. Dev keeps the old
+// fallback because the Vite dev server (5173) and apps/server (8080) are
+// two different ports on localhost.
 export const SERVER_URL: string =
-  (import.meta.env.VITE_SERVER_URL as string | undefined) ?? 'http://localhost:8080';
+  (import.meta.env.VITE_SERVER_URL as string | undefined) ??
+  (import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin);
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
