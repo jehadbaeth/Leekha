@@ -182,7 +182,7 @@ Accounts, rankings, matchmaking queues, doubling variants, replays UI, chat beyo
               [ turn arrow showing anticlockwise ]
    [ HUD strip: trick 7/13 | target 201 | dealer chip | menu ]
    [ passed memo chip: "→ East: Q♠ 7♥ 2♦" (collapsible) ]
-        [ your hand, 13 card fan, legal cards active ]
+        [ your hand, two-row arced fan, legal cards active ]
 ```
 
 Desktop and landscape use the same topology with more breathing room. The local player is always at the bottom regardless of seat number.
@@ -204,7 +204,7 @@ Desktop and landscape use the same topology with more breathing room. The local 
 ### 7.4 Visual and audio direction
 
 1. Clean tabletop feel, culturally neutral warm palette, high card legibility above all: oversized corner indices, optional four color deck.
-2. Card designs must render crisply at 13 cards across a 360 px wide screen; use overlap fanning with a magnifier on touch and hold.
+2. Card designs must render crisply at 13 cards across a 360 px wide screen. The hand splits across two overlapping, gently arced rows (the fuller half in front, closer to the thumb) rather than one long scrolling strip, so individual cards stay big enough to read and tap even at a full 13-card hand; use overlap fanning with a magnifier on touch and hold.
 3. Distinct audio stings: card play, trick sweep, Leekha card eaten, bust, victory. All optional.
 
 ### 7.5 Localization and accessibility
@@ -438,7 +438,7 @@ Room rules:
 2. The host role passes to the next human if the host leaves; a room with zero humans is destroyed. A seat currently under bot control still counts as human here as long as it holds a seat token (someone could still reclaim or lose it to a takeover) — going AFK must never make a room eligible for collection out from under a player who is still connected and simply idle.
 3. Seat tokens survive room membership; a player who closed the tab can rejoin the room by code and resume their seat automatically, but only while that seat is still genuinely theirs — untouched by an AFK flip or a takeover in the meantime. A stale token buys re-entry to the room, never an automatic seat: reconnecting after either one instead lands the returning player on the sidelines like any other observer, with `room.sit` as the one path back into a chair.
 4. Anyone can join a room by code at any time. If the match has already started, joining makes you an observer: you see the live board (via `game.publicSnapshot`) plus the seat list, and a sidelines list of every bot-controlled seat you may claim via `room.sit`. Claiming takes over that seat's identity outright — the bot's original human, if any, keeps a stale seat token that no longer grants the seat back, so reconnecting with it now just lands them on the sidelines alongside everyone else. Joining during the founding lobby, before the host starts the match, always seats you directly instead; observing is only a gate on an already-running match.
-5. The server, not just the client, must re-validate seat ownership on every seat-scoped action rather than trusting a connection's remembered seat number. Three independent ways a seat stops belonging to a connection without that connection ever hearing about it as a rejection: another player's `room.sit` repoints the seat to a new socket (a takeover), two AFK strikes flip the seat to bot control (`Room.flipToBot`) while the original connection is still open, and a fresh connection presenting that seat's old token after either has happened. A still-connected, never-reconnected socket whose seat was flipped to bot control must be treated exactly like any other observer — including on `game.resync`, which must route it to the observer branch (`game.publicSnapshot`), not hand it back a seated `game.snapshot`. The `auth` handler applies the same rule to a stale seat token: it grants re-entry to the room but never silently un-flips or reclaims a seat that has moved on, since two humans could otherwise end up holding the same chair.
+5. The server, not just the client, must re-validate seat ownership on every seat-scoped action rather than trusting a connection's remembered seat number. Three independent ways a seat stops belonging to a connection without that connection ever hearing about it as a rejection: another player's `room.sit` repoints the seat to a new socket (a takeover), two AFK strikes flip the seat to bot control (`Room.flipToBot`) while the original connection is still open, and a fresh connection presenting that seat's old token after either has happened. A still-connected, never-reconnected socket whose seat was flipped to bot control must be treated exactly like any other observer — including on `game.resync`, which must route it to the observer branch (`game.publicSnapshot`), not hand it back a seated `game.snapshot`. The `auth` handler applies the same rule to a stale seat token: it grants re-entry to the room but never silently un-flips or reclaims a seat that has moved on, since two humans could otherwise end up holding the same chair. This must hold at every round boundary too, not just at reconnect: a bot-controlled seat keeps its original occupant's socket id on file (nothing ever clears it), so the server's per-seat message routing has to treat that socket id as stale and fold it into the observers group, or every new round's `game.dealt`/`game.snapshot` would land right back on that socket and silently re-seat the client in the UI, resurrecting a reclaim affordance for a seat that isn't theirs anymore. There is no privileged "take back control" shortcut for a seat's own former occupant; claiming it back always goes through the same sidelines `room.sit` path as any other observer (Section 11 item 4).
 
 ---
 
@@ -446,7 +446,7 @@ Room rules:
 
 1. Defaults: 45 s to pass, 25 s per card play. Both configurable per room, including "off" for living room play.
 2. On timer expiry the server plays for that seat using the Easy bot policy (a single action, the seat stays human) and increments an AFK strike counter shown subtly on the avatar.
-3. Two consecutive strikes, or a disconnect grace period of 15 s expiring, flips the seat to bot control at the seat's configured difficulty. The seat keeps the player's name with a robot badge.
+3. Two consecutive strikes, or a disconnect grace period of 15 s expiring, flips the seat to bot control at Hard difficulty by default (a departing player is replaced by the strongest bot, not an easy mark for the table). The seat is renamed "Bot N" rather than keeping the departed player's name — it is no longer that player's place (Section 11 item 4), and the name on screen has to say so.
 4. A returning player reclaims the seat instantly by claiming it from the sidelines list, the same `room.sit` path any other observer uses (see Section 11 item 4); control transfers at the next decision point. There is no dedicated resume message — reclaiming your own bot-flipped seat and a stranger claiming an empty bot seat are the same operation.
 5. Lobbies can start with any mix of humans and bots; a solo human with three bots is a first class mode, not a fallback.
 
