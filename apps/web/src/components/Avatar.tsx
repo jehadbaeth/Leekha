@@ -30,7 +30,7 @@ export function Avatar({
   /** Section 7.3.9: ms timestamp the current turn expires at, drives the timer ring. */
   deadline?: number | null;
   /** Section 7.5.11: the most recent emote this seat sent, briefly shown as a big animated sticker pop above the avatar. */
-  emote?: { anim: string; caption: string } | null;
+  emote?: { anim: string; caption: string; ts: number } | null;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -38,6 +38,7 @@ export function Avatar({
     <div className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`}>
       {emote && (
         <div
+          key={emote.ts}
           className="absolute -top-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
           aria-hidden
         >

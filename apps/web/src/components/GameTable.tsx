@@ -110,7 +110,7 @@ export function GameTable({
   const revealTimer = useRef<number | null>(null);
   const freezeTimer = useRef<number | null>(null);
   const autoPlayedTrick = useRef<string | null>(null);
-  const [visibleEmotes, setVisibleEmotes] = useState<Partial<Record<Seat, { anim: string; caption: string }>>>({});
+  const [visibleEmotes, setVisibleEmotes] = useState<Partial<Record<Seat, { anim: string; caption: string; ts: number }>>>({});
   const [showEmotePicker, setShowEmotePicker] = useState(false);
   const [pendingPlay, setPendingPlay] = useState(false);
   const pendingPlayRef = useRef(false);
@@ -162,7 +162,7 @@ export function GameTable({
       if (!e) continue;
       const def = EMOTE_BY_ID[e.id];
       if (!def) continue;
-      setVisibleEmotes((prev) => ({ ...prev, [seat]: { anim: def.anim, caption: t(def.en, def.ar) } }));
+      setVisibleEmotes((prev) => ({ ...prev, [seat]: { anim: def.anim, caption: t(def.en, def.ar), ts: e.ts } }));
       if (settings.sound) emoteSound(e.id);
       timers.push(
         window.setTimeout(() => {
@@ -455,7 +455,10 @@ export function GameTable({
               the hand at the bottom), so your own emote needs a pop of its own
               here or you'd tap the picker and see nothing happen at all. */}
           {visibleEmotes[mySeat] && (
-            <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop">
+            <div
+              key={visibleEmotes[mySeat]!.ts}
+              className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
+            >
               <img src={visibleEmotes[mySeat]!.anim} alt="" className="w-16 h-16 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
               <span className="bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
                 {visibleEmotes[mySeat]!.caption}
