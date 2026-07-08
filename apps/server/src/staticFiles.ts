@@ -11,6 +11,8 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json',
+  '.webp': 'image/webp',
+  '.ogg': 'audio/ogg',
 };
 
 /**
