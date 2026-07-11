@@ -19,6 +19,19 @@ body {
   transform: scaleX(-1);
 }
 
+/* Box the table into a phone-sized silhouette only when the viewport itself
+   isn't phone-shaped in either orientation -- see the comment above the
+   `.game-shell-inner` usage in App.tsx for why a plain width cap (or a
+   hover/pointer input check) can't tell a landscape phone from a desktop
+   window, but this can: a real phone's short side never exceeds ~480px in
+   any orientation. */
+@media (min-width: 481px) and (min-height: 481px) {
+  .game-shell-inner {
+    max-width: 480px;
+    max-height: 950px;
+  }
+}
+
 .card-face {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }

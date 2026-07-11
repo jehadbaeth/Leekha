@@ -111,16 +111,21 @@ export default function App() {
     if (ok) setScreen('lobby');
   }
 
-  // The 480px cap is a desktop-only "phone in a box" affordance. A width
-  // breakpoint can't gate it correctly: a phone in landscape is routinely
-  // 700-900px wide, well past any reasonable "mobile" cutoff, so it would
-  // get boxed in right along with a real desktop window. Gating on
-  // hover+fine-pointer instead targets an actual mouse-driven browser
-  // specifically — true regardless of window width or orientation, and
-  // never true on a touchscreen even rotated to landscape.
+  // The table layout is built for a phone-shaped viewport: the trick area in
+  // its middle uses flex-1 to soak up leftover vertical space, which reads
+  // fine up to a real phone's height but balloons into a dead void on a
+  // taller/wider window. A phone in landscape has a short side (its height)
+  // under ~480px even though its long side (width) is 700-900px, so a plain
+  // width cap alone still boxes it wrongly; capping on input type (hover +
+  // fine pointer) was no better, since it doesn't track viewport shape either.
+  // The `.game-shell-inner` media query in index.css instead boxes the view
+  // only once BOTH dimensions exceed the phone-shaped threshold, so any real
+  // phone orientation gets full bleed and only a genuinely desktop-shaped
+  // window gets the centered phone-sized box.
   return (
-    <div className="h-screen w-screen [@media(hover:hover)_and_(pointer:fine)]:max-w-[480px] [@media(hover:hover)_and_(pointer:fine)]:mx-auto bg-felt-950 text-white overflow-hidden">
-      {screen === 'home' && (
+    <div className="fixed inset-0 flex items-center justify-center bg-felt-950 overflow-hidden">
+      <div className="game-shell-inner relative h-full w-full text-white overflow-hidden">
+        {screen === 'home' && (
         <Home
           settings={settings}
           onUpdateSettings={updateSettings}
@@ -224,6 +229,7 @@ export default function App() {
           onDismiss={install.dismiss}
         />
       )}
+      </div>
     </div>
   );
 }
