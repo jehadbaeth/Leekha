@@ -710,15 +710,26 @@ export function GameTable({
                     card was cropping their rotated/lifted edges. items-center
                     splits that extra height evenly above and below each row;
                     the overlap margin below is retuned to match. */}
+                {/* justify-center on the scrollable row itself would clip the start:
+                    once the hand overflows, Chrome/Safari only grow the scrollable
+                    region toward the end side, so anything centered past the left
+                    edge becomes permanently unreachable (only visible with a full
+                    hand, since a short hand never overflows). Centering instead
+                    lives on this mx-auto inner wrapper, so the outer row can stay
+                    justify-start and its scrollable area always includes card 0. */}
                 {backRow.length > 0 && (
-                  <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px] -mb-[60px] @[480px]:-mb-[76px]">
-                    {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
-                    <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
+                  <div className="no-scrollbar flex items-center justify-start overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px] -mb-[60px] @[480px]:-mb-[76px]">
+                    <div className="flex items-center mx-auto">
+                      {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
+                      <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
+                    </div>
                   </div>
                 )}
-                <div className="no-scrollbar flex items-center justify-center overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px]">
-                  {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
-                  <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
+                <div className="no-scrollbar flex items-center justify-start overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px]">
+                  <div className="flex items-center mx-auto">
+                    {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
+                    <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
+                  </div>
                 </div>
               </>
             );

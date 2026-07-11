@@ -13,7 +13,7 @@ import {
   viewFor,
 } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
-import { botForLevel } from './bot.js';
+import { botForLevel, logHardBotBlunderIfAny } from './bot.js';
 import type { RoomPhase, SeatSlot } from './types.js';
 import type { RoomSnapshot } from './persistence.js';
 
@@ -512,7 +512,9 @@ export class Room {
       if (!this.match || this.match.phase !== 'playing') return;
       if (this.actingSeat() !== seat) return;
       const bot = botForLevel(level);
-      const card = bot.choosePlay(viewFor(this.match, seat));
+      const view = viewFor(this.match, seat);
+      const card = bot.choosePlay(view);
+      if (level === 'hard') logHardBotBlunderIfAny(this.match, seat, view, card);
       this.applyPlay(seat, card);
     }, botThinkDelay());
   }

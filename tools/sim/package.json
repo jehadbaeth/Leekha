@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/soak.ts"
+    "start": "tsx src/soak.ts",
+    "duel": "tsx src/duel.ts",
+    "replay": "tsx src/replay.ts"
   },
   "dependencies": {
     "@leekha/bots": "workspace:*",

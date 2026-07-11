@@ -6,6 +6,8 @@
   "scripts": {
     "test": "pnpm -r --filter=\"./packages/**\" --filter=\"./apps/server\" test run",
     "sim": "pnpm --filter tools-sim run start --",
+    "duel": "pnpm --filter tools-sim run duel --",
+    "replay": "pnpm --filter tools-sim run replay --",
     "build": "pnpm -r --filter=./packages/** build"
   }
 }

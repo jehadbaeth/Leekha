@@ -186,6 +186,48 @@ function utility(view: SeatView, projectedScores: [number, number, number, numbe
   return 100 * (oppBust - usBust) + (oppMaxScoreRisk - usMaxScoreRisk) + 0.1 * (oppRoundPts - usRoundPts);
 }
 
+/**
+ * Evaluation-harness oracle: what would this seat's own search utility say is
+ * best if the three hidden hands were replaced with the true deal instead of
+ * sampled worlds? Reuses the exact rollout/utility machinery chooseSearchPlay
+ * uses, just against one fixed (true) world instead of many sampled ones, so
+ * a mismatch between this and the seat's actual choice under uncertainty is a
+ * real, comparable "blunder" rather than an artifact of a different scorer.
+ */
+export function perfectInfoBest(
+  view: SeatView,
+  trueHands: Card[][],
+  policyOpts: HeuristicOptions,
+): { best: Card; scoreByCard: Map<string, number> } {
+  const legal = view.legal;
+  if (!legal || legal.length === 0) throw new Error('perfectInfoBest called when it is not this seat\'s turn');
+
+  const scoreByCard = new Map<string, number>();
+  let best = legal[0];
+  let bestScore = -Infinity;
+  for (const candidate of legal) {
+    const fullHands = trueHands.map((h) => h.slice());
+    fullHands[view.seat] = view.hand;
+    const { eatenPoints } = simulateRound(
+      fullHands,
+      view.currentTrick,
+      view.eatenPoints,
+      view.config,
+      view,
+      { seat: view.seat, card: candidate },
+      policyOpts,
+    );
+    const projected = view.scores.map((s, i) => s + eatenPoints[i]) as [number, number, number, number];
+    const score = utility(view, projected, eatenPoints);
+    scoreByCard.set(cardKey(candidate), score);
+    if (score > bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  return { best, scoreByCard };
+}
+
 export interface SearchOptions {
   rng: () => number;
   /** Total rollouts to spend across all candidate moves; divided evenly per candidate. */
