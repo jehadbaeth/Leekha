@@ -111,8 +111,15 @@ export default function App() {
     if (ok) setScreen('lobby');
   }
 
+  // The 480px cap is a desktop-only "phone in a box" affordance. A width
+  // breakpoint can't gate it correctly: a phone in landscape is routinely
+  // 700-900px wide, well past any reasonable "mobile" cutoff, so it would
+  // get boxed in right along with a real desktop window. Gating on
+  // hover+fine-pointer instead targets an actual mouse-driven browser
+  // specifically — true regardless of window width or orientation, and
+  // never true on a touchscreen even rotated to landscape.
   return (
-    <div className="h-screen w-screen max-w-[480px] mx-auto bg-felt-950 text-white overflow-hidden">
+    <div className="h-screen w-screen [@media(hover:hover)_and_(pointer:fine)]:max-w-[480px] [@media(hover:hover)_and_(pointer:fine)]:mx-auto bg-felt-950 text-white overflow-hidden">
       {screen === 'home' && (
         <Home
           settings={settings}

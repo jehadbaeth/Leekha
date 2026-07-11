@@ -657,81 +657,69 @@ export function GameTable({
         </div>
       )}
 
-      {/* Hand: two fanned rows instead of one long scrolling strip, so cards
-          read bigger and closer together thumb-reach-wise on a phone screen.
-          The bigger half sits in the front (bottom) row, closer to the thumb;
-          a slight per-card rotation/lift arcs each row like a held fan. */}
+      {/* Hand: one continuous fan, not a row split. A single arc across the
+          whole sorted hand — center card sits highest, each card further out
+          rotates and droops a little more — is what an actual held fan of
+          cards looks like; splitting it into two independently-arced rows
+          used to read as two clashing arches, and reshuffled which row a
+          card lived in (a visible jump, not a slide) every time the split
+          point moved after a play. One row also means this is always in the
+          exact same left-to-right order as PassingPanel's own sortHand(). */}
       {!spectator && view.phase !== 'passing' && (
         <div className="pb-3 pt-1 px-1">
           {(() => {
             const cards = sortHand(view.hand);
-            const backRow = cards.slice(0, Math.floor(cards.length / 2));
-            const frontRow = cards.slice(Math.floor(cards.length / 2));
-            const renderRow = (row: Card[], rowOffset: number, extraClass: string) =>
-              row.map((card, i) => {
-                const legal =
-                  view.phase !== 'playing' || !isMyTurn || !view.legal
-                    ? true
-                    : view.legal.some((c) => cardKey(c) === cardKey(card));
-                const isRaised = raised && cardKey(raised) === cardKey(card);
-                const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
-                const pulseForced = forcedDumpActive && legal && isLeekha(card);
-                const center = (row.length - 1) / 2;
-                const arcOffset = i - center;
-                const rotateDeg = row.length > 1 ? arcOffset * 3 : 0;
-                const liftPx = Math.round(Math.abs(arcOffset) * 2) + (!legal ? 4 : 0) + (justReceived ? -8 : 0);
-                // The inline transform below always wins over any Tailwind transform
-                // utility class in the cascade, so every case that used to nudge the
-                // card (raised, illegal, just-received) has to fold into this one
-                // computed value instead of a separate translate-y-* class.
-                const transform = isRaised ? 'translateY(-16px) rotate(0deg)' : `rotate(${rotateDeg}deg) translateY(${liftPx}px)`;
-                return (
-                  <button
-                    key={cardKey(card)}
-                    disabled={view.phase !== 'playing' || !isMyTurn}
-                    onPointerDown={(e) => onCardPointerDown(e, card, legal)}
-                    style={{ zIndex: isRaised ? 50 : rowOffset + i, transform }}
-                    className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : extraClass} ${!legal ? 'grayscale-[65%] brightness-[0.72]' : ''} ${
-                      justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
-                    } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
-                  >
-                    <CardFace card={card} size="xl" fourColor={settings.fourColorDeck} />
-                  </button>
-                );
-              });
+            const center = (cards.length - 1) / 2;
+            const ROTATE_STEP = 2.5; // degrees of outward tilt per card away from center
+            const DROOP_STEP = 3; // px each card droops below the center card
             return (
-              <>
-                {/* Each row's box has to be taller than the cards it holds: the
-                    per-card rotate/lift transform (and the raised-card pop-up)
-                    render outside the cards' own layout box, and overflow-x-auto
-                    forces the browser to clip the y-axis too (CSS overflow spec:
-                    an axis left "visible" next to a non-visible one computes to
-                    "auto"), so a box sized to exactly fit the un-transformed
-                    card was cropping their rotated/lifted edges. items-center
-                    splits that extra height evenly above and below each row;
-                    the overlap margin below is retuned to match. */}
-                {/* justify-center on the scrollable row itself would clip the start:
-                    once the hand overflows, Chrome/Safari only grow the scrollable
-                    region toward the end side, so anything centered past the left
-                    edge becomes permanently unreachable (only visible with a full
-                    hand, since a short hand never overflows). Centering instead
-                    lives on this mx-auto inner wrapper, so the outer row can stay
-                    justify-start and its scrollable area always includes card 0. */}
-                {backRow.length > 0 && (
-                  <div className="no-scrollbar flex items-center justify-start overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px] -mb-[60px] @[480px]:-mb-[76px]">
-                    <div className="flex items-center mx-auto">
-                      {renderRow(backRow, 0, '-ml-3 @[480px]:-ml-4')}
-                      <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
-                    </div>
-                  </div>
-                )}
-                <div className="no-scrollbar flex items-center justify-start overflow-x-auto pl-4 pr-4 min-h-[116px] @[480px]:min-h-[156px]">
-                  <div className="flex items-center mx-auto">
-                    {renderRow(frontRow, backRow.length, '-ml-3 @[480px]:-ml-4')}
-                    <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
-                  </div>
+              // justify-center on the scrollable row itself would clip the start:
+              // once the hand overflows, Chrome/Safari only grow the scrollable
+              // region toward the end side, so anything centered past the left
+              // edge becomes permanently unreachable (only visible with a full
+              // hand, since a short hand never overflows). Centering instead
+              // lives on the mx-auto inner wrapper, so the outer row can stay
+              // justify-start and its scrollable area always includes card 0.
+              // The box also has to be taller than the cards themselves: the
+              // rotate/droop transform (and the raised-card pop-up) render
+              // outside the cards' own layout box, and overflow-x-auto forces
+              // the browser to clip the y-axis too (an axis left "visible" next
+              // to a non-visible one computes to "auto" per the overflow spec).
+              <div className="no-scrollbar flex items-center justify-start overflow-x-auto pl-4 pr-4 min-h-[124px] @[480px]:min-h-[168px]">
+                <div className="flex items-center mx-auto">
+                  {cards.map((card, i) => {
+                    const legal =
+                      view.phase !== 'playing' || !isMyTurn || !view.legal
+                        ? true
+                        : view.legal.some((c) => cardKey(c) === cardKey(card));
+                    const isRaised = raised && cardKey(raised) === cardKey(card);
+                    const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
+                    const pulseForced = forcedDumpActive && legal && isLeekha(card);
+                    const arcOffset = i - center;
+                    const rotateDeg = cards.length > 1 ? arcOffset * ROTATE_STEP : 0;
+                    const liftPx = Math.round(Math.abs(arcOffset) * DROOP_STEP) + (!legal ? 4 : 0) + (justReceived ? -8 : 0);
+                    // The inline transform below always wins over any Tailwind transform
+                    // utility class in the cascade, so every case that used to nudge the
+                    // card (raised, illegal, just-received) has to fold into this one
+                    // computed value instead of a separate translate-y-* class.
+                    const transform = isRaised ? 'translateY(-16px) rotate(0deg)' : `rotate(${rotateDeg}deg) translateY(${liftPx}px)`;
+                    return (
+                      <button
+                        key={cardKey(card)}
+                        disabled={view.phase !== 'playing' || !isMyTurn}
+                        onPointerDown={(e) => onCardPointerDown(e, card, legal)}
+                        style={{ zIndex: isRaised ? 50 : i, transform }}
+                        className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : '-ml-5 @[480px]:-ml-6'} ${!legal ? 'grayscale-[65%] brightness-[0.72]' : ''} ${
+                          justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
+                        } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
+                      >
+                        <CardFace card={card} size="xl" fourColor={settings.fourColorDeck} />
+                      </button>
+                    );
+                  })}
+                  <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
                 </div>
-              </>
+              </div>
             );
           })()}
           {isMyTurn && settings.confirmBeforePlay && raised && (
