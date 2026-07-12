@@ -86,4 +86,12 @@ body {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+
+  /* The emote pop's last keyframe is opacity 0, so collapsing its duration
+     makes the sticker finish (and vanish) instantly -- the sound plays but
+     nothing ever shows. Reduced motion should mean a STATIC sticker, not an
+     invisible one; the JS timeout still removes it after ~2.5s. */
+  .animate-emote-pop {
+    animation: none !important;
+  }
 }

@@ -526,35 +526,15 @@ export function GameTable({
         />
       </div>
 
-      {/* Passed memo chip: sits above the HUD strip, not below it, so it never
-          crowds the hand tray underneath and clips the tops of the fanned cards. */}
-      {myPassedMemo && (
-        <div className="px-2 pb-1">
-          <button
-            className="w-full text-left bg-emerald-900/70 rounded-lg px-3 py-1.5 text-xs text-emerald-100"
-            onClick={() => setShowMemo((v) => !v)}
-          >
-            {showMemo ? '▾' : '▸'}{' '}
-            {t(
-              `You passed to ${passRecipient}: ${myPassedMemo.map((c) => cardName(c)).join(', ')}`,
-              `مرّرت إلى ${passRecipient}: ${myPassedMemo.map((c) => cardName(c, 'ar')).join('، ')}`,
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Emote button: sits in the flow directly above the HUD strip, right
-          aligned -- still within easy thumb reach of the hand tray below it,
-          but never on top of the cards. The negative top margin lets it
+      {/* Emote button: right aligned, directly ABOVE the passed-cards memo
+          chip (not squeezed between it and the HUD), still within easy
+          thumb reach of the hand tray. The negative top margin lets it
           visually tuck into the trick area's bottom edge without eating a
           whole row of layout height, and its picker opens UPWARD over the
           table, so neither the button nor the picker can ever cover the
           hand. */}
       {onEmote && (
-        // Tucking up into the trick area (-mt-9) only happens when the passed
-        // memo chip isn't there to be covered by it; with the chip on screen
-        // the button takes its own honest row between the chip and the HUD.
-        <div dir="ltr" className={`relative z-20 flex justify-end px-2 pb-1 pointer-events-none ${myPassedMemo ? '' : '-mt-9'}`}>
+        <div dir="ltr" className="relative z-20 flex justify-end px-2 pb-1 -mt-9 pointer-events-none">
           <div className="relative pointer-events-auto">
             {showEmotePicker && (
               // w-max: an absolutely positioned box shrink-wraps to its
@@ -587,6 +567,23 @@ export function GameTable({
               😊
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Passed memo chip: sits above the HUD strip, not below it, so it never
+          crowds the hand tray underneath and clips the tops of the fanned cards. */}
+      {myPassedMemo && (
+        <div className="px-2 pb-1">
+          <button
+            className="w-full text-left bg-emerald-900/70 rounded-lg px-3 py-1.5 text-xs text-emerald-100"
+            onClick={() => setShowMemo((v) => !v)}
+          >
+            {showMemo ? '▾' : '▸'}{' '}
+            {t(
+              `You passed to ${passRecipient}: ${myPassedMemo.map((c) => cardName(c)).join(', ')}`,
+              `مرّرت إلى ${passRecipient}: ${myPassedMemo.map((c) => cardName(c, 'ar')).join('، ')}`,
+            )}
+          </button>
         </div>
       )}
 
