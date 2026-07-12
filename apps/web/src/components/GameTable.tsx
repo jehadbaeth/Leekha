@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Card, MatchResult, Seat, SeatView } from '@leekha/engine';
 import { nextSeat, partnerOf, prevSeat, teamOf } from '@leekha/engine';
 import { CardFace } from './CardFace';
@@ -117,6 +117,20 @@ export function GameTable({
   const pendingPlayTimer = useRef<number | null>(null);
   const [dealFx, setDealFx] = useState(false);
   const [dealStarted, setDealStarted] = useState(false);
+  // The hand fan sizes itself to the tray's real width (see the hand-tray
+  // comment below), so the tray element has to be measured; a callback ref
+  // (not useRef) makes the measuring effect re-run when the tray mounts and
+  // unmounts across phases, which a plain ref would never signal.
+  const [trayEl, setTrayEl] = useState<HTMLDivElement | null>(null);
+  const [trayW, setTrayW] = useState(0);
+  useLayoutEffect(() => {
+    if (!trayEl) return;
+    const measure = () => setTrayW(trayEl.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(trayEl);
+    return () => ro.disconnect();
+  }, [trayEl]);
   const { copied: codeCopied, share: shareRoom } = useRoomShare(roomCode ?? null, settings.language);
 
   const turn = view.phase === 'playing' ? turnSeatOf(view.currentTrick) : null;
@@ -310,6 +324,11 @@ export function GameTable({
   function onCardPointerDown(e: React.PointerEvent<HTMLButtonElement>, card: Card, legal: boolean) {
     const el = e.currentTarget;
     const startY = e.clientY;
+    // The fan's rotate/lift lives in this same inline transform, so an aborted
+    // drag has to restore it verbatim -- clearing it would leave the card
+    // sitting straight and flat until the next unrelated re-render.
+    const baseTransform = el.style.transform;
+    const baseZ = el.style.zIndex;
     el.setPointerCapture(e.pointerId);
     let dragging = false;
 
@@ -334,8 +353,8 @@ export function GameTable({
         submitPlay(card);
         setRaised(null);
       } else {
-        el.style.transform = '';
-        el.style.zIndex = '';
+        el.style.transform = baseTransform;
+        el.style.zIndex = baseZ;
         if (!dragging) tapCard(card);
       }
     }
@@ -572,12 +591,9 @@ export function GameTable({
       {/* Emote button: a standalone floating button anchored near the bottom
           hand tray (not the top-right corner) so it's within easy thumb
           reach on a phone, and its picker pops up above it, over the table,
-          instead of covering the hand. The hand-tray rows end in a fixed-width
-          spacer (not padding) matching this button's footprint: padding-right
-          on an overflow-x-auto row is unreliable at max-scroll on mobile
-          WebKit/Blink (it can collapse, letting the last card slide back
-          underneath), but a real flex child's width always counts toward
-          scrollWidth. */}
+          instead of covering the hand. The hand fan reserves this button's
+          footprint (EMOTE_RESERVE) out of its available width, so the last
+          card can never end up underneath it. */}
       {onEmote && (
         <button
           className="absolute bottom-2 right-2 z-20 w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
@@ -657,37 +673,54 @@ export function GameTable({
         </div>
       )}
 
-      {/* Hand: one continuous fan, not a row split. A single arc across the
-          whole sorted hand — center card sits highest, each card further out
-          rotates and droops a little more — is what an actual held fan of
-          cards looks like; splitting it into two independently-arced rows
-          used to read as two clashing arches, and reshuffled which row a
-          card lived in (a visible jump, not a slide) every time the split
-          point moved after a play. One row also means this is always in the
-          exact same left-to-right order as PassingPanel's own sortHand(). */}
+      {/* Hand: one continuous fan that always fits the screen. Fixed per-card
+          overlap margins made the fan's width grow with the hand size, so a
+          full 13-card hand was wider than a phone and the excess either
+          scrolled out of view or slid under the emote button; and drooping
+          the outer cards BELOW the center pushed them past the tray's bottom
+          edge where they were clipped. Instead the tray is measured and each
+          card is placed absolutely: the spacing is computed so the whole
+          hand spans exactly the available width (minus a reserved slot for
+          the emote button), and the arc lifts the CENTER up from the
+          baseline, so no card ever pokes below the tray. Order is the same
+          sortHand() order as PassingPanel; under RTL the array is reversed
+          to match how the passing grid's flex row displays there. */}
       {!spectator && view.phase !== 'passing' && (
-        <div className="pb-3 pt-1 px-1">
+        // pb-3: the outermost cards rotate around their bottom-center, which
+        // dips their lower corners up to ~10px below the layout box; the
+        // padding is what keeps those corners on screen.
+        <div className="pb-3 pt-1">
           {(() => {
-            const cards = sortHand(view.hand);
-            const center = (cards.length - 1) / 2;
+            const sorted = sortHand(view.hand);
+            const cards = settings.language === 'ar' ? [...sorted].reverse() : sorted;
+            const n = cards.length;
+            // Mirror CardFace's xl sizing: 56x80, or 80x112 once the container
+            // hits 480px -- the tray spans the shell, so trayW is that width.
+            const big = trayW >= 480;
+            const cardW = big ? 80 : 56;
+            const cardH = big ? 112 : 80;
+            const EMOTE_RESERVE = onEmote ? 52 : 0;
+            const center = (n - 1) / 2;
             const ROTATE_STEP = 2.5; // degrees of outward tilt per card away from center
-            const DROOP_STEP = 3; // px each card droops below the center card
+            // Rotating the end cards swings their TOP corner outward past the
+            // layout slot: with the pivot at bottom-center, that corner moves
+            // out by h*sin(θ) - (w/2)(1 - cos(θ)), ~20px at a full hand's end
+            // tilt. That overhang has to come out of the usable width or the
+            // two outermost cards poke past the screen edges.
+            const endRad = (center * ROTATE_STEP * Math.PI) / 180;
+            const rotOverhang = Math.ceil(cardH * Math.sin(endRad) - (cardW / 2) * (1 - Math.cos(endRad)));
+            const SIDE_PAD = 8 + rotOverhang;
+            const available = Math.max(cardW, trayW - SIDE_PAD * 2 - EMOTE_RESERVE);
+            const step = n > 1 ? Math.min(cardW * 0.72, (available - cardW) / (n - 1)) : 0;
+            const fanW = cardW + step * Math.max(0, n - 1);
+            const x0 = SIDE_PAD + Math.max(0, (available - fanW) / 2);
+            const LIFT_STEP = big ? 3.5 : 3; // px the arc climbs per card toward the center
+            const maxLift = Math.ceil(center * LIFT_STEP);
+            const trayH = cardH + maxLift + 24; // headroom for the raised-card pop
             return (
-              // justify-center on the scrollable row itself would clip the start:
-              // once the hand overflows, Chrome/Safari only grow the scrollable
-              // region toward the end side, so anything centered past the left
-              // edge becomes permanently unreachable (only visible with a full
-              // hand, since a short hand never overflows). Centering instead
-              // lives on the mx-auto inner wrapper, so the outer row can stay
-              // justify-start and its scrollable area always includes card 0.
-              // The box also has to be taller than the cards themselves: the
-              // rotate/droop transform (and the raised-card pop-up) render
-              // outside the cards' own layout box, and overflow-x-auto forces
-              // the browser to clip the y-axis too (an axis left "visible" next
-              // to a non-visible one computes to "auto" per the overflow spec).
-              <div className="no-scrollbar flex items-center justify-start overflow-x-auto pl-4 pr-4 min-h-[124px] @[480px]:min-h-[168px]">
-                <div className="flex items-center mx-auto">
-                  {cards.map((card, i) => {
+              <div ref={setTrayEl} className="relative w-full" style={{ height: trayH }}>
+                {trayW > 0 &&
+                  cards.map((card, i) => {
                     const legal =
                       view.phase !== 'playing' || !isMyTurn || !view.legal
                         ? true
@@ -696,20 +729,25 @@ export function GameTable({
                     const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
                     const pulseForced = forcedDumpActive && legal && isLeekha(card);
                     const arcOffset = i - center;
-                    const rotateDeg = cards.length > 1 ? arcOffset * ROTATE_STEP : 0;
-                    const liftPx = Math.round(Math.abs(arcOffset) * DROOP_STEP) + (!legal ? 4 : 0) + (justReceived ? -8 : 0);
+                    const rotateDeg = n > 1 ? arcOffset * ROTATE_STEP : 0;
+                    const liftPx = Math.max(
+                      0,
+                      Math.round((center - Math.abs(arcOffset)) * LIFT_STEP) + (justReceived ? 8 : 0) - (!legal ? 3 : 0),
+                    );
                     // The inline transform below always wins over any Tailwind transform
                     // utility class in the cascade, so every case that used to nudge the
                     // card (raised, illegal, just-received) has to fold into this one
                     // computed value instead of a separate translate-y-* class.
-                    const transform = isRaised ? 'translateY(-16px) rotate(0deg)' : `rotate(${rotateDeg}deg) translateY(${liftPx}px)`;
+                    const transform = isRaised
+                      ? `translateY(-${maxLift + 18}px)`
+                      : `rotate(${rotateDeg}deg) translateY(-${liftPx}px)`;
                     return (
                       <button
                         key={cardKey(card)}
                         disabled={view.phase !== 'playing' || !isMyTurn}
                         onPointerDown={(e) => onCardPointerDown(e, card, legal)}
-                        style={{ zIndex: isRaised ? 50 : i, transform }}
-                        className={`relative touch-none transition-transform flex-shrink-0 ${i === 0 ? '' : '-ml-5 @[480px]:-ml-6'} ${!legal ? 'grayscale-[65%] brightness-[0.72]' : ''} ${
+                        style={{ left: Math.round(x0 + i * step), bottom: 0, zIndex: isRaised ? 50 : i, transform }}
+                        className={`absolute origin-bottom touch-none transition-transform ${!legal ? 'grayscale-[65%] brightness-[0.72]' : ''} ${
                           justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
                         } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
                       >
@@ -717,8 +755,6 @@ export function GameTable({
                       </button>
                     );
                   })}
-                  <div className="flex-shrink-0 w-16 @[480px]:w-20" aria-hidden="true" />
-                </div>
               </div>
             );
           })()}
