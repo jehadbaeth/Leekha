@@ -539,6 +539,50 @@ export function GameTable({
         </div>
       )}
 
+      {/* Emote button: sits in the flow directly above the HUD strip, right
+          aligned -- still within easy thumb reach of the hand tray below it,
+          but never on top of the cards. The negative top margin lets it
+          visually tuck into the trick area's bottom edge without eating a
+          whole row of layout height, and its picker opens UPWARD over the
+          table, so neither the button nor the picker can ever cover the
+          hand. */}
+      {onEmote && (
+        // Tucking up into the trick area (-mt-9) only happens when the passed
+        // memo chip isn't there to be covered by it; with the chip on screen
+        // the button takes its own honest row between the chip and the HUD.
+        <div className={`relative z-20 flex justify-end px-2 pb-1 pointer-events-none ${myPassedMemo ? '' : '-mt-9'}`}>
+          <div className="relative pointer-events-auto">
+            {showEmotePicker && (
+              // w-max: an absolutely positioned box shrink-wraps to its
+              // containing block -- here the 44px button wrapper -- which
+              // would squash the grid to one column without it.
+              <div className="absolute bottom-full right-0 mb-2 w-max grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
+                {EMOTES.map((e) => (
+                  <button
+                    key={e.id}
+                    className="text-xl w-14 h-14 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
+                    title={t(e.en, e.ar)}
+                    onClick={() => {
+                      onEmote(e.id);
+                      setShowEmotePicker(false);
+                    }}
+                  >
+                    {e.glyph}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              className="w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
+              onClick={() => setShowEmotePicker((v) => !v)}
+              aria-label={t('Emotes', 'الرموز التعبيرية')}
+            >
+              😊
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* HUD strip */}
       <div className="flex items-center justify-center gap-3 text-[11px] text-emerald-200 bg-emerald-950/60 py-1.5 px-2">
         <span
@@ -600,41 +644,6 @@ export function GameTable({
         </div>
       )}
 
-      {/* Emote button: a standalone floating button anchored near the bottom
-          hand tray (not the top-right corner) so it's within easy thumb
-          reach on a phone, and its picker pops up above it, over the table,
-          instead of covering the hand. The hand fan reserves this button's
-          footprint (EMOTE_RESERVE) out of its available width, so the last
-          card can never end up underneath it. */}
-      {onEmote && (
-        <button
-          className="absolute bottom-2 right-2 z-20 w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
-          onClick={() => setShowEmotePicker((v) => !v)}
-          aria-label={t('Emotes', 'الرموز التعبيرية')}
-        >
-          😊
-        </button>
-      )}
-
-      {showEmotePicker && onEmote && (
-        <div className="absolute bottom-14 right-2 z-20">
-          <div className="grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
-            {EMOTES.map((e) => (
-              <button
-                key={e.id}
-                className="text-xl w-14 h-14 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
-                title={t(e.en, e.ar)}
-                onClick={() => {
-                  onEmote(e.id);
-                  setShowEmotePicker(false);
-                }}
-              >
-                {e.glyph}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Illegal reason toast */}
       {reasonToast && (
@@ -716,11 +725,10 @@ export function GameTable({
             const big = trayW >= 480;
             const cardW = big ? 80 : 56;
             const cardH = big ? 112 : 80;
-            const EMOTE_RESERVE = onEmote ? 52 : 0;
             // Two stories or one is decided from the round's FULL hand size
             // (the row map's size), not the current count, so the layout
             // never flips mid-round as cards get played.
-            const twoStory = trayW > 0 && needsTwoStories(handRowsRef.current.size, trayW, cardW, cardH, EMOTE_RESERVE);
+            const twoStory = trayW > 0 && needsTwoStories(handRowsRef.current.size, trayW, cardW, cardH);
             const rows = twoStory
               ? [
                   sorted.filter((c) => handRowsRef.current.get(cardKey(c)) === 0),
@@ -730,7 +738,7 @@ export function GameTable({
             // The back story peeks out above the front one by a bit under
             // half a card, enough to read the corner index and tap it.
             const rowOffset = twoStory ? Math.round(cardH * 0.55) : 0;
-            const geos = rows.map((r) => fanLayout(r.length, trayW, cardW, cardH, EMOTE_RESERVE));
+            const geos = rows.map((r) => fanLayout(r.length, trayW, cardW, cardH));
             const maxLiftAll = Math.max(...geos.map((g) => g.maxLift));
             const trayH = cardH + rowOffset + maxLiftAll + 24;
             // Once the front story empties, the back story slides down to the
