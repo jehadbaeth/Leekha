@@ -58,16 +58,20 @@ export function PassingPanel({
         {!committed ? (
           <>
             <div className="bg-emerald-900/90 rounded-xl px-4 py-2 text-center">
-              <div className="font-semibold text-amber-200">{t(`Pass 3 cards to ${recipientName} →`, `مرّر 3 أوراق إلى ${recipientName} ←`)}</div>
+              {/* Both arrows point right: the recipient physically sits to
+                  your right in every language (seating is pinned LTR). */}
+              <div className="font-semibold text-amber-200">{t(`Pass 3 cards to ${recipientName} →`, `مرّر 3 أوراق إلى ${recipientName} →`)}</div>
               <div className="text-xs text-emerald-200 mt-1">{t(`${selected.length}/3 selected`, `${selected.length}/3 مختارة`)}</div>
             </div>
             {/* The picker uses the same fan layout as the play-phase hand
                 tray (same fanLayout/needsTwoStories, same sortHand order,
-                same RTL reversal), so the hand a player studies while
+                same order in every language), so the hand a player studies while
                 passing looks and reads exactly like the hand they'll then
                 play from. The hand is static for the whole phase, so a
                 simple midpoint split is stable here -- no sticky map needed. */}
             {(() => {
+              // Same sorted order in every language, matching the play-phase
+              // hand tray (seating and pass direction are language-agnostic).
               const sorted = sortHand(hand);
               // CardFace "md" is a fixed 48x64 (no container-query variant).
               const CW = 48;
@@ -83,7 +87,7 @@ export function PassingPanel({
                 <div ref={setTrayEl} className="relative w-full" style={{ height: trayH }}>
                   {trayW > 0 &&
                     rows.map((rowCards, rowIdx) => {
-                      const displayRow = language === 'ar' ? [...rowCards].reverse() : rowCards;
+                      const displayRow = rowCards;
                       const geo = geos[rowIdx];
                       const rowLift = twoStory && rowIdx === 0 ? rowOffset : 0;
                       return displayRow.map((card, i) => {

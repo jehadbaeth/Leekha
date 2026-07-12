@@ -448,8 +448,12 @@ export function GameTable({
         />
       </div>
 
-      {/* Middle: left - trick area - right */}
-      <div className="flex-1 flex items-center justify-between px-2">
+      {/* Middle: left - trick area - right. dir="ltr" pins the seating
+          geometry: under the Arabic UI's RTL direction a plain flex row
+          reverses visually, which put the pass recipient (physically to
+          your right, in every language) on the left of the screen. Seat
+          positions are table geometry, not text. */}
+      <div dir="ltr" className="flex-1 flex items-center justify-between px-2">
         <Avatar
           name={names[leftSeat]}
           score={view.scores[leftSeat]}
@@ -550,16 +554,15 @@ export function GameTable({
         // Tucking up into the trick area (-mt-9) only happens when the passed
         // memo chip isn't there to be covered by it; with the chip on screen
         // the button takes its own honest row between the chip and the HUD.
-        <div className={`relative z-20 flex justify-end px-2 pb-1 pointer-events-none ${myPassedMemo ? '' : '-mt-9'}`}>
+        <div dir="ltr" className={`relative z-20 flex justify-end px-2 pb-1 pointer-events-none ${myPassedMemo ? '' : '-mt-9'}`}>
           <div className="relative pointer-events-auto">
             {showEmotePicker && (
               // w-max: an absolutely positioned box shrink-wraps to its
               // containing block -- here the 44px button wrapper -- which
-              // would squash the grid to one column without it. end-0 (not
-              // right-0): under RTL the justify-end row puts the button at
-              // the visual LEFT edge, so the panel has to grow toward the
-              // inside of the screen in both directions, which the logical
-              // inset-inline-end anchor does and a physical right-0 doesn't.
+              // would squash the grid to one column without it. The row is
+              // pinned dir="ltr" (button bottom-right in every language),
+              // so end-0 here resolves to right:0 and the panel grows
+              // leftward, staying on screen.
               <div className="absolute bottom-full end-0 mb-2 w-max grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
                 {EMOTES.map((e) => (
                   <button
@@ -708,14 +711,16 @@ export function GameTable({
           hand spans exactly the available width (minus a reserved slot for
           the emote button), and the arc lifts the CENTER up from the
           baseline, so no card ever pokes below the tray. Order is the same
-          sortHand() order as PassingPanel; under RTL the array is reversed
-          to match how the passing grid's flex row displays there. */}
+          sortHand() order as PassingPanel in every language. */}
       {!spectator && view.phase !== 'passing' && (
         // pb-3: the outermost cards rotate around their bottom-center, which
         // dips their lower corners up to ~10px below the layout box; the
         // padding is what keeps those corners on screen.
         <div className="pb-3 pt-1">
           {(() => {
+            // Same sorted order in every language: the fan is positioned
+            // absolutely (physically), and seating/pass direction don't
+            // change with the UI language, so the hand shouldn't either.
             const sorted = sortHand(view.hand);
             // Pin each card's row for the whole round (see handRowsRef).
             if (sorted.some((c) => !handRowsRef.current.has(cardKey(c)))) {
@@ -752,7 +757,7 @@ export function GameTable({
               <div ref={setTrayEl} className="relative w-full" style={{ height: trayH }}>
                 {trayW > 0 &&
                   rows.map((rowCards, rowIdx) => {
-                    const displayRow = settings.language === 'ar' ? [...rowCards].reverse() : rowCards;
+                    const displayRow = rowCards;
                     const geo = geos[rowIdx];
                     const rowLift = twoStory && rowIdx === 0 && !frontEmpty ? rowOffset : 0;
                     return displayRow.map((card, i) => {
