@@ -58,14 +58,13 @@ describe('round total invariant', () => {
 });
 
 describe('dealer selection', () => {
-  it('the first deal of every match is random but deterministic per seed', () => {
-    const m1 = newMatch(defaultConfig, 'seed-a');
-    const m2 = newMatch(defaultConfig, 'seed-a');
-    const m3 = newMatch(defaultConfig, 'seed-b');
-    expect(m1.dealer).toBe(m2.dealer);
-    // different seeds are highly likely (not guaranteed) to differ; just assert both are valid seats
-    expect([0, 1, 2, 3]).toContain(m1.dealer);
-    expect([0, 1, 2, 3]).toContain(m3.dealer);
+  it('round 1 belongs to whoever is dealt the 7 of hearts, and the dealer leads trick 1', () => {
+    for (const seed of ['seed-a', 'seed-b', 'seed-c']) {
+      const m = startRound(newMatch(defaultConfig, seed));
+      const sevenHolder = m.round.hands.findIndex((h) => h.some((card) => card.suit === 'H' && card.rank === 7));
+      expect(m.dealer).toBe(sevenHolder);
+      expect(m.round.currentTrick.leader).toBe(m.dealer);
+    }
   });
 
   it('starting a round enters passing phase with 13 cards each', () => {

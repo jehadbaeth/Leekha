@@ -31,6 +31,9 @@ function emptyRound(): RoundState {
 }
 
 export function newMatch(config: RulesConfig, seed: string): MatchState {
+  // Placeholder only: startRound overwrites the round-1 dealer with whoever
+  // is dealt the 7 of hearts. Kept seed-derived so the pre-deal state stays
+  // deterministic per seed.
   const rng = rngFromSeed(`${seed}:dealer0`);
   const dealer = Math.floor(rng() * 4) as Seat;
   return {
@@ -56,9 +59,20 @@ export function startRound(m: MatchState): MatchState {
   for (let i = 0; i < 52; i++) {
     hands[i % 4].push(deck[i]);
   }
-  const leader = nextSeat(m.dealer); // dealer's right leads trick 1
+  // Round 1 of every match (and rematch): whoever was DEALT the 7 of hearts
+  // owns the round -- they are the dealer and lead the first trick. From
+  // round 2 on, the dealer chosen at the previous round's end (biggest
+  // eater, K-club tiebreak; see selectNextDealer) leads. In both cases the
+  // dealer plays the first hand personally; the seat to their right merely
+  // serves the cards, which has no mechanical effect in an app.
+  const dealer =
+    nextRoundIndex === 1
+      ? (hands.findIndex((h) => h.some((c) => c.suit === 'H' && c.rank === 7)) as Seat)
+      : m.dealer;
+  const leader = dealer;
   return {
     ...m,
+    dealer,
     roundIndex: nextRoundIndex,
     phase: 'passing',
     round: {
