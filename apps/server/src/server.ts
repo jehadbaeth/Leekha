@@ -24,8 +24,18 @@ interface SocketState {
  * network. Null when neither yields anything.
  */
 function regionFromLanguageTag(tag: string | undefined | null): string | null {
-  const m = typeof tag === 'string' ? /[a-zA-Z]{2,3}-([a-zA-Z]{2})\b/.exec(tag) : null;
-  return m ? m[1].toUpperCase() : null;
+  const m = typeof tag === 'string' ? /([a-zA-Z]{2,3})-([a-zA-Z]{2})\b/.exec(tag) : null;
+  if (!m) return null;
+  const language = m[1].toLowerCase();
+  const region = m[2].toUpperCase();
+  // en-US is the factory-default locale of browsers everywhere on Earth, so
+  // as country evidence it is pure noise -- a Syrian on an English Windows
+  // install reports it too. Any OTHER region means someone actually
+  // configured it (ar-SY, fr-FR, even en-GB), so those are kept. Real US
+  // players still resolve through GeoIP once the server is reachable from
+  // outside the LAN.
+  if (language === 'en' && region === 'US') return null;
+  return region;
 }
 
 function detectCountry(socket: Socket): string | null {

@@ -131,7 +131,7 @@ export function Lobby({
                 )}
               </div>
               <div className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
-                {slot.occupied && !slot.isBot && slot.country && <Flag country={slot.country} className="w-4 h-3 flex-shrink-0" />}
+                {slot.occupied && !slot.isBot && <Flag country={slot.country ?? 'xx'} className="w-4 h-3 flex-shrink-0" />}
                 <span className="truncate">
                   {slot.isBot ? `🤖 ${slot.name} (${LEVEL_LABEL[slot.botLevel ?? 'easy'][language]})` : slot.occupied ? slot.name : t('Empty', 'فارغ')}
                   {isMe && t(' (you)', ' (أنت)')}

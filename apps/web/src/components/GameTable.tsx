@@ -459,7 +459,7 @@ export function GameTable({
           danger={dangerFor(topSeat)}
           team={teamOf(topSeat)}
           presence={presence?.[topSeat]}
-          country={countries?.[topSeat] ?? null}
+          country={countries ? (countries[topSeat] ?? null) : undefined}
           deadline={deadlineFor(topSeat)}
           emote={visibleEmotes[topSeat]}
           emoteDirection="down"
@@ -481,7 +481,7 @@ export function GameTable({
           danger={dangerFor(leftSeat)}
           team={teamOf(leftSeat)}
           presence={presence?.[leftSeat]}
-          country={countries?.[leftSeat] ?? null}
+          country={countries ? (countries[leftSeat] ?? null) : undefined}
           deadline={deadlineFor(leftSeat)}
           emote={visibleEmotes[leftSeat]}
         />
@@ -540,7 +540,7 @@ export function GameTable({
           danger={dangerFor(rightSeat)}
           team={teamOf(rightSeat)}
           presence={presence?.[rightSeat]}
-          country={countries?.[rightSeat] ?? null}
+          country={countries ? (countries[rightSeat] ?? null) : undefined}
           deadline={deadlineFor(rightSeat)}
           emote={visibleEmotes[rightSeat]}
         />
@@ -639,7 +639,10 @@ export function GameTable({
           hidden once MatchEnd is on screen so its own Back to Home isn't
           duplicated. */}
       {!(view.phase === 'gameOver' && matchResult?.over) && (
-        <div className="absolute top-2 left-2 z-20 flex flex-col items-start gap-1">
+        // start-2 (not left-2): unlike the table seats (pinned physical), the
+        // control cluster is chrome, and chrome belongs on the reading-start
+        // side -- top-left in English, top-right in Arabic.
+        <div className="absolute top-2 start-2 z-20 flex flex-col items-start gap-1">
           <div className="flex items-center gap-1">
             <button
               className="flex items-center justify-center w-9 h-9 bg-emerald-900/80 border border-emerald-700 rounded-full shadow-lg active:scale-95"
@@ -727,7 +730,7 @@ export function GameTable({
             danger={dangerFor(mySeat)}
             team={teamOf(mySeat)}
             presence={presence?.[mySeat]}
-          country={countries?.[mySeat] ?? null}
+          country={countries ? (countries[mySeat] ?? null) : undefined}
             deadline={deadlineFor(mySeat)}
           />
         </div>
