@@ -27,24 +27,26 @@ export function CardFace({
       />
     );
   }
-  // Classic corner layout: rank with the suit right under it in the top-left
-  // (and mirrored bottom-right), plus a big center pip. The corner pairing is
-  // what keeps a fanned hand readable -- when cards overlap, the top-left
-  // sliver is all that shows, and a suit that only lives in the card's
-  // center (as before) is invisible on every covered card.
+  // Corner index layout: rank with the suit right under it in the top-left,
+  // plus a big center pip. The corner pairing is what keeps a fanned hand
+  // readable -- when cards overlap, the top-left sliver is all that shows,
+  // and a suit that only lives in the card's center is invisible on every
+  // covered card. Both pieces are absolutely positioned so they can never
+  // stack up taller than the card and spill outside it, and there is
+  // deliberately NO mirrored bottom-right index: in an overlapping fan those
+  // inverted glyphs peek out from under every neighbor as noise along the
+  // fan's bottom edge.
   return (
     <div
       key={cardKey(card)}
-      className={`card-face ${dims} rounded-md bg-white ${suitColor(card.suit, fourColor)} flex flex-col justify-between px-1 py-0.5 flex-shrink-0 select-none`}
+      className={`card-face relative ${dims} rounded-md bg-white ${suitColor(card.suit, fourColor)} flex-shrink-0 select-none`}
     >
-      <div className="leading-none font-bold flex flex-col items-start">
+      <div className="absolute top-0.5 left-1 leading-none font-bold flex flex-col items-center gap-y-0.5">
         <span>{rankLabel(card.rank)}</span>
-        <span className="text-[0.75em] leading-none">{SUIT_SYMBOL[card.suit]}</span>
+        <span className="text-[0.7em] leading-none">{SUIT_SYMBOL[card.suit]}</span>
       </div>
-      <div className="leading-none text-center text-[1.5em]">{SUIT_SYMBOL[card.suit]}</div>
-      <div className="leading-none font-bold self-end rotate-180 flex flex-col items-start">
-        <span>{rankLabel(card.rank)}</span>
-        <span className="text-[0.75em] leading-none">{SUIT_SYMBOL[card.suit]}</span>
+      <div className="absolute inset-0 flex items-center justify-center pt-[0.5em] text-[1.5em] leading-none">
+        {SUIT_SYMBOL[card.suit]}
       </div>
     </div>
   );

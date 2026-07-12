@@ -12,6 +12,7 @@ export function RoundSummary({
   dealerReason,
   language,
   onContinue,
+  autoAdvances = false,
 }: {
   names: Record<Seat, string>;
   eaten: [number, number, number, number];
@@ -22,6 +23,10 @@ export function RoundSummary({
   dealerReason: string;
   language: Settings['language'];
   onContinue: () => void;
+  /** Online: the server advances the round on its own timer and there is no
+      client action to hurry it, so showing a Continue button would be a dead
+      control -- show a "starting shortly" note instead. */
+  autoAdvances?: boolean;
 }) {
   const t = (en: string, ar: string) => pick(language, en, ar);
   const seats: Seat[] = [0, 1, 2, 3];
@@ -50,9 +55,15 @@ export function RoundSummary({
           })}
         </div>
         <p className="text-xs text-emerald-200 text-center">{dealerReason}</p>
-        <button className="rounded-lg bg-amber-400 text-emerald-950 font-semibold py-2.5" onClick={onContinue}>
-          {t('Continue', 'متابعة')}
-        </button>
+        {autoAdvances ? (
+          <p className="text-sm text-amber-300 text-center font-semibold animate-pulse">
+            {t('Next round starting…', 'الجولة التالية تبدأ…')}
+          </p>
+        ) : (
+          <button className="rounded-lg bg-amber-400 text-emerald-950 font-semibold py-2.5" onClick={onContinue}>
+            {t('Continue', 'متابعة')}
+          </button>
+        )}
       </div>
     </div>
   );

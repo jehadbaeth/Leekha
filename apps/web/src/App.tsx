@@ -212,6 +212,7 @@ export default function App() {
           settings={settings}
           onCommitPass={online.pass}
           onPlayCard={online.play}
+          roundAutoAdvances
           onAdvanceRound={() => {
             // The server auto-advances to the next round a few seconds after
             // game.roundEnd (see ROUND_ADVANCE_DELAY_MS in apps/server/src/room.ts);

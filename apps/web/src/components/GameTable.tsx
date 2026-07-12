@@ -12,6 +12,7 @@ import { pick, type Settings } from '../settings';
 import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, emoteSound, dealSound, vibrate } from '../sound';
 import { EMOTES, EMOTE_BY_ID } from '../emotes';
 import { useRoomShare } from '../roomShare';
+import { fanLayout, needsTwoStories } from '../fanLayout';
 
 // Online events arrive as ServerMessage (type 'game.trickEnd') while local
 // events arrive as engine GameEvent (type 'trickEnd'); accept either spelling.
@@ -59,6 +60,7 @@ export function GameTable({
   onCommitPass,
   onPlayCard,
   onAdvanceRound,
+  roundAutoAdvances,
   onRematch,
   onHome,
   roomCode,
@@ -86,6 +88,8 @@ export function GameTable({
   onCommitPass: (cards: [Card, Card, Card]) => void;
   onPlayCard: (card: Card) => void;
   onAdvanceRound: () => void;
+  /** Online only: the server advances rounds on its own timer, so the round summary shows a "starting shortly" note instead of a Continue button that would do nothing. */
+  roundAutoAdvances?: boolean;
   onRematch: () => void;
   onHome: () => void;
   /** Online only: lets the room-code share button render inside the game screen too, not just the pre-game Lobby (SPEC.md 7.1 item 2). */
@@ -123,6 +127,14 @@ export function GameTable({
   // unmounts across phases, which a plain ref would never signal.
   const [trayEl, setTrayEl] = useState<HTMLDivElement | null>(null);
   const [trayW, setTrayW] = useState(0);
+  // Sticky per-round row assignment for the two-story hand: each card is
+  // pinned to a row when the round's hand first appears and keeps that row
+  // until the round ends, so playing a card never reshuffles which row the
+  // others live in (recomputing the split every render did exactly that,
+  // and cards visibly jumping rows after every play was one of the original
+  // complaints about the old two-row tray). The map is rebuilt only when a
+  // card shows up that it doesn't know -- i.e. at a new deal.
+  const handRowsRef = useRef<Map<string, 0 | 1>>(new Map());
   useLayoutEffect(() => {
     if (!trayEl) return;
     const measure = () => setTrayW(trayEl.clientWidth);
@@ -692,68 +704,75 @@ export function GameTable({
         <div className="pb-3 pt-1">
           {(() => {
             const sorted = sortHand(view.hand);
-            const cards = settings.language === 'ar' ? [...sorted].reverse() : sorted;
-            const n = cards.length;
+            // Pin each card's row for the whole round (see handRowsRef).
+            if (sorted.some((c) => !handRowsRef.current.has(cardKey(c)))) {
+              const m = new Map<string, 0 | 1>();
+              const half = Math.ceil(sorted.length / 2);
+              sorted.forEach((c, i) => m.set(cardKey(c), i < half ? 0 : 1));
+              handRowsRef.current = m;
+            }
             // Mirror CardFace's xl sizing: 56x80, or 80x112 once the container
             // hits 480px -- the tray spans the shell, so trayW is that width.
             const big = trayW >= 480;
             const cardW = big ? 80 : 56;
             const cardH = big ? 112 : 80;
             const EMOTE_RESERVE = onEmote ? 52 : 0;
-            const center = (n - 1) / 2;
-            const ROTATE_STEP = 2.5; // degrees of outward tilt per card away from center
-            // Rotating the end cards swings their TOP corner outward past the
-            // layout slot: with the pivot at bottom-center, that corner moves
-            // out by h*sin(θ) - (w/2)(1 - cos(θ)), ~20px at a full hand's end
-            // tilt. That overhang has to come out of the usable width or the
-            // two outermost cards poke past the screen edges.
-            const endRad = (center * ROTATE_STEP * Math.PI) / 180;
-            const rotOverhang = Math.ceil(cardH * Math.sin(endRad) - (cardW / 2) * (1 - Math.cos(endRad)));
-            const SIDE_PAD = 8 + rotOverhang;
-            const available = Math.max(cardW, trayW - SIDE_PAD * 2 - EMOTE_RESERVE);
-            const step = n > 1 ? Math.min(cardW * 0.72, (available - cardW) / (n - 1)) : 0;
-            const fanW = cardW + step * Math.max(0, n - 1);
-            const x0 = SIDE_PAD + Math.max(0, (available - fanW) / 2);
-            const LIFT_STEP = big ? 3.5 : 3; // px the arc climbs per card toward the center
-            const maxLift = Math.ceil(center * LIFT_STEP);
-            const trayH = cardH + maxLift + 24; // headroom for the raised-card pop
+            // Two stories or one is decided from the round's FULL hand size
+            // (the row map's size), not the current count, so the layout
+            // never flips mid-round as cards get played.
+            const twoStory = trayW > 0 && needsTwoStories(handRowsRef.current.size, trayW, cardW, cardH, EMOTE_RESERVE);
+            const rows = twoStory
+              ? [
+                  sorted.filter((c) => handRowsRef.current.get(cardKey(c)) === 0),
+                  sorted.filter((c) => handRowsRef.current.get(cardKey(c)) === 1),
+                ]
+              : [sorted];
+            // The back story peeks out above the front one by a bit under
+            // half a card, enough to read the corner index and tap it.
+            const rowOffset = twoStory ? Math.round(cardH * 0.55) : 0;
+            const geos = rows.map((r) => fanLayout(r.length, trayW, cardW, cardH, EMOTE_RESERVE));
+            const maxLiftAll = Math.max(...geos.map((g) => g.maxLift));
+            const trayH = cardH + rowOffset + maxLiftAll + 24;
+            // Once the front story empties, the back story slides down to the
+            // baseline (via transform, so it animates) instead of hovering.
+            const frontEmpty = twoStory && rows[1].length === 0;
             return (
               <div ref={setTrayEl} className="relative w-full" style={{ height: trayH }}>
                 {trayW > 0 &&
-                  cards.map((card, i) => {
-                    const legal =
-                      view.phase !== 'playing' || !isMyTurn || !view.legal
-                        ? true
-                        : view.legal.some((c) => cardKey(c) === cardKey(card));
-                    const isRaised = raised && cardKey(raised) === cardKey(card);
-                    const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
-                    const pulseForced = forcedDumpActive && legal && isLeekha(card);
-                    const arcOffset = i - center;
-                    const rotateDeg = n > 1 ? arcOffset * ROTATE_STEP : 0;
-                    const liftPx = Math.max(
-                      0,
-                      Math.round((center - Math.abs(arcOffset)) * LIFT_STEP) + (justReceived ? 8 : 0) - (!legal ? 3 : 0),
-                    );
-                    // The inline transform below always wins over any Tailwind transform
-                    // utility class in the cascade, so every case that used to nudge the
-                    // card (raised, illegal, just-received) has to fold into this one
-                    // computed value instead of a separate translate-y-* class.
-                    const transform = isRaised
-                      ? `translateY(-${maxLift + 18}px)`
-                      : `rotate(${rotateDeg}deg) translateY(-${liftPx}px)`;
-                    return (
-                      <button
-                        key={cardKey(card)}
-                        disabled={view.phase !== 'playing' || !isMyTurn}
-                        onPointerDown={(e) => onCardPointerDown(e, card, legal)}
-                        style={{ left: Math.round(x0 + i * step), bottom: 0, zIndex: isRaised ? 50 : i, transform }}
-                        className={`absolute origin-bottom touch-none transition-transform ${!legal ? 'grayscale-[65%] brightness-[0.72]' : ''} ${
-                          justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
-                        } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
-                      >
-                        <CardFace card={card} size="xl" fourColor={settings.fourColorDeck} />
-                      </button>
-                    );
+                  rows.map((rowCards, rowIdx) => {
+                    const displayRow = settings.language === 'ar' ? [...rowCards].reverse() : rowCards;
+                    const geo = geos[rowIdx];
+                    const rowLift = twoStory && rowIdx === 0 && !frontEmpty ? rowOffset : 0;
+                    return displayRow.map((card, i) => {
+                      const legal =
+                        view.phase !== 'playing' || !isMyTurn || !view.legal
+                          ? true
+                          : view.legal.some((c) => cardKey(c) === cardKey(card));
+                      const isRaised = raised && cardKey(raised) === cardKey(card);
+                      const justReceived = receivedReveal && view.youReceived?.some((c) => cardKey(c) === cardKey(card));
+                      const pulseForced = forcedDumpActive && legal && isLeekha(card);
+                      const liftPx = Math.max(0, geo.lift(i) + rowLift + (justReceived ? 8 : 0) - (!legal ? 3 : 0));
+                      // The inline transform below always wins over any Tailwind transform
+                      // utility class in the cascade, so every case that used to nudge the
+                      // card (raised, illegal, just-received) has to fold into this one
+                      // computed value instead of a separate translate-y-* class.
+                      const transform = isRaised
+                        ? `translateY(-${maxLiftAll + rowLift + 18}px)`
+                        : `rotate(${geo.rotate(i)}deg) translateY(-${liftPx}px)`;
+                      return (
+                        <button
+                          key={cardKey(card)}
+                          disabled={view.phase !== 'playing' || !isMyTurn}
+                          onPointerDown={(e) => onCardPointerDown(e, card, legal)}
+                          style={{ left: geo.left(i), bottom: 0, zIndex: isRaised ? 50 : rowIdx * 20 + i, transform }}
+                          className={`absolute origin-bottom touch-none transition-transform ${!legal ? 'grayscale-[65%] brightness-[0.72]' : ''} ${
+                            justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
+                          } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
+                        >
+                          <CardFace card={card} size="xl" fourColor={settings.fourColorDeck} />
+                        </button>
+                      );
+                    });
                   })}
               </div>
             );
@@ -802,6 +821,7 @@ export function GameTable({
           )}
           language={settings.language}
           onContinue={onAdvanceRound}
+          autoAdvances={roundAutoAdvances}
         />
       )}
 
