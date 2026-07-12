@@ -28,7 +28,7 @@ function loadBuffer(url: string): Promise<AudioBuffer | null> {
   return cached;
 }
 
-function play(url: string, gain = 0.7, delayMs = 0) {
+function play(url: string, gain = 0.7, delayMs = 0, maxMs?: number) {
   const audio = getContext();
   if (!audio) return;
   loadBuffer(url).then((buffer) => {
@@ -38,7 +38,16 @@ function play(url: string, gain = 0.7, delayMs = 0) {
     const g = audio.createGain();
     g.gain.value = gain;
     source.connect(g).connect(audio.destination);
-    source.start(audio.currentTime + delayMs / 1000);
+    const startAt = audio.currentTime + delayMs / 1000;
+    source.start(startAt);
+    // Some real recordings run far longer than an emote should (an 18s snore
+    // loop, a 9s donkey): cap them with a short fade so the cut isn't abrupt.
+    if (maxMs && buffer.duration * 1000 > maxMs) {
+      const endAt = startAt + maxMs / 1000;
+      g.gain.setValueAtTime(gain, endAt - 0.25);
+      g.gain.linearRampToValueAtTime(0.0001, endAt);
+      source.stop(endAt);
+    }
   });
 }
 
@@ -57,17 +66,26 @@ const ROUND_END = '/sounds/round-end.ogg';
 const GAME_WIN = '/sounds/game-win.ogg';
 const GAME_LOSE = '/sounds/game-lose.ogg';
 
-const EMOTE_SOUNDS: Record<string, string> = {
-  nice: '/sounds/emote-nice.ogg',
-  haha: '/sounds/emote-haha.ogg',
-  wow: '/sounds/emote-wow.ogg',
-  oops: '/sounds/emote-oops.ogg',
-  fire: '/sounds/emote-fire.ogg',
-  thanks: '/sounds/emote-thanks.ogg',
-  ugh: '/sounds/emote-ugh.ogg',
-  gg: '/sounds/emote-gg.ogg',
-  clown: '/sounds/emote-clown.ogg',
-  popcorn: '/sounds/emote-popcorn.ogg',
+// Every emote cue is a real recording (Mixkit free license, plus two kept
+// Kenney CC0 clips) — see public/CREDITS.txt for the exact source of each.
+// maxMs caps recordings that run longer than a table reaction should.
+const EMOTE_SOUNDS: Record<string, { url: string; gain?: number; maxMs?: number }> = {
+  nice: { url: '/sounds/emote-nice.mp3' }, // small group applause
+  haha: { url: '/sounds/emote-haha.mp3' }, // real crowd laugh
+  wow: { url: '/sounds/emote-wow.ogg' }, // explosion (Kenney), for the exploding head
+  gg: { url: '/sounds/emote-gg.mp3', maxMs: 4000 }, // triumphant orchestra trumpets
+  cry: { url: '/sounds/emote-cry.mp3' }, // sobbing kid
+  angry: { url: '/sounds/emote-angry.mp3' }, // monster scream
+  oops: { url: '/sounds/emote-oops.mp3', maxMs: 4500 }, // the classic sad trombone
+  kiss: { url: '/sounds/emote-kiss.mp3', gain: 0.9 }, // kiss smack
+  fire: { url: '/sounds/emote-fire.ogg' }, // whoosh (Kenney)
+  clown: { url: '/sounds/emote-clown.mp3' }, // clown horn honks
+  popcorn: { url: '/sounds/emote-popcorn.mp3', maxMs: 3000 }, // loud chip munching
+  finger: { url: '/sounds/emote-finger.mp3', gain: 0.9 }, // cartoon fart
+  donkey: { url: '/sounds/emote-donkey.mp3', maxMs: 4000 }, // full donkey bray
+  rooster: { url: '/sounds/emote-rooster.mp3' }, // rooster crowing (sabah el kheir)
+  sleep: { url: '/sounds/emote-sleep.mp3', maxMs: 3500, gain: 0.9 }, // real snoring
+  goat: { url: '/sounds/emote-goat.mp3' }, // goat baa, for the GOAT
 };
 
 /** Q-spade, K-club, 10-diamond get a distinct sting per SPEC.md section 7.5.6. */
@@ -94,7 +112,8 @@ export function trickEndSound(bigCard: boolean) {
 
 /** A distinct cue per emote (SPEC.md 7.5.11) so reactions are told apart by ear, not just by sight. */
 export function emoteSound(id: string) {
-  play(EMOTE_SOUNDS[id] ?? EMOTE_SOUNDS.nice, 0.7);
+  const def = EMOTE_SOUNDS[id] ?? EMOTE_SOUNDS.nice;
+  play(def.url, def.gain ?? 0.7, 0, def.maxMs);
 }
 
 /** The round's deal flourish: each card gets its own slide, cycling through the pack so a full deal doesn't repeat one clip. */

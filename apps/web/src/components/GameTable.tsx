@@ -555,8 +555,12 @@ export function GameTable({
             {showEmotePicker && (
               // w-max: an absolutely positioned box shrink-wraps to its
               // containing block -- here the 44px button wrapper -- which
-              // would squash the grid to one column without it.
-              <div className="absolute bottom-full right-0 mb-2 w-max grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
+              // would squash the grid to one column without it. end-0 (not
+              // right-0): under RTL the justify-end row puts the button at
+              // the visual LEFT edge, so the panel has to grow toward the
+              // inside of the screen in both directions, which the logical
+              // inset-inline-end anchor does and a physical right-0 doesn't.
+              <div className="absolute bottom-full end-0 mb-2 w-max grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
                 {EMOTES.map((e) => (
                   <button
                     key={e.id}

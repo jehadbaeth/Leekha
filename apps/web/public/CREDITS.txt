@@ -1,21 +1,36 @@
 Third-party assets bundled with this app
 =========================================
 
-Sounds (public/sounds/)
-------------------------
+Game sounds (public/sounds/, card/chip/round/game files)
+---------------------------------------------------------
 Source: Kenney (www.kenney.nl) — "Casino Audio", "Interface Sounds",
-"Music Jingles", and "Sci-Fi Sounds" (emote-wow.ogg, an explosion, for the
-exploding-head emote) packs.
+"Music Jingles", and "Sci-Fi Sounds" packs.
 License: Creative Commons CC0 1.0 Universal (public domain dedication).
 https://creativecommons.org/publicdomain/zero/1.0/
 Attribution is not required, but credit to Kenney is appreciated.
+Also still used for two emotes: emote-wow.ogg (explosion) and
+emote-fire.ogg (whoosh).
 
-Note: emote-nice.ogg (clapping-hands emote) and emote-haha.ogg (laughing
-emote) are still generic UI blips, not real applause/laughter recordings —
-none of Kenney's CC0 packs include human vocal or crowd sounds. Swapping
-these two for the real thing needs an actual licensed clap/laugh sample
-(e.g. a specific CC0-tagged freesound.org clip, chosen and licensing-checked
-by a person) rather than this app's stock CC0 asset pipeline.
+Emote sounds (public/sounds/emote-*.mp3)
+-----------------------------------------
+Source: Mixkit (mixkit.co), real recordings under the Mixkit Sound Effects
+Free License (free for commercial and non-commercial use, no attribution
+required): https://mixkit.co/license/#sfxFree
+Files, by Mixkit item id and title:
+  emote-nice.mp3     523  "Animated small group applause"
+  emote-haha.mp3     424  "Crowd laugh"
+  emote-gg.mp3      2285  "Orchestra triumphant trumpets"
+  emote-cry.mp3      474  "Lost kid sobbing"
+  emote-angry.mp3   1963  "Angry monster scream"
+  emote-oops.mp3     472  "Slow sad trombone fail"
+  emote-kiss.mp3    2196  "Flirtatious double kiss"
+  emote-clown.mp3   2886  "Funny clown horn sounds"
+  emote-popcorn.mp3  131  "Human eating a potato chip"
+  emote-finger.mp3  2891  "Cartoon fart sound"
+  emote-donkey.mp3  1770  "Donkey scream"
+  emote-rooster.mp3 2470  "Short rooster crowing"
+  emote-sleep.mp3   1911  "Sleep soft snore"
+  emote-goat.mp3    1763  "Farm goat baa"
 
 Animated emotes (public/emotes/)
 ---------------------------------
@@ -23,8 +38,8 @@ Source: Google's Noto Emoji Animation set, https://googlefonts.github.io/noto-em
 (https://github.com/googlefonts/noto-emoji)
 License: Apache License, Version 2.0 for the animated artwork.
 https://www.apache.org/licenses/LICENSE-2.0
-Files used, by Unicode codepoint: 1F44F, 1F602, 1F92F, 1F648, 1F525, 1F64F,
-1F629, 1F91D, 1F921, 1F37F.
+Files used, by Unicode codepoint: 1F44F, 1F602, 1F92F, 1F648, 1F525, 1F91D,
+1F921, 1F37F, 1F62D, 1F621, 1F618, 1F634, 1FACF, 1F595, 1F413, 1F410.
 
 These are generic, openly-licensed emoji/SFX packs, not another app's
 proprietary artwork or sound effects.
