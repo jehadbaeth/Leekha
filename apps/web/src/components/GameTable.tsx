@@ -367,7 +367,7 @@ export function GameTable({
   }
 
   return (
-    <div className="@container relative h-full w-full flex flex-col bg-gradient-to-b from-felt-900 to-felt-950 overflow-hidden select-none">
+    <div className="@container relative h-full w-full flex flex-col bg-gradient-to-b from-felt-900 to-felt-950 overflow-y-auto overflow-x-hidden select-none">
       {/* Deal flourish: four quick card bursts flying out from the center, purely
           cosmetic and non-blocking (the real hand underneath is already playable). */}
       {dealFx && (

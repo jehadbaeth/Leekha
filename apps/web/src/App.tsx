@@ -111,20 +111,25 @@ export default function App() {
     if (ok) setScreen('lobby');
   }
 
-  // The table layout is built for a phone-shaped viewport: the trick area in
-  // its middle uses flex-1 to soak up leftover vertical space, which reads
-  // fine up to a real phone's height but balloons into a dead void on a
-  // taller/wider window. A phone in landscape has a short side (its height)
-  // under ~480px even though its long side (width) is 700-900px, so a plain
-  // width cap alone still boxes it wrongly; capping on input type (hover +
-  // fine pointer) was no better, since it doesn't track viewport shape either.
-  // The `.game-shell-inner` media query in index.css instead boxes the view
-  // only once BOTH dimensions exceed the phone-shaped threshold, so any real
-  // phone orientation gets full bleed and only a genuinely desktop-shaped
-  // window gets the centered phone-sized box.
+  // The table used to be force-stretched to h-full/100vh so its flex-col
+  // sections would fill the whole viewport; on any window taller than its
+  // actual content (avatars + trick area + HUD + hand tray), the flex-1
+  // middle section soaked up all that leftover height as a dead void. Worse,
+  // 100vh/fixed on a real mobile browser is measured against the layout
+  // viewport, not the visible one -- when the address bar is showing, the
+  // real visible height is shorter, so content sized to fill "100%" could run
+  // past the bottom of the screen with nothing to scroll it back into view
+  // (this is what made the Start button and hand of cards unreachable).
+  // Sizing to natural content height, centering it, and using scroll as a
+  // fallback rather than a hard clip fixes both at once: no forced height
+  // means no dead void to fill, and nothing is ever clipped unreachable.
+  // The `.game-shell-inner` media query in index.css still boxes the view to
+  // a phone-sized silhouette once BOTH dimensions exceed a phone-shaped
+  // threshold, so a real phone (portrait or landscape) always gets full
+  // bleed and only a genuinely desktop-shaped window gets the centered box.
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-felt-950 overflow-hidden">
-      <div className="game-shell-inner relative h-full w-full text-white overflow-hidden">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
+      <div className="game-shell-inner relative h-[100dvh] w-full text-white">
         {screen === 'home' && (
         <Home
           settings={settings}
