@@ -1,4 +1,5 @@
 import type { Seat } from '@leekha/engine';
+import { Flag } from './Flag';
 
 export type PresenceStatus = 'connected' | 'reconnecting' | 'bot';
 
@@ -15,6 +16,7 @@ export function Avatar({
   deadline,
   emote,
   emoteDirection = 'up',
+  country,
 }: {
   name: string;
   score: number;
@@ -35,6 +37,8 @@ export function Avatar({
   /** 'down' for seats sitting close to the top of the viewport (e.g. the partner
    * seat), where popping the sticker upward from '-top-20' pushes it off-screen. */
   emoteDirection?: 'up' | 'down';
+  /** ISO 3166-1 alpha-2 the player connects from (online only); shows a small flag next to the name. */
+  country?: string | null;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -70,8 +74,11 @@ export function Avatar({
         )}
         {isTurn && deadline != null && <TimerRing deadline={deadline} />}
       </div>
-      <span className="flex flex-col items-center max-w-[64px]">
-        <span className="text-[11px] text-emerald-100 truncate max-w-full">{name}</span>
+      <span className="flex flex-col items-center max-w-[72px]">
+        <span className="flex items-center gap-1 max-w-full">
+          {country && !isBot && <Flag country={country} className="w-4 h-3 flex-shrink-0" />}
+          <span className="text-[11px] text-emerald-100 truncate">{name}</span>
+        </span>
         {isBot && (
           <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">bot is playing</span>
         )}

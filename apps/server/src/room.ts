@@ -37,6 +37,7 @@ function emptySeat(seat: Seat): SeatSlot {
     connected: false,
     socketId: null,
     afkStrikes: 0,
+    country: null,
   };
 }
 
@@ -60,6 +61,8 @@ export class Room {
   private playTimer: ReturnType<typeof setTimeout> | null = null;
   private roundAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
   private disconnectTimers = new Map<Seat, ReturnType<typeof setTimeout>>();
+  /** Seatless watchers currently connected: socketId -> country (null when unresolvable). Never persisted — sockets don't survive a restart. */
+  private spectators = new Map<string, string | null>();
   lastActivity = Date.now();
 
   constructor(code: string, config: RulesConfig, emit: Emit) {
@@ -129,6 +132,7 @@ export class Room {
       botLevel: s.botLevel ?? undefined,
       ready: s.ready,
       connected: s.connected,
+      country: s.country ?? null,
     }));
   }
 
@@ -150,6 +154,34 @@ export class Room {
     this.onChange?.();
   }
 
+  // ---- spectators ----
+
+  spectatorsMessage(): Extract<ServerMessage, { type: 'room.spectators' }> {
+    const countries: Record<string, number> = {};
+    for (const country of this.spectators.values()) {
+      if (country) countries[country] = (countries[country] ?? 0) + 1;
+    }
+    return {
+      type: 'room.spectators',
+      seq: this.nextSeq(),
+      roomCode: this.code,
+      count: this.spectators.size,
+      countries,
+    };
+  }
+
+  addSpectator(socketId: string, country: string | null): void {
+    const known = this.spectators.get(socketId);
+    if (this.spectators.has(socketId) && known === country) return;
+    this.spectators.set(socketId, country);
+    this.emit(null, this.spectatorsMessage());
+  }
+
+  removeSpectator(socketId: string): void {
+    if (!this.spectators.delete(socketId)) return;
+    this.emit(null, this.spectatorsMessage());
+  }
+
   /** An empty chair, or if none, any bot-occupied seat a human can take over (SPEC.md 11: no seat may ever refuse a human for having a bot in it). */
   findOpenSeat(): Seat | null {
     const empty = this.seats.find((s) => s.name === null);
@@ -157,7 +189,7 @@ export class Room {
     return this.seats.find((s) => s.isBot)?.seat ?? null;
   }
 
-  sit(seat: Seat, name: string, socketId: string): string {
+  sit(seat: Seat, name: string, socketId: string, country: string | null = null): string {
     this.touch();
     const slot = this.seats[seat];
     const isTakeover = slot.isBot;
@@ -169,7 +201,10 @@ export class Room {
     slot.connected = true;
     slot.socketId = socketId;
     slot.afkStrikes = 0;
+    slot.country = country;
     slot.ready = isTakeover ? slot.ready : false;
+    // A spectator who claims a seat stops being a spectator.
+    this.removeSpectator(socketId);
     if (!this.seats.some((s) => s.name !== null && s.seat !== seat)) this.hostSeat = seat;
     this.broadcastRoomState();
     // A takeover replaces whoever (bot or previously-AFK human) held the seat; their
@@ -601,10 +636,15 @@ export class Room {
    * over. Reclaiming either of those now goes through sit() like anyone else
    * on the sidelines (SPEC.md 11), so there is no isBot un-flip here.
    */
-  bindSocket(seat: Seat, socketId: string): void {
+  bindSocket(seat: Seat, socketId: string, country?: string | null): void {
     const slot = this.seats[seat];
     slot.socketId = socketId;
     slot.connected = true;
+    // A reconnect is a fresh connection with a fresh lookup; it also backfills
+    // seats restored from pre-feature Redis snapshots that carried no country.
+    if (country) slot.country = country;
+    // A reconnecting player may have been counted as a spectator moments ago.
+    this.removeSpectator(socketId);
     const timer = this.disconnectTimers.get(seat);
     if (timer) {
       clearTimeout(timer);
@@ -619,6 +659,7 @@ export class Room {
   }
 
   disconnectSocket(socketId: string): void {
+    this.removeSpectator(socketId);
     const slot = this.seats.find((s) => s.socketId === socketId);
     if (!slot || slot.isBot) return;
     slot.connected = false;

@@ -55,6 +55,7 @@ export function useOnlineGame() {
     3: 'connected',
   });
   const [lastError, setLastError] = useState<string | null>(null);
+  const [spectators, setSpectators] = useState<{ count: number; countries: Record<string, number> } | null>(null);
   const [emotes, setEmotes] = useState<Record<Seat, { id: string; ts: number } | null>>({
     0: null,
     1: null,
@@ -222,6 +223,10 @@ export function useOnlineGame() {
           setEmotes((prev) => ({ ...prev, [msg.seat]: { id: msg.id, ts: Date.now() } }));
           break;
         }
+        case 'room.spectators': {
+          setSpectators({ count: msg.count, countries: msg.countries });
+          break;
+        }
         case 'error': {
           setLastError(msg.message);
           break;
@@ -257,14 +262,14 @@ export function useOnlineGame() {
         // 'auth' handler); name is a required, non-empty field on the wire
         // regardless, so send a placeholder rather than '' which would fail
         // AuthMsg's min(1) validation and surface as a raw error on screen.
-        socket.send({ type: 'auth', name: 'Guest', seatToken: stored.seatToken });
+        socket.send({ type: 'auth', name: 'Guest', seatToken: stored.seatToken, locale: navigator.language });
         socket.send({ type: 'game.resync' });
       }
     });
   }, []);
 
   const createRoom = useCallback(async (name: string, config: RulesConfig) => {
-    socketRef.current!.send({ type: 'auth', name: name || 'Guest' });
+    socketRef.current!.send({ type: 'auth', name: name || 'Guest', locale: navigator.language });
     const res = await socketRef.current!.request<{ code: string; seatToken: string } | { error: string }>({
       type: 'room.create',
       config,
@@ -289,7 +294,7 @@ export function useOnlineGame() {
 
   const joinRoom = useCallback(async (name: string, code: string) => {
     const resolvedName = name || 'Guest';
-    socketRef.current!.send({ type: 'auth', name: resolvedName });
+    socketRef.current!.send({ type: 'auth', name: resolvedName, locale: navigator.language });
     const res = await socketRef.current!.request<{ seatToken: string } | { observer: true } | { error: string }>({
       type: 'room.join',
       code: code.toUpperCase(),
@@ -308,7 +313,7 @@ export function useOnlineGame() {
     // Re-auth with the fresh token so the server binds this socket to the
     // seat it just sat us in (see server.ts's 'auth' handler); that bind
     // triggers a fresh room.state broadcast our seat-matching logic above reads.
-    socketRef.current!.send({ type: 'auth', name: resolvedName, seatToken: res.seatToken });
+    socketRef.current!.send({ type: 'auth', name: resolvedName, seatToken: res.seatToken, locale: navigator.language });
     socketRef.current!.send({ type: 'game.resync' });
     return true;
   }, []);
@@ -358,6 +363,7 @@ export function useOnlineGame() {
     setMySeat(null);
     setMatchResult(undefined);
     setRematchVotes(null);
+    setSpectators(null);
   }, [setMySeat]);
   const pass = useCallback((cards: [Card, Card, Card]) => {
     socketRef.current!.send({ type: 'game.pass', cards });
@@ -384,6 +390,7 @@ export function useOnlineGame() {
     turnDeadline,
     presence,
     emotes,
+    spectators,
     lastError,
     events,
     clearEvent,

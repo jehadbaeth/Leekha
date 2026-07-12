@@ -87,6 +87,14 @@ export default function App() {
     return base;
   }, [online.roomState]);
 
+  const onlineCountries: Partial<Record<Seat, string | null>> = useMemo(() => {
+    const base: Partial<Record<Seat, string | null>> = {};
+    if (online.roomState) {
+      for (const slot of online.roomState.seats) base[slot.seat] = slot.country ?? null;
+    }
+    return base;
+  }, [online.roomState]);
+
   // The unified sidelines list (SPEC.md 11): every bot-controlled seat is
   // claimable by any human without one, whether they're a brand-new observer
   // or an existing player whose own seat went idle and got flipped to a bot.
@@ -206,6 +214,8 @@ export default function App() {
           emotes={online.emotes}
           onEmote={online.sendEmote}
           spectator={online.mySeat === null}
+          spectators={online.spectators}
+          countries={onlineCountries}
           claimableSeats={claimableSeats}
           onClaimSeat={online.claimSeat}
           roomCode={online.roomState?.roomCode ?? null}

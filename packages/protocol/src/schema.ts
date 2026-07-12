@@ -47,7 +47,13 @@ export const SeatViewSchema = z.object({
 
 // ---- Client -> server ----
 
-export const AuthMsg = z.object({ type: z.literal('auth'), name: z.string().min(1).max(24), seatToken: z.string().optional() });
+export const AuthMsg = z.object({
+  type: z.literal('auth'),
+  name: z.string().min(1).max(24),
+  seatToken: z.string().optional(),
+  /** BCP 47 tag from navigator.language (e.g. "ar-SY"); its region subtag is the country fallback when GeoIP can't place the peer address. The client's own websocket handshake carries no usable Accept-Language, so this rides the auth message instead. */
+  locale: z.string().max(35).optional(),
+});
 export const RoomCreateMsg = z.object({ type: z.literal('room.create'), config: RulesConfigSchema });
 export const RoomJoinMsg = z.object({ type: z.literal('room.join'), code: z.string().length(6) });
 export const RoomSitMsg = z.object({ type: z.literal('room.sit'), seat: SeatSchema });
@@ -93,6 +99,8 @@ export const SeatSlotSchema = z.object({
   botLevel: BotLevelSchema.optional(),
   ready: z.boolean(),
   connected: z.boolean(),
+  /** ISO 3166-1 alpha-2 of the occupant, resolved server-side (GeoIP with an Accept-Language region fallback); null/absent when unknown or a bot. */
+  country: z.string().length(2).nullable().optional(),
 });
 
 export const RoomStateMsg = z.object({
@@ -124,6 +132,17 @@ export const GameOverMsg = z.object({ type: z.literal('game.over'), seq: z.numbe
 export const PresenceMsg = z.object({ type: z.literal('presence'), seq: z.number().int().nonnegative(), roomCode: z.string(), seat: SeatSchema, status: z.enum(['connected', 'reconnecting', 'bot']) });
 export const ErrorMsg = z.object({ type: z.literal('error'), code: z.string(), message: z.string() });
 export const ServerEmoteMsg = z.object({ type: z.literal('emote'), seat: SeatSchema, id: z.string() });
+// Broadcast whenever the set of seatless watchers changes (and to each socket
+// on join/resync): how many are watching and, aggregated, from where. Only
+// counts cross the wire — never identities — and spectators with no resolvable
+// country are included in `count` but absent from `countries`.
+export const RoomSpectatorsMsg = z.object({
+  type: z.literal('room.spectators'),
+  seq: z.number().int().nonnegative(),
+  roomCode: z.string(),
+  count: z.number().int().nonnegative(),
+  countries: z.record(z.string(), z.number().int().positive()),
+});
 export const GameRematchVotesMsg = z.object({
   type: z.literal('game.rematchVotes'),
   seq: z.number().int().nonnegative(),
@@ -149,6 +168,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   ErrorMsg,
   ServerEmoteMsg,
   GameRematchVotesMsg,
+  RoomSpectatorsMsg,
 ]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

@@ -3,6 +3,7 @@ import type { RulesConfig, Seat } from '@leekha/engine';
 import type { ServerMessage } from '@leekha/protocol';
 import { pick, type Settings } from './settings';
 import { useRoomShare } from './roomShare';
+import { Flag } from './components/Flag';
 
 type RoomState = Extract<ServerMessage, { type: 'room.state' }>;
 type BotLevel = 'easy' | 'medium' | 'hard';
@@ -129,9 +130,12 @@ export function Lobby({
                   </span>
                 )}
               </div>
-              <div className="text-sm font-semibold text-white truncate">
-                {slot.isBot ? `🤖 ${slot.name} (${LEVEL_LABEL[slot.botLevel ?? 'easy'][language]})` : slot.occupied ? slot.name : t('Empty', 'فارغ')}
-                {isMe && t(' (you)', ' (أنت)')}
+              <div className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
+                {slot.occupied && !slot.isBot && slot.country && <Flag country={slot.country} className="w-4 h-3 flex-shrink-0" />}
+                <span className="truncate">
+                  {slot.isBot ? `🤖 ${slot.name} (${LEVEL_LABEL[slot.botLevel ?? 'easy'][language]})` : slot.occupied ? slot.name : t('Empty', 'فارغ')}
+                  {isMe && t(' (you)', ' (أنت)')}
+                </span>
               </div>
               {!slot.connected && slot.occupied && !slot.isBot && (
                 <span className="text-[10px] text-red-400">{t('disconnected', 'غير متصل')}</span>

@@ -3,6 +3,7 @@ import type { Card, MatchResult, Seat, SeatView } from '@leekha/engine';
 import { nextSeat, partnerOf, prevSeat, teamOf } from '@leekha/engine';
 import { CardFace } from './CardFace';
 import { Avatar, type PresenceStatus } from './Avatar';
+import { Flag } from './Flag';
 import { PassingPanel } from './PassingPanel';
 import { RoundSummary } from './RoundSummary';
 import { MatchEnd } from './MatchEnd';
@@ -18,6 +19,15 @@ import { fanLayout, needsTwoStories } from '../fanLayout';
 // events arrive as engine GameEvent (type 'trickEnd'); accept either spelling.
 function isEventType(type: string, suffix: 'played' | 'trickEnd' | 'roundEnd' | 'gameOver'): boolean {
   return type === suffix || type === `game.${suffix === 'gameOver' ? 'over' : suffix}`;
+}
+
+/** Localized country name from a 2-letter code, falling back to the raw code where Intl lacks the region (or the browser lacks Intl.DisplayNames). */
+function regionName(cc: string, language: 'en' | 'ar'): string {
+  try {
+    return new Intl.DisplayNames([language], { type: 'region' }).of(cc.toUpperCase()) ?? cc;
+  } catch {
+    return cc;
+  }
 }
 
 interface FrozenTrick {
@@ -54,6 +64,8 @@ export function GameTable({
   onEmote,
   rematchVotes,
   spectator,
+  spectators,
+  countries,
   claimableSeats,
   onClaimSeat,
   settings,
@@ -81,6 +93,10 @@ export function GameTable({
   rematchVotes?: { seatsVoted: Seat[]; seatsNeeded: Seat[] } | null;
   /** Online only: this socket holds no seat (SPEC.md 11) — view.seat is a fixed, fictitious 0 with hand/legal always blanked, so the hand tray, passing panel, and rematch vote UI must all stay out of the way. */
   spectator?: boolean;
+  /** Online only: how many seatless watchers the room has and, aggregated, which countries they connect from. */
+  spectators?: { count: number; countries: Record<string, number> } | null;
+  /** Online only: ISO 3166-1 alpha-2 per seat (from room.state), shown as a flag next to each player's name. */
+  countries?: Partial<Record<Seat, string | null>>;
   /** Online only: bot-controlled seats a human with no seat can claim, shown as the sidelines list (SPEC.md 11). */
   claimableSeats?: Seat[];
   onClaimSeat?: (seat: Seat) => void;
@@ -116,6 +132,7 @@ export function GameTable({
   const autoPlayedTrick = useRef<string | null>(null);
   const [visibleEmotes, setVisibleEmotes] = useState<Partial<Record<Seat, { anim: string; caption: string; ts: number }>>>({});
   const [showEmotePicker, setShowEmotePicker] = useState(false);
+  const [showSpectators, setShowSpectators] = useState(false);
   const [pendingPlay, setPendingPlay] = useState(false);
   const pendingPlayRef = useRef(false);
   const pendingPlayTimer = useRef<number | null>(null);
@@ -442,6 +459,7 @@ export function GameTable({
           danger={dangerFor(topSeat)}
           team={teamOf(topSeat)}
           presence={presence?.[topSeat]}
+          country={countries?.[topSeat] ?? null}
           deadline={deadlineFor(topSeat)}
           emote={visibleEmotes[topSeat]}
           emoteDirection="down"
@@ -463,6 +481,7 @@ export function GameTable({
           danger={dangerFor(leftSeat)}
           team={teamOf(leftSeat)}
           presence={presence?.[leftSeat]}
+          country={countries?.[leftSeat] ?? null}
           deadline={deadlineFor(leftSeat)}
           emote={visibleEmotes[leftSeat]}
         />
@@ -521,6 +540,7 @@ export function GameTable({
           danger={dangerFor(rightSeat)}
           team={teamOf(rightSeat)}
           presence={presence?.[rightSeat]}
+          country={countries?.[rightSeat] ?? null}
           deadline={deadlineFor(rightSeat)}
           emote={visibleEmotes[rightSeat]}
         />
@@ -641,9 +661,45 @@ export function GameTable({
                 🔗 {roomCode}
               </button>
             )}
+            {spectators && spectators.count > 0 && (
+              <button
+                className="flex items-center gap-1 bg-emerald-900/80 border border-emerald-700 rounded-full px-2.5 py-2 text-xs font-semibold shadow-lg active:scale-95"
+                onClick={() => setShowSpectators((v) => !v)}
+                aria-label={t('Spectators', 'المشاهدون')}
+              >
+                👁 {spectators.count}
+              </button>
+            )}
           </div>
           {codeCopied && (
             <span className="bg-black/75 text-white text-[10px] rounded-full px-2 py-0.5">{t('Copied!', 'تم النسخ!')}</span>
+          )}
+          {showSpectators && spectators && spectators.count > 0 && (
+            <div className="bg-emerald-950/95 border border-emerald-700 rounded-xl px-3 py-2 shadow-lg flex flex-col gap-1.5 text-xs text-emerald-100">
+              <span className="font-semibold text-emerald-300">
+                {t(`${spectators.count} watching`, `${spectators.count} يشاهدون`)}
+              </span>
+              {Object.entries(spectators.countries)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cc, n]) => (
+                  <span key={cc} className="flex items-center gap-1.5">
+                    <Flag country={cc} />
+                    <span>{regionName(cc, settings.language)}</span>
+                    {n > 1 && <span className="text-emerald-300">×{n}</span>}
+                  </span>
+                ))}
+              {(() => {
+                const known = Object.values(spectators.countries).reduce((a, b) => a + b, 0);
+                const unknown = spectators.count - known;
+                return unknown > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    <span>🌐</span>
+                    <span>{t('Somewhere on Earth', 'من مكان ما')}</span>
+                    {unknown > 1 && <span className="text-emerald-300">×{unknown}</span>}
+                  </span>
+                ) : null;
+              })()}
+            </div>
           )}
         </div>
       )}
@@ -671,6 +727,7 @@ export function GameTable({
             danger={dangerFor(mySeat)}
             team={teamOf(mySeat)}
             presence={presence?.[mySeat]}
+          country={countries?.[mySeat] ?? null}
             deadline={deadlineFor(mySeat)}
           />
         </div>

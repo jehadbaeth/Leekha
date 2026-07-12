@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
+import geoip from 'geoip-lite';
 import { IllegalAction, type Seat, defaultConfig } from '@leekha/engine';
 import { ClientMessageSchema, type ClientMessage } from '@leekha/protocol';
 import { RoomManager } from './roomManager.js';
@@ -11,6 +12,34 @@ interface SocketState {
   name: string | null;
   roomCode: string | null;
   seat: Seat | null;
+  country: string | null;
+}
+
+/**
+ * Resolves the connecting player's country (ISO 3166-1 alpha-2) once per
+ * socket. GeoIP on the peer address first (x-forwarded-for aware for reverse
+ * proxies); private/LAN addresses resolve to nothing there, so fall back to
+ * the region subtag of the browser's Accept-Language (e.g. ar-SY -> SY),
+ * which is also what makes the feature visible when testing on a home
+ * network. Null when neither yields anything.
+ */
+function regionFromLanguageTag(tag: string | undefined | null): string | null {
+  const m = typeof tag === 'string' ? /[a-zA-Z]{2,3}-([a-zA-Z]{2})\b/.exec(tag) : null;
+  return m ? m[1].toUpperCase() : null;
+}
+
+function detectCountry(socket: Socket): string | null {
+  const forwarded = socket.handshake.headers['x-forwarded-for'];
+  const raw =
+    (typeof forwarded === 'string' && forwarded.length > 0 ? forwarded.split(',')[0].trim() : null) ??
+    socket.handshake.address;
+  const ip = raw?.replace(/^::ffff:/, '');
+  const geo = ip ? geoip.lookup(ip) : null;
+  if (geo?.country) return geo.country;
+  // Only present when the handshake came in over polling; a websocket-first
+  // connect (the client's default) carries no usable Accept-Language, which
+  // is why AuthMsg.locale exists as the real fallback.
+  return regionFromLanguageTag(socket.handshake.headers['accept-language'] as string | undefined);
 }
 
 export function createApp(options: { webDist?: string; redisUrl?: string } = {}) {
@@ -39,7 +68,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
   sweepInterval.unref?.();
 
   io.on('connection', (socket: Socket) => {
-    const state: SocketState = { name: null, roomCode: null, seat: null };
+    const state: SocketState = { name: null, roomCode: null, seat: null, country: detectCountry(socket) };
 
     function sendError(code: string, message: string) {
       socket.emit('msg', { type: 'error', code, message });
@@ -54,11 +83,13 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
       socket.join(`room:${code}`);
     }
 
-    /** The roster plus (mid-match) a blanked public snapshot — what a socket that holds no seat gets. */
+    /** The roster plus (mid-match) a blanked public snapshot — what a socket that holds no seat gets. Also registers the socket as a spectator, which rebroadcasts the watcher count to the whole room. */
     function sendObserverView(room: Room) {
       socket.emit('msg', room.roomStateMessage());
       const pub = room.publicSnapshotMessage();
       if (pub) socket.emit('msg', pub);
+      room.addSpectator(socket.id, state.country);
+      socket.emit('msg', room.spectatorsMessage());
     }
 
     /**
@@ -96,6 +127,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
         switch (msg.type) {
           case 'auth': {
             state.name = msg.name;
+            if (!state.country) state.country = regionFromLanguageTag(msg.locale);
             if (msg.seatToken) {
               const found = tokenIndex.get(msg.seatToken);
               const room = found ? manager.get(found.roomCode) : undefined;
@@ -105,7 +137,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
                 const slot = room.seats[found.seat];
                 if (slot.token === msg.seatToken && !slot.isBot) {
                   state.seat = found.seat;
-                  room.bindSocket(found.seat, socket.id);
+                  room.bindSocket(found.seat, socket.id, state.country);
                 } else {
                   // Our seat moved on without us: AFK-flipped to a bot, or claimed
                   // outright by someone else while we were away. It is no longer
@@ -123,7 +155,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
 
           case 'room.create': {
             const room = manager.create(msg.config);
-            const token = room.sit(0, state.name ?? 'Host', socket.id);
+            const token = room.sit(0, state.name ?? 'Host', socket.id, state.country);
             tokenIndex.set(token, { roomCode: room.code, seat: 0 });
             state.roomCode = room.code;
             state.seat = 0;
@@ -154,7 +186,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               ack?.({ error: 'room-full' });
               break;
             }
-            const token = room.sit(seat, state.name ?? 'Guest', socket.id);
+            const token = room.sit(seat, state.name ?? 'Guest', socket.id, state.country);
             tokenIndex.set(token, { roomCode: room.code, seat });
             state.roomCode = room.code;
             state.seat = seat;
@@ -175,7 +207,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               break;
             }
             try {
-              const token = room.sit(msg.seat, state.name ?? 'Guest', socket.id);
+              const token = room.sit(msg.seat, state.name ?? 'Guest', socket.id, state.country);
               tokenIndex.set(token, { roomCode: room.code, seat: msg.seat });
               state.seat = msg.seat;
               ack?.({ seatToken: token });
@@ -223,6 +255,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
           case 'room.leave': {
             const seat = mySeat();
             if (seat !== null) currentRoom()?.leave(seat);
+            currentRoom()?.removeSpectator(socket.id);
             if (state.roomCode) socket.leave(`room:${state.roomCode}`);
             state.roomCode = null;
             state.seat = null;

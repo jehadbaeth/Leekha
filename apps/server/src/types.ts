@@ -12,6 +12,8 @@ export interface SeatSlot {
   connected: boolean;
   socketId: string | null;
   afkStrikes: number;
+  /** ISO 3166-1 alpha-2 of the seated human, resolved at connection time; null for bots/unknown. Optional so pre-feature Redis snapshots still deserialize. */
+  country?: string | null;
 }
 
 export type RoomPhase = 'lobby' | 'game';
