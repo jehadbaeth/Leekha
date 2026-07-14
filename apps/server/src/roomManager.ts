@@ -1,9 +1,10 @@
 import type { Server } from 'socket.io';
 import { defaultConfig } from '@leekha/engine';
 import type { RulesConfig, Seat } from '@leekha/engine';
-import type { ServerMessage } from '@leekha/protocol';
+import type { ServerMessage, PublicRoom } from '@leekha/protocol';
 import { Room, type Emit, type EmitTarget } from './room.js';
 import type { Persistence } from './persistence.js';
+import type { Db } from './db.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -22,6 +23,7 @@ export class RoomManager {
   constructor(
     private io: Server,
     private persistence: Persistence | null = null,
+    private db: Db | null = null,
   ) {}
 
   private makeEmit(room: Room): Emit {
@@ -55,6 +57,7 @@ export class RoomManager {
   private register(room: Room): void {
     room.setEmit(this.makeEmit(room));
     room.setOnChange(() => this.persist(room.code));
+    room.setOnMatchEnd((record) => this.db?.recordMatch(record));
     this.rooms.set(room.code, room);
   }
 
@@ -63,10 +66,10 @@ export class RoomManager {
     if (room) this.persistence?.save(code, room.serialize());
   }
 
-  create(config: RulesConfig = defaultConfig): Room {
+  create(config: RulesConfig = defaultConfig, isPublic = false): Room {
     let code = randomCode();
     while (this.rooms.has(code)) code = randomCode();
-    const room = new Room(code, config, () => {});
+    const room = new Room(code, config, () => {}, isPublic);
     this.register(room);
     this.persist(code);
     return room;
@@ -74,6 +77,15 @@ export class RoomManager {
 
   get(code: string): Room | undefined {
     return this.rooms.get(code.toUpperCase());
+  }
+
+  /** Rooms fit for the home screen's public list: still in the lobby, marked public, and joinable by a new human (empty seat OR a bot seat, since bot seats are freely claimable — see claimableSeats in App.tsx). A room with every seat taken by real players can only be reached as an observer, which the list doesn't offer. */
+  listPublic(): PublicRoom[] {
+    return [...this.rooms.values()]
+      .filter((room) => room.isPublic && room.phase === 'lobby' && room.seats.some((s) => s.name === null || s.isBot))
+      .sort((a, b) => b.lastActivity - a.lastActivity)
+      .slice(0, 50)
+      .map((room) => room.publicSummary());
   }
 
   destroy(code: string): void {

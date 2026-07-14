@@ -13,6 +13,8 @@
     "@leekha/bots": "workspace:*",
     "@leekha/engine": "workspace:*",
     "@leekha/protocol": "workspace:*",
+    "argon2": "^0.41.1",
+    "better-sqlite3": "^12.11.1",
     "geoip-lite": "^2.0.3",
     "ioredis": "^5.4.1",
     "nanoid": "^5.0.7",
@@ -20,6 +22,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
     "@types/geoip-lite": "^1.4.4",
     "@types/node": "^22.9.0",
     "socket.io-client": "^4.8.0",

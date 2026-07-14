@@ -5,16 +5,19 @@ import { Home } from './Home';
 import { Lobby } from './Lobby';
 import { HowToPlay } from './HowToPlay';
 import { SettingsScreen } from './SettingsScreen';
+import { AuthScreen } from './AuthScreen';
+import { HistoryScreen } from './HistoryScreen';
 import { GameTable } from './components/GameTable';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
 import { useOnlineGame } from './useOnlineGame';
 import { loadSession } from './net/session';
+import { fetchMe, logout as apiLogout, type AuthedUser } from './net/api';
 import { useInstallPrompt } from './useInstallPrompt';
 import { InstallBanner } from './components/InstallBanner';
 import { unlockAudio } from './sound';
 
-type Screen = 'home' | 'howto' | 'settings' | 'game' | 'lobby';
+type Screen = 'home' | 'howto' | 'settings' | 'game' | 'lobby' | 'auth' | 'history';
 type Mode = 'local' | 'online';
 
 const BOT_NAMES: Record<number, string> = { 1: 'Rami', 2: 'Nour', 3: 'Sami' };
@@ -29,12 +32,19 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [mode, setMode] = useState<Mode>('local');
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [user, setUser] = useState<AuthedUser | null>(null);
   const game = useGame();
   const online = useOnlineGame();
   const install = useInstallPrompt();
 
   useEffect(() => {
     setSettings(loadSettings());
+  }, []);
+
+  useEffect(() => {
+    fetchMe()
+      .then(setUser)
+      .catch(() => setUser(null));
   }, []);
 
   useEffect(() => {
@@ -107,9 +117,9 @@ export default function App() {
     3: BOT_NAMES[3],
   };
 
-  async function handleCreateRoom(name: string) {
+  async function handleCreateRoom(name: string, isPublic: boolean) {
     setMode('online');
-    const code = await online.createRoom(name, defaultConfig);
+    const code = await online.createRoom(name, defaultConfig, isPublic);
     if (code) setScreen('lobby');
   }
 
@@ -153,6 +163,14 @@ export default function App() {
           onSettings={() => setScreen('settings')}
           joinError={online.lastError}
           initialJoinCode={initialJoinCodeFromUrl()}
+          publicRooms={online.publicRooms}
+          onRefreshPublicRooms={online.refreshPublicRooms}
+          user={user}
+          onAuth={() => setScreen('auth')}
+          onLogout={() => {
+            void apiLogout().finally(() => setUser(null));
+          }}
+          onHistory={() => setScreen('history')}
         />
       )}
 
@@ -161,6 +179,19 @@ export default function App() {
       {screen === 'settings' && (
         <SettingsScreen settings={settings} onUpdate={updateSettings} onBack={() => setScreen('home')} />
       )}
+
+      {screen === 'auth' && (
+        <AuthScreen
+          settings={settings}
+          onBack={() => setScreen('home')}
+          onAuthed={(u) => {
+            setUser(u);
+            setScreen('home');
+          }}
+        />
+      )}
+
+      {screen === 'history' && <HistoryScreen settings={settings} onBack={() => setScreen('home')} />}
 
       {screen === 'lobby' && (
         <Lobby

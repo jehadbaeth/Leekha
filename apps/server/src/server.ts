@@ -7,12 +7,16 @@ import { RoomManager } from './roomManager.js';
 import type { Room } from './room.js';
 import { createStaticHandler } from './staticFiles.js';
 import { createPersistence } from './persistence.js';
+import { openDb } from './db.js';
+import { createAuthHandler, resolveSessionFromCookieHeader } from './auth.js';
 
 interface SocketState {
   name: string | null;
   roomCode: string | null;
   seat: Seat | null;
   country: string | null;
+  /** Registered account id resolved from the session cookie at connection time; null for guests. Identity tag only -- per-action trust still runs through mySeat()'s socketId check, never this. */
+  userId: string | null;
 }
 
 /**
@@ -52,16 +56,51 @@ function detectCountry(socket: Socket): string | null {
   return regionFromLanguageTag(socket.handshake.headers['accept-language'] as string | undefined);
 }
 
-export function createApp(options: { webDist?: string; redisUrl?: string } = {}) {
+export function createApp(options: { webDist?: string; redisUrl?: string; databasePath?: string } = {}) {
   const serveStatic = options.webDist ? createStaticHandler(options.webDist) : null;
+  // No databasePath means an ephemeral in-memory store (used by tests); the
+  // real entrypoint (index.ts) always passes an explicit DATABASE_PATH.
+  const db = openDb(options.databasePath ?? ':memory:');
+  const handleAuthRequest = createAuthHandler(db);
   const httpServer = createServer((req, res) => {
-    if (serveStatic && !(req.url ?? '').startsWith('/socket.io/')) {
-      void serveStatic(req, res);
+    if ((req.url ?? '').startsWith('/socket.io/')) return;
+    if ((req.url ?? '').startsWith('/api/')) {
+      // In production the client is served from this same origin (see
+      // staticFiles.ts), so the browser never preflights these requests and
+      // this block is a no-op. In dev, apps/web (5173) and apps/server (8080)
+      // are two different origins, and the client sends `credentials:
+      // include` for the session cookie -- which means Access-Control-Allow-
+      // Origin can't be '*' (the spec forbids pairing a wildcard origin with
+      // credentials), so the request's actual Origin has to be reflected
+      // back, plus Access-Control-Allow-Credentials, or every /api/* call
+      // (including the register/login preflight) fails with a CORS error
+      // before it ever reaches the handler.
+      const origin = req.headers.origin;
+      if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Vary', 'Origin');
+      }
+      if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+      void handleAuthRequest(req, res).then((handled) => {
+        if (!handled) {
+          res.writeHead(404);
+          res.end('not found');
+        }
+      });
+      return;
     }
+    if (serveStatic) void serveStatic(req, res);
   });
   const io = new Server(httpServer, { cors: { origin: '*' } });
   const persistence = createPersistence(options.redisUrl);
-  const manager = new RoomManager(io, persistence);
+  const manager = new RoomManager(io, persistence, db);
   const tokenIndex = new Map<string, { roomCode: string; seat: Seat }>();
 
   if (persistence) {
@@ -78,7 +117,14 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
   sweepInterval.unref?.();
 
   io.on('connection', (socket: Socket) => {
-    const state: SocketState = { name: null, roomCode: null, seat: null, country: detectCountry(socket) };
+    const cookieHeader = socket.handshake.headers.cookie;
+    const state: SocketState = {
+      name: null,
+      roomCode: null,
+      seat: null,
+      country: detectCountry(socket),
+      userId: resolveSessionFromCookieHeader(db, cookieHeader)?.id ?? null,
+    };
 
     function sendError(code: string, message: string) {
       socket.emit('msg', { type: 'error', code, message });
@@ -147,7 +193,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
                 const slot = room.seats[found.seat];
                 if (slot.token === msg.seatToken && !slot.isBot) {
                   state.seat = found.seat;
-                  room.bindSocket(found.seat, socket.id, state.country);
+                  room.bindSocket(found.seat, socket.id, state.country, state.userId);
                 } else {
                   // Our seat moved on without us: AFK-flipped to a bot, or claimed
                   // outright by someone else while we were away. It is no longer
@@ -164,13 +210,18 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
           }
 
           case 'room.create': {
-            const room = manager.create(msg.config);
-            const token = room.sit(0, state.name ?? 'Host', socket.id, state.country);
+            const room = manager.create(msg.config, msg.isPublic ?? false);
+            const token = room.sit(0, state.name ?? 'Host', socket.id, state.country, state.userId);
             tokenIndex.set(token, { roomCode: room.code, seat: 0 });
             state.roomCode = room.code;
             state.seat = 0;
             joinSocketIoRoom(room.code);
             ack?.({ code: room.code, seatToken: token });
+            break;
+          }
+
+          case 'room.list': {
+            ack?.({ rooms: manager.listPublic() });
             break;
           }
 
@@ -196,7 +247,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               ack?.({ error: 'room-full' });
               break;
             }
-            const token = room.sit(seat, state.name ?? 'Guest', socket.id, state.country);
+            const token = room.sit(seat, state.name ?? 'Guest', socket.id, state.country, state.userId);
             tokenIndex.set(token, { roomCode: room.code, seat });
             state.roomCode = room.code;
             state.seat = seat;
@@ -217,7 +268,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
               break;
             }
             try {
-              const token = room.sit(msg.seat, state.name ?? 'Guest', socket.id, state.country);
+              const token = room.sit(msg.seat, state.name ?? 'Guest', socket.id, state.country, state.userId);
               tokenIndex.set(token, { roomCode: room.code, seat: msg.seat });
               state.seat = msg.seat;
               ack?.({ seatToken: token });
@@ -321,5 +372,5 @@ export function createApp(options: { webDist?: string; redisUrl?: string } = {})
     });
   });
 
-  return { httpServer, io, manager, defaultConfig };
+  return { httpServer, io, manager, defaultConfig, db };
 }

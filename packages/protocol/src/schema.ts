@@ -54,8 +54,14 @@ export const AuthMsg = z.object({
   /** BCP 47 tag from navigator.language (e.g. "ar-SY"); its region subtag is the country fallback when GeoIP can't place the peer address. The client's own websocket handshake carries no usable Accept-Language, so this rides the auth message instead. */
   locale: z.string().max(35).optional(),
 });
-export const RoomCreateMsg = z.object({ type: z.literal('room.create'), config: RulesConfigSchema });
+export const RoomCreateMsg = z.object({
+  type: z.literal('room.create'),
+  config: RulesConfigSchema,
+  /** Lists the room on the home screen's public rooms list while it's still joinable (lobby, seats open). Defaults to false: a room is code/link-only unless the host opts in. */
+  isPublic: z.boolean().optional(),
+});
 export const RoomJoinMsg = z.object({ type: z.literal('room.join'), code: z.string().length(6) });
+export const RoomListMsg = z.object({ type: z.literal('room.list') });
 export const RoomSitMsg = z.object({ type: z.literal('room.sit'), seat: SeatSchema });
 export const RoomAddBotMsg = z.object({ type: z.literal('room.addBot'), seat: SeatSchema, level: BotLevelSchema });
 export const RoomRemoveBotMsg = z.object({ type: z.literal('room.removeBot'), seat: SeatSchema });
@@ -73,6 +79,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   AuthMsg,
   RoomCreateMsg,
   RoomJoinMsg,
+  RoomListMsg,
   RoomSitMsg,
   RoomAddBotMsg,
   RoomRemoveBotMsg,
@@ -88,6 +95,15 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
+
+/** One row of the home screen's public rooms list (room.list's ack); not part of ServerMessageSchema since acks, per this protocol's existing convention (room.create/room.join), are typed directly rather than validated as broadcast messages. */
+export const PublicRoomSchema = z.object({
+  code: z.string().length(6),
+  hostName: z.string(),
+  seatsFilled: z.number().int().min(0).max(4),
+  targetScore: z.number().int().positive(),
+});
+export type PublicRoom = z.infer<typeof PublicRoomSchema>;
 
 // ---- Server -> client ----
 

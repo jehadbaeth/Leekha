@@ -9,6 +9,8 @@ export interface RoomSnapshot {
   hostSeat: Seat;
   match: MatchState | null;
   seats: SeatSlot[];
+  /** Optional so pre-feature Redis snapshots still deserialize (defaults to false, same convention as SeatSlot's country/userId). */
+  isPublic?: boolean;
 }
 
 export interface Persistence {

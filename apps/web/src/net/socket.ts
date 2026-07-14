@@ -1,19 +1,28 @@
 import { io, type Socket } from 'socket.io-client';
-import type { ClientMessage, ServerMessage } from '@leekha/protocol';
+import type { ClientMessage, PublicRoom, ServerMessage } from '@leekha/protocol';
 
 // In production the client and server are the same single-image deployment
 // (see root Dockerfile), so whatever host:port served this page is also
-// where the socket lives — a hardcoded localhost fallback would only ever
-// work on the machine running the container itself. Dev keeps the old
-// fallback because the Vite dev server (5173) and apps/server (8080) are
-// two different ports on localhost.
+// where the socket lives. In dev, the Vite dev server (5173) and apps/server
+// (8080) are two different ports, but a hardcoded "localhost" fallback only
+// works when the browser is on the same machine as the dev server: opening
+// the page from another device on the LAN (e.g. http://192.168.x.x:5173)
+// would then have "localhost" resolve to THAT device, not the dev machine,
+// and every socket/API call would fail with connection refused. Reusing the
+// hostname the page was actually loaded from (whatever it is) fixes both
+// cases at once.
 export const SERVER_URL: string =
   (import.meta.env.VITE_SERVER_URL as string | undefined) ??
-  (import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin);
+  (import.meta.env.DEV ? `http://${window.location.hostname}:8080` : window.location.origin);
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
-type Ack = { code: string; seatToken: string } | { seatToken: string } | { observer: true } | { error: string };
+type Ack =
+  | { code: string; seatToken: string }
+  | { seatToken: string }
+  | { observer: true }
+  | { error: string }
+  | { rooms: PublicRoom[] };
 
 /**
  * Thin typed wrapper around a single socket.io connection. Every protocol message,
@@ -64,7 +73,7 @@ export class GameSocket {
     this.socket.emit('msg', msg);
   }
 
-  /** Ack-returning request, used only for room.create, room.join, and room.sit. */
+  /** Ack-returning request, used only for room.create, room.join, room.sit, and room.list. */
   request<T extends Ack>(msg: ClientMessage, timeoutMs = 8000): Promise<T> {
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => reject(new Error('Request timed out')), timeoutMs);

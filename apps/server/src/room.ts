@@ -12,10 +12,11 @@ import {
   startRound,
   viewFor,
 } from '@leekha/engine';
-import type { ServerMessage } from '@leekha/protocol';
+import type { ServerMessage, PublicRoom } from '@leekha/protocol';
 import { botForLevel, logHardBotBlunderIfAny } from './bot.js';
 import type { RoomPhase, SeatSlot } from './types.js';
 import type { RoomSnapshot } from './persistence.js';
+import type { MatchRecord } from './db.js';
 
 const SEATS: Seat[] = [0, 1, 2, 3];
 const ROUND_ADVANCE_DELAY_MS = 4000;
@@ -38,6 +39,7 @@ function emptySeat(seat: Seat): SeatSlot {
     socketId: null,
     afkStrikes: 0,
     country: null,
+    userId: null,
   };
 }
 
@@ -52,11 +54,15 @@ export class Room {
   hostSeat: Seat = 0;
   config: RulesConfig;
   phase: RoomPhase = 'lobby';
+  /** Whether this room is listed on the home screen's public rooms list (see RoomManager.listPublic) while still in the lobby with an open seat. */
+  isPublic: boolean;
   match: MatchState | null = null;
   private rematchVotes = new Set<Seat>();
   private seq = 0;
   private emit: Emit;
   private onChange: (() => void) | null = null;
+  private onMatchEnd: ((record: MatchRecord) => void) | null = null;
+  private matchStartedAt: number | null = null;
   private passTimer: ReturnType<typeof setTimeout> | null = null;
   private playTimer: ReturnType<typeof setTimeout> | null = null;
   private roundAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -65,10 +71,11 @@ export class Room {
   private spectators = new Map<string, string | null>();
   lastActivity = Date.now();
 
-  constructor(code: string, config: RulesConfig, emit: Emit) {
+  constructor(code: string, config: RulesConfig, emit: Emit, isPublic = false) {
     this.code = code;
     this.config = config;
     this.emit = emit;
+    this.isPublic = isPublic;
   }
 
   setEmit(emit: Emit): void {
@@ -78,6 +85,11 @@ export class Room {
   /** Called after every state-changing operation, used by RoomManager to snapshot to Redis (SPEC.md 9.5). */
   setOnChange(onChange: () => void): void {
     this.onChange = onChange;
+  }
+
+  /** Called once per finished match with a fully replayable record, used by RoomManager to write it to SQLite. */
+  setOnMatchEnd(onMatchEnd: (record: MatchRecord) => void): void {
+    this.onMatchEnd = onMatchEnd;
   }
 
   private nextSeq(): number {
@@ -97,12 +109,13 @@ export class Room {
       hostSeat: this.hostSeat,
       match: this.match,
       seats: this.seats.map((s) => ({ ...s, connected: false, socketId: null })),
+      isPublic: this.isPublic,
     };
   }
 
   /** Rebuilds a Room from a Redis snapshot and re-arms whatever clock the in-flight phase needs. */
   static fromSnapshot(snapshot: RoomSnapshot, emit: Emit): Room {
-    const room = new Room(snapshot.code, snapshot.config, emit);
+    const room = new Room(snapshot.code, snapshot.config, emit, snapshot.isPublic ?? false);
     room.phase = snapshot.phase;
     room.hostSeat = snapshot.hostSeat;
     room.match = snapshot.match;
@@ -134,6 +147,16 @@ export class Room {
       connected: s.connected,
       country: s.country ?? null,
     }));
+  }
+
+  /** For the home screen's public rooms list (RoomManager.listPublic): only ever read while phase is 'lobby' and isPublic is true. */
+  publicSummary(): PublicRoom {
+    return {
+      code: this.code,
+      hostName: this.seats[this.hostSeat].name ?? 'Host',
+      seatsFilled: this.seats.filter((s) => s.name !== null || s.isBot).length,
+      targetScore: this.config.targetScore,
+    };
   }
 
   /** Builds a room.state message without sending it, for targeting a single joining socket (see server.ts's observer join path). */
@@ -189,7 +212,7 @@ export class Room {
     return this.seats.find((s) => s.isBot)?.seat ?? null;
   }
 
-  sit(seat: Seat, name: string, socketId: string, country: string | null = null): string {
+  sit(seat: Seat, name: string, socketId: string, country: string | null = null, userId: string | null = null): string {
     this.touch();
     const slot = this.seats[seat];
     const isTakeover = slot.isBot;
@@ -202,6 +225,7 @@ export class Room {
     slot.socketId = socketId;
     slot.afkStrikes = 0;
     slot.country = country;
+    slot.userId = userId;
     slot.ready = isTakeover ? slot.ready : false;
     // A spectator who claims a seat stops being a spectator.
     this.removeSpectator(socketId);
@@ -261,6 +285,7 @@ export class Room {
     if (this.phase === 'lobby') {
       if (!this.canStart()) throw new IllegalAction('not-ready', 'All four seats must be filled and humans ready');
       this.match = newMatch(this.config, nanoid(16));
+      this.matchStartedAt = Date.now();
       this.phase = 'game';
       this.beginRound();
       return;
@@ -268,6 +293,7 @@ export class Room {
     // Rematch: only valid once the previous match is over.
     if (this.match && this.match.phase === 'gameOver') {
       this.match = newMatch(this.config, nanoid(16));
+      this.matchStartedAt = Date.now();
       this.beginRound();
       return;
     }
@@ -615,11 +641,35 @@ export class Room {
         this.sendPublicSnapshot();
         this.rematchVotes.clear();
         this.broadcastRematchVotes();
+        this.recordMatchEnd(ev);
       }
     }
     if (this.match && this.match.phase === 'playing') {
       this.beginTurn();
     }
+  }
+
+  /** Writes the one durable, fully replayable record of this match (seed + config + moveLog let it be reconstructed trick by trick) plus one row per seat, tagging registered accounts and leaving guests/bots as null (SPEC.md 9.5's later-arriving accounts phase). */
+  private recordMatchEnd(ev: Extract<GameEvent, { type: 'gameOver' }>): void {
+    if (!this.onMatchEnd || !this.match) return;
+    const now = Date.now();
+    this.onMatchEnd({
+      id: nanoid(16),
+      roomCode: this.code,
+      config: this.config,
+      seed: this.match.seed,
+      moveLog: this.match.moveLog,
+      finalScores: ev.totals,
+      result: { losingTeam: ev.losingTeam, bustSeat: ev.bustSeat },
+      startedAt: this.matchStartedAt ?? now,
+      endedAt: now,
+      players: this.seats.map((s) => ({
+        seat: s.seat,
+        userId: s.userId ?? null,
+        displayName: s.name ?? 'Unknown',
+        wasBot: s.isBot,
+      })),
+    });
   }
 
   // ---- presence / reconnection ----
@@ -636,13 +686,14 @@ export class Room {
    * over. Reclaiming either of those now goes through sit() like anyone else
    * on the sidelines (SPEC.md 11), so there is no isBot un-flip here.
    */
-  bindSocket(seat: Seat, socketId: string, country?: string | null): void {
+  bindSocket(seat: Seat, socketId: string, country?: string | null, userId?: string | null): void {
     const slot = this.seats[seat];
     slot.socketId = socketId;
     slot.connected = true;
     // A reconnect is a fresh connection with a fresh lookup; it also backfills
     // seats restored from pre-feature Redis snapshots that carried no country.
     if (country) slot.country = country;
+    if (userId) slot.userId = userId;
     // A reconnecting player may have been counted as a spectator moments ago.
     this.removeSpectator(socketId);
     const timer = this.disconnectTimers.get(seat);

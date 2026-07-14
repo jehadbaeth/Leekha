@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Card, MatchResult, RulesConfig, Seat } from '@leekha/engine';
 import type { SeatView } from '@leekha/engine';
-import type { ServerMessage } from '@leekha/protocol';
+import type { PublicRoom, ServerMessage } from '@leekha/protocol';
 import { GameSocket, type ConnectionStatus } from './net/socket';
 import { clearSession, loadSession, saveSession, type StoredSession } from './net/session';
 
@@ -56,6 +56,7 @@ export function useOnlineGame() {
   });
   const [lastError, setLastError] = useState<string | null>(null);
   const [spectators, setSpectators] = useState<{ count: number; countries: Record<string, number> } | null>(null);
+  const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
   const [emotes, setEmotes] = useState<Record<Seat, { id: string; ts: number } | null>>({
     0: null,
     1: null,
@@ -251,10 +252,19 @@ export function useOnlineGame() {
   // sideline observer - assuming we still own it here would let this client
   // render itself into a seat another human already legitimately holds.
   // mySeat is set for real once game.snapshot confirms the seat is still ours.
+  const refreshPublicRooms = useCallback(async () => {
+    const res = await socketRef.current!.request<{ rooms: PublicRoom[] } | { error: string }>({ type: 'room.list' });
+    if ('rooms' in res) setPublicRooms(res.rooms);
+  }, []);
+
   useEffect(() => {
     const socket = socketRef.current!;
     return socket.onStatus((s) => {
       if (s !== 'connected') return;
+      // The home screen's public rooms list has nothing to do with any stored
+      // seat session, so it refreshes on every connect regardless of the
+      // reconnect branch below.
+      void refreshPublicRooms();
       const stored = loadSession();
       if (stored) {
         sessionRef.current = stored;
@@ -268,11 +278,12 @@ export function useOnlineGame() {
     });
   }, []);
 
-  const createRoom = useCallback(async (name: string, config: RulesConfig) => {
+  const createRoom = useCallback(async (name: string, config: RulesConfig, isPublic = false) => {
     socketRef.current!.send({ type: 'auth', name: name || 'Guest', locale: navigator.language });
     const res = await socketRef.current!.request<{ code: string; seatToken: string } | { error: string }>({
       type: 'room.create',
       config,
+      isPublic,
     });
     if ('error' in res) {
       setLastError(res.error);
@@ -394,6 +405,8 @@ export function useOnlineGame() {
     lastError,
     events,
     clearEvent,
+    publicRooms,
+    refreshPublicRooms,
     createRoom,
     joinRoom,
     claimSeat,
