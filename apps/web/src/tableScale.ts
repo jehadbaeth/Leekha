@@ -40,14 +40,14 @@ export function trickCircleForContainer(containerPx: number): number {
  * at the circle's N/E/S/W edges (see posFor in GameTable.tsx); two
  * perpendicular edge-anchored cards start overlapping once width exceeds
  * diameter/3 (a card centered on one edge and a card flush against the next
- * edge share both an x- and a y-range past that point). Dividing by 3.0
+ * edge share both an x- and a y-range past that point). Dividing by 2.85
  * instead of cardWidthForContainer's independent tableW-based ratio lets
  * adjacent plays overlap a little at every container size (each stays mostly
  * visible, just the corners tuck under one another) rather than freezing at
  * the old, more conservative gap.
  */
 export function trickCardWidthForCircle(diameter: number): number {
-  return diameter / 3.0;
+  return diameter / 2.85;
 }
 
 /**
