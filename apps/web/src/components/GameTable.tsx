@@ -14,6 +14,7 @@ import { isBigCard, playCardSound, trickEndSound, roundEndSound, gameOverSound, 
 import { EMOTES, EMOTE_BY_ID } from '../emotes';
 import { useRoomShare } from '../roomShare';
 import { fanLayout, needsTwoStories } from '../fanLayout';
+import { avatarGapForContainer, avatarSizeForContainer, cardHeightForWidth, cardWidthForContainer, trickCardWidthForCircle, trickCircleForContainer } from '../tableScale';
 
 // Online events arrive as ServerMessage (type 'game.trickEnd') while local
 // events arrive as engine GameEvent (type 'trickEnd'); accept either spelling.
@@ -144,6 +145,21 @@ export function GameTable({
   // unmounts across phases, which a plain ref would never signal.
   const [trayEl, setTrayEl] = useState<HTMLDivElement | null>(null);
   const [trayW, setTrayW] = useState(0);
+  // Avatars and the trick circle need a width too, but they're mounted in
+  // every phase (including passing, when the hand tray above isn't), so they
+  // can't piggyback on trayW -- this measures the outer table container
+  // itself instead, which is always present.
+  const [tableEl, setTableEl] = useState<HTMLDivElement | null>(null);
+  const [tableW, setTableW] = useState(0);
+  useLayoutEffect(() => {
+    if (!tableEl) return;
+    const measure = () => setTableW(tableEl.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(tableEl);
+    return () => ro.disconnect();
+  }, [tableEl]);
+  const avatarSize = avatarSizeForContainer(tableW);
   // Sticky per-round row assignment for the two-story hand: each card is
   // pinned to a row when the round's hand first appears and keeps that row
   // until the round ends, so playing a card never reshuffles which row the
@@ -415,7 +431,13 @@ export function GameTable({
   }
 
   return (
-    <div className="@container relative h-full w-full flex flex-col bg-gradient-to-b from-felt-900 to-felt-950 overflow-y-auto overflow-x-hidden select-none">
+    // The inner flex column is a separate element from the `@container` box
+    // below: a container query can't target the element establishing the
+    // container itself (self-referential queries are disallowed), so
+    // `@[900px]:justify-center` -- which needs to react to the container's own
+    // width -- has to live one level down, on a child.
+    <div className="@container relative h-full w-full overflow-y-auto overflow-x-hidden select-none">
+    <div ref={setTableEl} className="relative h-full w-full flex flex-col @[900px]:justify-center bg-gradient-to-b from-felt-900 to-felt-950 select-none">
       {/* Deal flourish: four quick card bursts flying out from the center, purely
           cosmetic and non-blocking (the real hand underneath is already playable). */}
       {dealFx && (
@@ -448,8 +470,10 @@ export function GameTable({
         </div>
       )}
 
-      {/* Top: partner */}
-      <div className="flex justify-center pt-3">
+      {/* Top: partner. paddingBottom scales with avatarSize (not a fixed px/tier)
+          so the gap to the trick circle grows continuously with the table
+          instead of freezing at one distance past some breakpoint. */}
+      <div className="flex justify-center pt-3 @[900px]:pt-4" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize)) }}>
         <Avatar
           name={names[topSeat]}
           score={view.scores[topSeat]}
@@ -463,6 +487,7 @@ export function GameTable({
           deadline={deadlineFor(topSeat)}
           emote={visibleEmotes[topSeat]}
           emoteDirection="down"
+          size={avatarSize}
         />
       </div>
 
@@ -471,7 +496,23 @@ export function GameTable({
           reverses visually, which put the pass recipient (physically to
           your right, in every language) on the left of the screen. Seat
           positions are table geometry, not text. */}
-      <div dir="ltr" className="flex-1 flex items-center justify-between px-2">
+      {/* max-w-[min(...,...cqw)]: bounds how far apart the two avatars can
+          spread on a wide table, without freezing at a fixed px/rem value --
+          cqw is relative to the @container box above, so it keeps scaling
+          continuously with the shell instead of capping out and leaving the
+          avatars pinned at a stale distance once the container outgrows one
+          breakpoint tier. Without this, `justify-between` on a full-width row
+          pushes both avatars all the way to the shell's edges on a big
+          screen, which reads as a big empty stretch between them. Gated to
+          the @[900px] tier only: below that (every phone, portrait or
+          landscape) the cap was squeezing Sami/Rami in toward the trick
+          circle instead of out toward the screen edges, which is exactly
+          backwards from what a cramped phone screen needs -- there, plain
+          `justify-between` on the full row width is what pushes them out. */}
+      <div
+        dir="ltr"
+        className="flex-1 @[900px]:flex-none flex items-center justify-between px-2 @[900px]:px-10 @[900px]:py-4 mx-auto w-full @[900px]:max-w-[min(760px,78cqw)]"
+      >
         <Avatar
           name={names[leftSeat]}
           score={view.scores[leftSeat]}
@@ -484,10 +525,26 @@ export function GameTable({
           country={countries ? (countries[leftSeat] ?? null) : undefined}
           deadline={deadlineFor(leftSeat)}
           emote={visibleEmotes[leftSeat]}
+          size={avatarSize}
         />
 
-        <div className="flex-1 flex flex-col items-center justify-center gap-1 relative min-h-[150px] @[480px]:min-h-[200px]">
-          <div className="relative w-36 h-36 @[480px]:w-48 @[480px]:h-48">
+        <div
+          className="flex-1 flex flex-col items-center justify-center gap-1 relative"
+          style={{ minHeight: trickCircleForContainer(tableW) + 20, marginInline: Math.round(avatarGapForContainer(avatarSize) * 0.85) }}
+        >
+          {/* Continuous diameter, not the old @[480px]/@[900px] tiers: those
+              froze at a fixed size past 900px container width, which is what
+              left a big empty-looking disc on a wide desktop shell. */}
+          <div className="relative" style={{ width: trickCircleForContainer(tableW), height: trickCircleForContainer(tableW) }}>
+            {/* The bounded playing surface: without it the trick's cards just
+                float on the same flat felt as the rest of the table, so any
+                leftover space around them reads as empty void rather than
+                "table". A slightly lighter, inset-shadowed disc anchors the
+                eye on a real play area. */}
+            <div
+              className="absolute inset-0 rounded-full bg-emerald-700/40 shadow-[inset_0_4px_20px_rgba(0,0,0,0.4)] pointer-events-none"
+              style={{ margin: -Math.round(trickCircleForContainer(tableW) * 0.14) }}
+            />
             {trickPlays.map((p) => {
               const pos = posFor(p.seat);
               const isWinner = winnerSeatForHighlight === p.seat;
@@ -495,7 +552,7 @@ export function GameTable({
               return (
                 <div key={p.seat} className={`absolute ${pos} flex flex-col items-center gap-0.5`}>
                   <div className={`relative ${isWinner ? 'ring-2 ring-amber-300 rounded-md' : ''}`}>
-                    <CardFace card={p.card} size="lg" fourColor={settings.fourColorDeck} />
+                    <CardFace card={p.card} width={trickCardWidthForCircle(trickCircleForContainer(tableW))} fourColor={settings.fourColorDeck} />
                     {isUndercutMarker && (
                       <span className="absolute -top-2 -right-2 text-[8px] bg-sky-500 text-white rounded-full px-1 font-bold">
                         {t('play under', 'العب أقل')}
@@ -543,6 +600,7 @@ export function GameTable({
           country={countries ? (countries[rightSeat] ?? null) : undefined}
           deadline={deadlineFor(rightSeat)}
           emote={visibleEmotes[rightSeat]}
+          size={avatarSize}
         />
       </div>
 
@@ -720,7 +778,7 @@ export function GameTable({
           for it) — an observer has no hand, so without this their own
           synthetic seat 0 would be the only player invisible on screen. */}
       {spectator && (
-        <div className="flex justify-center pb-1">
+        <div className="flex justify-center pb-1" style={{ paddingTop: Math.round(avatarGapForContainer(avatarSize)) }}>
           <Avatar
             name={names[mySeat]}
             score={view.scores[mySeat]}
@@ -732,6 +790,7 @@ export function GameTable({
             presence={presence?.[mySeat]}
           country={countries ? (countries[mySeat] ?? null) : undefined}
             deadline={deadlineFor(mySeat)}
+            size={avatarSize}
           />
         </div>
       )}
@@ -786,11 +845,10 @@ export function GameTable({
               sorted.forEach((c, i) => m.set(cardKey(c), i < half ? 0 : 1));
               handRowsRef.current = m;
             }
-            // Mirror CardFace's xl sizing: 56x80, or 80x112 once the container
-            // hits 480px -- the tray spans the shell, so trayW is that width.
-            const big = trayW >= 480;
-            const cardW = big ? 80 : 56;
-            const cardH = big ? 112 : 80;
+            // Continuous sizing (tableScale.ts) driven by the tray's own
+            // measured width, instead of frozen tiers.
+            const cardW = cardWidthForContainer(trayW);
+            const cardH = cardHeightForWidth(cardW);
             // Two stories or one is decided from the round's FULL hand size
             // (the row map's size), not the current count, so the layout
             // never flips mid-round as cards get played.
@@ -843,7 +901,7 @@ export function GameTable({
                             justReceived ? 'ring-2 ring-amber-300 rounded-md' : ''
                           } ${pulseForced ? 'ring-2 ring-red-400 rounded-md animate-pulse' : ''}`}
                         >
-                          <CardFace card={card} size="xl" fourColor={settings.fourColorDeck} />
+                          <CardFace card={card} width={cardW} fourColor={settings.fourColorDeck} />
                         </button>
                       );
                     });
@@ -867,7 +925,7 @@ export function GameTable({
         </div>
       )}
 
-      {/* Passing overlay */}
+      {/* Passing picker: occupies the same flow slot as the hand tray above. */}
       {!spectator && view.phase === 'passing' && (
         <PassingPanel
           hand={view.hand}
@@ -934,6 +992,7 @@ export function GameTable({
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

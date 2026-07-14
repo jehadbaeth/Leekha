@@ -19,21 +19,29 @@ body {
   transform: scaleX(-1);
 }
 
-/* Box the table into a phone-sized silhouette only when the viewport itself
+/* Box the table into a bounded table shape only when the viewport itself
    isn't phone-shaped in either orientation -- see the comment above the
    `.game-shell-inner` usage in App.tsx for why a plain width cap (or a
    hover/pointer input check) can't tell a landscape phone from a desktop
    window, but this can: a real phone's short side never exceeds ~480px in
-   any orientation. */
+   any orientation. The cap is wide enough to clear GameTable's @[900px]
+   container-query tier (see CardFace/Avatar/GameTable), so a real desktop
+   window gets a noticeably bigger table, not just a bigger phone. */
 @media (min-width: 481px) and (min-height: 481px) {
   .game-shell-inner {
-    max-width: 480px;
-    max-height: 950px;
+    /* clamp(), not a flat px cap: a fixed 1100/1000 cap stops growing the
+       instant a window crosses it, so any further resize/zoom past that
+       point visibly does nothing -- which reads as "broken, not responsive"
+       even though it's working exactly as coded. Tying the cap to vw/vh
+       keeps it reacting continuously while still bounding the table shape
+       on very large monitors. The ceiling here is deliberately close to
+       where tableScale.ts's card/avatar formulas themselves stop growing
+       (~1000-1100px wide): a shell much wider than that just adds dead
+       green felt around content that already maxed out, which reads as
+       "stretched and empty" rather than "big table". */
+    max-width: clamp(700px, 85vw, 1180px);
+    max-height: clamp(600px, 97vh, 980px);
   }
-}
-
-.card-face {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* Hand-tray rows keep overflow-x: auto for edge-case horizontal drag/scroll,

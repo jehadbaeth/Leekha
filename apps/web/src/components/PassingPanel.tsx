@@ -4,6 +4,7 @@ import { CardFace } from './CardFace';
 import { cardKey, sortHand } from '../cardDisplay';
 import { fanLayout, needsTwoStories } from '../fanLayout';
 import { pick, type Settings } from '../settings';
+import { cardHeightForWidth, cardWidthForContainer } from '../tableScale';
 
 export function PassingPanel({
   hand,
@@ -48,16 +49,17 @@ export function PassingPanel({
   }
 
   return (
-    // pb reserves room for GameTable's floating home button (top-left, so no
-    // conflict) and emote button (bottom-right, ~52px incl. margin): the
-    // panel's own content sits entirely above that band instead of trying to
-    // dodge the button sideways, which would only work as long as no row of
-    // passing cards happens to reach the right edge.
-    <div className="absolute inset-0 flex flex-col items-center justify-end pb-16 @[480px]:pb-20 pointer-events-none">
-      <div className="pointer-events-auto flex flex-col items-center gap-3 w-full px-4">
-        {!committed ? (
+    // Normal flow, not an absolute overlay: it sits in the exact same flex
+    // slot the play-phase hand tray occupies (see GameTable.tsx), so it
+    // stacks above the memo chip and HUD strip instead of floating over the
+    // whole table on a fixed bottom offset -- the previous absolute
+    // positioning bottom-anchored to the *container's* edge, which stopped
+    // matching where the HUD strip actually landed once bigger cards made
+    // this content taller, and the two started overlapping.
+    <div className="flex flex-col items-center gap-2 w-full px-4 pb-2 pt-1">
+      {!committed ? (
           <>
-            <div className="bg-emerald-900/90 rounded-xl px-4 py-2 text-center">
+            <div className="bg-emerald-900/90 rounded-xl px-4 py-1.5 text-center">
               {/* Both arrows point right: the recipient physically sits to
                   your right in every language (seating is pinned LTR). */}
               <div className="font-semibold text-amber-200">{t(`Pass 3 cards to ${recipientName} →`, `مرّر 3 أوراق إلى ${recipientName} →`)}</div>
@@ -73,9 +75,11 @@ export function PassingPanel({
               // Same sorted order in every language, matching the play-phase
               // hand tray (seating and pass direction are language-agnostic).
               const sorted = sortHand(hand);
-              // CardFace "md" is a fixed 48x64 (no container-query variant).
-              const CW = 48;
-              const CH = 64;
+              // Same continuous sizing as GameTable's hand tray (tableScale.ts),
+              // so the passing picker matches the play-phase hand at every
+              // container width instead of jumping between fixed tiers.
+              const CW = cardWidthForContainer(trayW);
+              const CH = cardHeightForWidth(CW);
               const twoStory = trayW > 0 && needsTwoStories(sorted.length, trayW, CW, CH);
               const half = Math.ceil(sorted.length / 2);
               const rows = twoStory ? [sorted.slice(0, half), sorted.slice(half)] : [sorted];
@@ -105,7 +109,7 @@ export function PassingPanel({
                             }}
                             className={`absolute origin-bottom transition-transform ${isSel ? 'ring-2 ring-amber-300 rounded-md' : ''}`}
                           >
-                            <CardFace card={card} size="md" fourColor={fourColor} />
+                            <CardFace card={card} width={CW} fourColor={fourColor} />
                           </button>
                         );
                       });
@@ -116,7 +120,7 @@ export function PassingPanel({
             <button
               disabled={selected.length !== 3}
               onClick={() => onConfirm(selected as [Card, Card, Card])}
-              className="rounded-lg px-6 py-2 bg-amber-400 disabled:opacity-30 text-emerald-950 font-semibold"
+              className="rounded-lg px-6 py-1.5 bg-amber-400 disabled:opacity-30 text-emerald-950 font-semibold"
             >
               {t('Confirm', 'تأكيد')}
             </button>
@@ -135,7 +139,6 @@ export function PassingPanel({
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

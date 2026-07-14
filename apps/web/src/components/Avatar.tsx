@@ -1,5 +1,6 @@
 import type { Seat } from '@leekha/engine';
 import { Flag } from './Flag';
+import { avatarLabelHeightForSize } from '../tableScale';
 
 export type PresenceStatus = 'connected' | 'reconnecting' | 'bot';
 
@@ -17,6 +18,7 @@ export function Avatar({
   emote,
   emoteDirection = 'up',
   country,
+  size,
 }: {
   name: string;
   score: number;
@@ -39,11 +41,31 @@ export function Avatar({
   emoteDirection?: 'up' | 'down';
   /** ISO 3166-1 alpha-2 the player connects from. Online passes a string or null (null renders the generic xx placeholder flag); local play leaves it undefined and no flag renders at all. */
   country?: string | null;
+  /** Continuous circle diameter in px, driven by the caller's measured
+   * container width (see tableScale.ts). Without it, two fixed breakpoint
+   * tiers apply -- fine up to a point, but they stop growing past the
+   * biggest tier no matter how much wider the window gets. */
+  size?: number;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
+  const circleStyle = size
+    ? { width: size, height: size, fontSize: size * 0.3, borderWidth: Math.max(2, Math.round(size * 0.045)) }
+    : undefined;
+  const nameMaxW = size ? size * 1.7 : undefined;
+  // GameTable centers left/right avatars against the trick circle via
+  // `items-center` on their shared row, which centers each avatar's WHOLE
+  // box (circle + name + score). Since the circle sits at the top of that
+  // box with text below it, centering the box put the circle itself
+  // visibly above the trick circle's true middle. Mirroring the name+score
+  // block's height as invisible padding above the circle makes the circle
+  // sit exactly in the middle of Avatar's own box, so centering the box
+  // also centers the circle -- without pulling the label out of normal
+  // flow, which other call sites (the spectator's own seat avatar) rely on
+  // for real layout spacing to whatever content follows.
+  const labelPad = size ? avatarLabelHeightForSize(size, isBot || reconnecting) : 34;
   return (
-    <div className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`}>
+    <div className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`} style={{ paddingTop: labelPad }}>
       {emote && (
         <div
           key={emote.ts}
@@ -57,7 +79,8 @@ export function Avatar({
         </div>
       )}
       <div
-        className={`relative w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-opacity ${
+        style={circleStyle}
+        className={`relative ${size ? '' : 'w-11 h-11 @[900px]:w-16 @[900px]:h-16 text-sm @[900px]:text-lg border-2 @[900px]:border-[3px]'} rounded-full flex items-center justify-center font-bold shadow-[0_2px_5px_rgba(0,0,0,0.4)] transition-opacity ${
           team === 0 ? 'bg-sky-700 border-sky-400' : 'bg-rose-700 border-rose-400'
         } ${isTurn ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-felt-950 animate-pulse' : ''} ${
           reconnecting ? 'opacity-40 grayscale' : ''
@@ -74,10 +97,19 @@ export function Avatar({
         )}
         {isTurn && deadline != null && <TimerRing deadline={deadline} />}
       </div>
-      <span className="flex flex-col items-center max-w-[72px]">
+      <span
+        style={nameMaxW ? { maxWidth: nameMaxW, fontSize: size! * 0.23 } : undefined}
+        className={`flex flex-col items-center ${size ? '' : 'max-w-[72px] @[900px]:max-w-[110px]'}`}
+      >
         <span className="flex items-center gap-1 max-w-full">
-          {country !== undefined && !isBot && <Flag country={country ?? 'xx'} className="w-4 h-3 flex-shrink-0" />}
-          <span className="text-[11px] text-emerald-100 truncate">{name}</span>
+          {country !== undefined && !isBot && (
+            <Flag
+              country={country ?? 'xx'}
+              className={`${size ? '' : 'w-4 h-3 @[900px]:w-5 @[900px]:h-4'} flex-shrink-0`}
+              style={size ? { width: size * 0.34, height: size * 0.34 * 0.75 } : undefined}
+            />
+          )}
+          <span className={`${size ? '' : 'text-[11px] @[900px]:text-sm'} text-emerald-100 truncate`}>{name}</span>
         </span>
         {isBot && (
           <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">bot is playing</span>
@@ -86,7 +118,10 @@ export function Avatar({
           <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">reconnecting</span>
         )}
       </span>
-      <span className={`text-xs font-semibold px-1.5 rounded ${danger ? 'bg-red-600 text-white' : 'text-amber-200'}`}>
+      <span
+        style={size ? { fontSize: size * 0.24 } : undefined}
+        className={`${size ? '' : 'text-xs @[900px]:text-sm'} font-semibold px-1.5 rounded ${danger ? 'bg-red-600 text-white' : 'text-amber-200'}`}
+      >
         {roundScore} / {score}
       </span>
     </div>
