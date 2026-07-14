@@ -5,6 +5,12 @@ WORKDIR /repo
 RUN corepack enable
 
 FROM base AS deps
+# better-sqlite3 and argon2 are native modules; node-gyp needs a build
+# toolchain to compile them, and node:20-alpine has none of this by default
+# (bare install fails with "Could not find any Python installation to use").
+# Scoped to the deps stage only, so runtime (a separate `FROM base` branch)
+# never carries the ~200MB toolchain into the shipped image.
+RUN apk add --no-cache python3 make g++
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/engine/package.json packages/engine/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
