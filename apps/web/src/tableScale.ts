@@ -15,7 +15,7 @@
 const CARD_ASPECT = 146 / 104; // height / width, matched to the old xl tier
 
 export function cardWidthForContainer(containerPx: number): number {
-  return Math.max(56, Math.min(150, containerPx * 0.115));
+  return Math.max(60, Math.min(164, containerPx * 0.125));
 }
 
 export function cardHeightForWidth(width: number): number {
@@ -40,13 +40,14 @@ export function trickCircleForContainer(containerPx: number): number {
  * at the circle's N/E/S/W edges (see posFor in GameTable.tsx); two
  * perpendicular edge-anchored cards start overlapping once width exceeds
  * diameter/3 (a card centered on one edge and a card flush against the next
- * edge share both an x- and a y-range past that point). Dividing by 3.4
- * instead of cardWidthForContainer's independent tableW-based ratio keeps a
- * visible gap between adjacent plays at every container size, so a card
- * played early in the trick doesn't get hidden under the next one.
+ * edge share both an x- and a y-range past that point). Dividing by 3.0
+ * instead of cardWidthForContainer's independent tableW-based ratio lets
+ * adjacent plays overlap a little at every container size (each stays mostly
+ * visible, just the corners tuck under one another) rather than freezing at
+ * the old, more conservative gap.
  */
 export function trickCardWidthForCircle(diameter: number): number {
-  return diameter / 3.4;
+  return diameter / 3.0;
 }
 
 /**
