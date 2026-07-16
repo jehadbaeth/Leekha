@@ -870,6 +870,27 @@ export function GameTable({
             const frontEmpty = twoStory && rows[1].length === 0;
             return (
               <div ref={setTrayEl} className="relative w-full" style={{ height: trayH }}>
+                {/* Confirm floats ABOVE the fan instead of flowing below it:
+                    rendered under the tray it added height mid-turn, which
+                    overflowed small screens and made every single play a
+                    scroll-down-to-confirm trip. Anchored to the tray's top
+                    edge it tracks any card size, and a raised card's top
+                    always stops ~6px below that edge (raise translate vs
+                    trayH headroom), so the button never covers the card
+                    being confirmed. It transiently overlaps the status strip
+                    above, which beats pushing the layout around. */}
+                {isMyTurn && settings.confirmBeforePlay && raised && (
+                  <button
+                    className="absolute left-1/2 -translate-x-1/2 z-[60] rounded-lg bg-amber-400 text-emerald-950 font-semibold px-5 py-1.5 text-sm shadow-lg"
+                    style={{ top: -44 }}
+                    onClick={() => {
+                      submitPlay(raised);
+                      setRaised(null);
+                    }}
+                  >
+                    {t(`Play ${cardName(raised)}`, `العب ${cardName(raised, 'ar')}`)}
+                  </button>
+                )}
                 {trayW > 0 &&
                   rows.map((rowCards, rowIdx) => {
                     const displayRow = rowCards;
@@ -909,19 +930,6 @@ export function GameTable({
               </div>
             );
           })()}
-          {isMyTurn && settings.confirmBeforePlay && raised && (
-            <div className="flex justify-center mt-2">
-              <button
-                className="rounded-lg bg-amber-400 text-emerald-950 font-semibold px-5 py-1.5 text-sm"
-                onClick={() => {
-                  submitPlay(raised);
-                  setRaised(null);
-                }}
-              >
-                {t(`Play ${cardName(raised)}`, `العب ${cardName(raised, 'ar')}`)}
-              </button>
-            </div>
-          )}
         </div>
       )}
 
