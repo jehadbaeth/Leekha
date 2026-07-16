@@ -527,7 +527,7 @@ export class Room {
     for (const seat of SEATS) {
       if (this.match.round.passes[seat] !== null) continue;
       if (!this.seats[seat].isBot) continue;
-      const level = this.seats[seat].botLevel ?? 'medium';
+      const level = this.seats[seat].botLevel ?? 'hard';
       setTimeout(() => {
         if (!this.match || this.match.phase !== 'passing') return;
         if (this.match.round.passes[seat] !== null) return;
@@ -568,7 +568,7 @@ export class Room {
     if (!this.match || this.match.phase !== 'playing') return;
     const seat = this.actingSeat();
     if (seat === null || !this.seats[seat].isBot) return;
-    const level = this.seats[seat].botLevel ?? 'medium';
+    const level = this.seats[seat].botLevel ?? 'hard';
     setTimeout(() => {
       if (!this.match || this.match.phase !== 'playing') return;
       if (this.actingSeat() !== seat) return;

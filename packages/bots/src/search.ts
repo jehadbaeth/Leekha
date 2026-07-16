@@ -67,6 +67,12 @@ export function sampleWorld(view: SeatView, rng: () => number): Card[][] {
       if (s === view.seat || need[s] <= 0) return false;
       if (tracker.voids.get(s)?.has(card.suit)) return false;
       if (isLeekha(card) && tracker.noLeekha.has(s)) return false;
+      // Undercut proofs: a seat shown to hold nothing below a ceiling in a
+      // suit can't be dealt such a card, and a forced dumper who surrendered
+      // a big Leekha over the ceiling can't be holding a smaller one.
+      const ceiling = tracker.ceilings.get(s)?.get(card.suit);
+      if (ceiling !== undefined && card.rank < ceiling) return false;
+      if (tracker.provenNotHeld.get(s)?.has(cardKey(card))) return false;
       return true;
     });
     if (eligible.length === 0) {
@@ -139,7 +145,10 @@ function simulateRound(
         eatenPoints: eaten,
         eatenCards: [[], [], [], []],
         scores: view.scores,
-        youPassed: null,
+        // The acting seat's real pass knowledge carries into its own rollout
+        // moves (chase logic keys off it); the other three seats' passes are
+        // genuinely unknown to us, so they stay null rather than fabricated.
+        youPassed: seat === view.seat ? view.youPassed : null,
         youReceived: null,
         legal,
         config: cfg,
@@ -243,7 +252,10 @@ export function chooseSearchPlay(view: SeatView, opts: SearchOptions): Card {
   const worlds: Card[][][] = [];
   for (let i = 0; i < worldsPerCandidate; i++) worlds.push(sampleWorld(view, opts.rng));
 
-  const policyOpts: HeuristicOptions = { noise: 8, rng: opts.rng };
+  // endgameCounting off: rollouts resolve endgames by playing them out, and
+  // the counting pass would multiply exactly the late-trick plies that
+  // dominate the 320-rollout budget.
+  const policyOpts: HeuristicOptions = { noise: 8, rng: opts.rng, endgameCounting: false };
 
   let best = legal[0];
   let bestScore = -Infinity;

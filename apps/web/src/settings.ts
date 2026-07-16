@@ -9,6 +9,8 @@ export interface Settings {
   fourColorDeck: boolean;
   /** How long a finished trick stays frozen on screen before clearing, in ms (see the freeze effect in GameTable.tsx). */
   trickPauseMs: number;
+  /** Local vs-bots difficulty. Hard runs the sampled-world search bot in a Web Worker (useGame.ts). */
+  botDifficulty: 'easy' | 'medium' | 'hard';
 }
 
 const KEY = 'leekha.settings.v1';
@@ -26,6 +28,7 @@ export const defaultSettings: Settings = {
   reducedMotion: false,
   fourColorDeck: false,
   trickPauseMs: 900,
+  botDifficulty: 'hard',
 };
 
 export function loadSettings(): Settings {

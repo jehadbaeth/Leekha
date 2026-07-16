@@ -42,7 +42,7 @@ export function logHardBotBlunderIfAny(match: MatchState, seat: Seat, view: Seat
   const oracleRng = rngFromSeed(
     `${match.seed}:oracle:${match.roundIndex}:${seat}:${view.trickNumber}:${view.currentTrick.plays.length}`,
   );
-  const oracle = perfectInfoBest(view, trueHands, { noise: 8, rng: oracleRng });
+  const oracle = perfectInfoBest(view, trueHands, { noise: 8, rng: oracleRng, endgameCounting: false });
   const chosenKey = cardKey(chosen);
   const bestKey = cardKey(oracle.best);
   if (chosenKey === bestKey) return;

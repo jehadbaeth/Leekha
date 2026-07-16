@@ -93,7 +93,10 @@ function playOneRound(
       // Independent RNG so the oracle's own rollout noise can't draw from (and
       // thus perturb) the stream the real bots are playing from.
       const oracleRng = rngFromSeed(`${seed}:oracle:${seat}:${view.trickNumber}:${view.currentTrick.plays.length}`);
-      const policyOpts: HeuristicOptions = { noise: 8, rng: oracleRng };
+      // endgameCounting off to match chooseSearchPlay's own rollout policy,
+      // so oracle-vs-actual disagreements stay attributable to the sampled
+      // worlds rather than to a different rollout policy.
+      const policyOpts: HeuristicOptions = { noise: 8, rng: oracleRng, endgameCounting: false };
       const oracle = perfectInfoBest(view, trueHands, policyOpts);
       const chosenKey = cardKey(card);
       const bestKey = cardKey(oracle.best);

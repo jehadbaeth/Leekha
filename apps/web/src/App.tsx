@@ -33,7 +33,7 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('local');
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [user, setUser] = useState<AuthedUser | null>(null);
-  const game = useGame();
+  const game = useGame(settings.botDifficulty);
   const online = useOnlineGame();
   const install = useInstallPrompt();
 

@@ -85,6 +85,32 @@ export function SettingsScreen({
 
         <div className="flex items-center justify-between py-3 border-b border-emerald-800">
           <span>
+            <span className="block text-sm text-white">{t('Bot difficulty', 'مستوى الروبوتات')}</span>
+            <span className="block text-xs text-emerald-300 mt-0.5">
+              {t('For local games against bots.', 'للألعاب المحلية ضد الروبوتات.')}
+            </span>
+          </span>
+          <div className="flex gap-2">
+            {(
+              [
+                ['easy', 'Easy', 'سهل'],
+                ['medium', 'Medium', 'متوسط'],
+                ['hard', 'Hard', 'صعب'],
+              ] as const
+            ).map(([level, en, ar]) => (
+              <button
+                key={level}
+                className={`px-3 py-1 rounded-full text-sm ${settings.botDifficulty === level ? 'bg-amber-400 text-emerald-950' : 'bg-emerald-800'}`}
+                onClick={() => onUpdate({ botDifficulty: level })}
+              >
+                {t(en, ar)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between py-3 border-b border-emerald-800">
+          <span>
             <span className="block text-sm text-white">{t('Trick pause', 'مدة توقف اللفة')}</span>
             <span className="block text-xs text-emerald-300 mt-0.5">
               {t('How long the finished trick stays on screen before clearing.', 'مدة بقاء اللفة المكتملة على الشاشة قبل مسحها.')}
