@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { pick, type Settings } from './settings';
 import { fetchHistory, fetchMatch, type MatchSummary, type MatchDetail } from './net/api';
+import { BackButton } from './components/buttons';
 
 function formatDate(ms: number, lang: Settings['language']): string {
   return new Date(ms).toLocaleString(lang === 'ar' ? 'ar' : 'en-US', {
@@ -36,9 +37,9 @@ export function HistoryScreen({ settings, onBack }: { settings: Settings; onBack
   if (detail) {
     return (
       <div className="min-h-full bg-felt-950 text-white px-6 py-8">
-        <button className="text-sm underline text-emerald-200 mb-6" onClick={() => setDetail(null)}>
-          {t('← Back to History', '→ رجوع إلى السجل')}
-        </button>
+        <div className="mb-4">
+          <BackButton label={t('Back to History', 'رجوع إلى السجل')} onClick={() => setDetail(null)} />
+        </div>
         <h2 className="text-xl font-bold mb-2">{t('Match Detail', 'تفاصيل المباراة')}</h2>
         <p className="text-emerald-300 text-sm mb-4">{formatDate(detail.match.endedAt, settings.language)}</p>
 
@@ -67,9 +68,9 @@ export function HistoryScreen({ settings, onBack }: { settings: Settings; onBack
 
   return (
     <div className="min-h-full bg-felt-950 text-white px-6 py-8">
-      <button className="text-sm underline text-emerald-200 mb-6" onClick={onBack}>
-        {t('← Back', '→ رجوع')}
-      </button>
+      <div className="mb-4">
+        <BackButton label={t('Back', 'رجوع')} onClick={onBack} />
+      </div>
       <h2 className="text-2xl font-bold mb-4">{t('Match History', 'سجل المباريات')}</h2>
 
       {error && <p className="text-red-400 text-sm mb-4">{error}</p>}

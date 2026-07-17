@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { pick, type Settings } from './settings';
 import type { AuthedUser } from './net/api';
 import type { PublicRoom } from '@leekha/protocol';
+import { PillButton } from './components/buttons';
 
 export function Home({
   settings,
@@ -59,7 +60,7 @@ export function Home({
   }
 
   return (
-    <div className="min-h-full flex flex-col items-center justify-center px-6 py-10 gap-8 bg-felt-950">
+    <div className="min-h-full flex flex-col items-center justify-center px-6 py-8 gap-6 bg-felt-950">
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight text-white">{t('Leekha', 'ليخة')}</h1>
         <p className="text-emerald-200 mt-1 text-sm">{t('The Idlib variant · ليخة', 'نسخة إدلب · Leekha')}</p>
@@ -174,22 +175,10 @@ export function Home({
           </div>
         )}
 
-        <div className="flex gap-3 justify-center text-sm flex-wrap">
-          <button className="underline text-emerald-100" onClick={onHowToPlay}>
-            {t('How to Play', 'طريقة اللعب')}
-          </button>
-          <span className="text-emerald-400">&middot;</span>
-          <button className="underline text-emerald-100" onClick={onSettings}>
-            {t('Settings', 'الإعدادات')}
-          </button>
-          {user && (
-            <>
-              <span className="text-emerald-400">&middot;</span>
-              <button className="underline text-emerald-100" onClick={onHistory}>
-                {t('History', 'السجل')}
-              </button>
-            </>
-          )}
+        <div className="flex gap-2 justify-center flex-wrap">
+          <PillButton onClick={onHowToPlay}>{t('How to Play', 'طريقة اللعب')}</PillButton>
+          <PillButton onClick={onSettings}>{t('Settings', 'الإعدادات')}</PillButton>
+          {user && <PillButton onClick={onHistory}>{t('History', 'السجل')}</PillButton>}
         </div>
 
         <div className="flex justify-center text-xs text-emerald-300">

@@ -1,9 +1,10 @@
 import { pick, TRICK_PAUSE_PRESETS_MS, type Settings } from './settings';
+import { BackButton } from './components/buttons';
 
 function Toggle({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
-      className="w-full flex items-center justify-between gap-4 py-3 border-b border-emerald-800 text-left"
+      className="w-full flex items-center justify-between gap-4 py-2.5 border-b border-emerald-800 text-left"
       onClick={() => onChange(!value)}
     >
       <span>
@@ -30,14 +31,12 @@ export function SettingsScreen({
 }) {
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
   return (
-    <div className="min-h-full bg-felt-950 text-white px-6 py-8">
-      <button className="text-sm underline text-emerald-200 mb-6" onClick={onBack}>
-        {t('← Back', '→ رجوع')}
-      </button>
-      <h2 className="text-2xl font-bold mb-4">{t('Settings', 'الإعدادات')}</h2>
+    <div className="min-h-full bg-felt-950 text-white px-6 py-6">
+      <BackButton label={t('Back', 'رجوع')} onClick={onBack} />
+      <h2 className="text-2xl font-bold mt-4 mb-3">{t('Settings', 'الإعدادات')}</h2>
 
       <div className="max-w-md">
-        <div className="flex items-center justify-between py-3 border-b border-emerald-800">
+        <div className="flex items-center justify-between py-2.5 border-b border-emerald-800">
           <span className="text-sm">{t('Language', 'اللغة')}</span>
           <div className="flex gap-2">
             <button
@@ -83,25 +82,26 @@ export function SettingsScreen({
           onChange={(v) => onUpdate({ reducedMotion: v })}
         />
 
-        <div className="flex items-center justify-between py-3 border-b border-emerald-800">
-          <span>
-            <span className="block text-sm text-white">{t('Bot difficulty', 'مستوى الروبوتات')}</span>
-            <span className="block text-xs text-emerald-300 mt-0.5">
-              {t('For local games against bots.', 'للألعاب المحلية ضد الروبوتات.')}
-            </span>
+        <div className="py-2.5 border-b border-emerald-800">
+          <span className="block text-sm text-white">{t('Bot difficulty', 'مستوى الروبوتات')}</span>
+          <span className="block text-xs text-emerald-300 mt-0.5 mb-2">
+            {t(
+              'For local games against bots. Oracle sees every hand (it cheats).',
+              'للألعاب المحلية ضد الروبوتات. العرّاف يرى كل الأوراق (يغش).',
+            )}
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(
               [
                 ['easy', 'Easy', 'سهل'],
                 ['medium', 'Medium', 'متوسط'],
                 ['hard', 'Hard', 'صعب'],
-                ['insane', 'Oracle (cheating)', 'العرّاف (غش)'],
+                ['insane', 'Oracle', 'العرّاف'],
               ] as const
             ).map(([level, en, ar]) => (
               <button
                 key={level}
-                className={`px-3 py-1 rounded-full text-sm ${settings.botDifficulty === level ? 'bg-amber-400 text-emerald-950' : 'bg-emerald-800'}`}
+                className={`px-3.5 py-1.5 rounded-full text-sm font-medium ${settings.botDifficulty === level ? 'bg-amber-400 text-emerald-950' : 'bg-emerald-800 text-emerald-100'}`}
                 onClick={() => onUpdate({ botDifficulty: level })}
               >
                 {t(en, ar)}
@@ -110,7 +110,7 @@ export function SettingsScreen({
           </div>
         </div>
 
-        <div className="flex items-center justify-between py-3 border-b border-emerald-800">
+        <div className="flex items-center justify-between py-2.5 border-b border-emerald-800">
           <span>
             <span className="block text-sm text-white">{t('Trick pause', 'مدة توقف اللفة')}</span>
             <span className="block text-xs text-emerald-300 mt-0.5">

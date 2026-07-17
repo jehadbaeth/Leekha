@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { pick, type Settings } from './settings';
 import { login, register, ApiError, type AuthedUser } from './net/api';
+import { BackButton } from './components/buttons';
 
 export function AuthScreen({
   settings,
@@ -45,9 +46,9 @@ export function AuthScreen({
   return (
     <div className="min-h-full bg-felt-950 text-white px-6 py-8 flex flex-col items-center">
       <div className="w-full max-w-xs">
-        <button className="text-sm underline text-emerald-200 mb-6" onClick={onBack}>
-          {t('← Back', '→ رجوع')}
-        </button>
+        <div className="mb-5">
+          <BackButton label={t('Back', 'رجوع')} onClick={onBack} />
+        </div>
 
         <h2 className="text-2xl font-bold mb-1">{mode === 'login' ? t('Log In', 'تسجيل الدخول') : t('Register', 'إنشاء حساب')}</h2>
         <p className="text-emerald-300 text-sm mb-6">

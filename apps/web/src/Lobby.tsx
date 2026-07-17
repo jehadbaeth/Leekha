@@ -4,6 +4,7 @@ import type { ServerMessage } from '@leekha/protocol';
 import { pick, type Settings } from './settings';
 import { useRoomShare } from './roomShare';
 import { Flag } from './components/Flag';
+import { PillButton } from './components/buttons';
 
 type RoomState = Extract<ServerMessage, { type: 'room.state' }>;
 type BotLevel = 'easy' | 'medium' | 'hard' | 'insane';
@@ -69,9 +70,7 @@ export function Lobby({
     return (
       <div className="min-h-full flex flex-col items-center justify-center gap-4 bg-felt-950 text-emerald-100">
         <p>{t('Connecting to room…', 'جارٍ الاتصال بالغرفة…')}</p>
-        <button className="underline text-sm" onClick={onLeave}>
-          {t('Cancel', 'إلغاء')}
-        </button>
+        <PillButton onClick={onLeave}>{t('Cancel', 'إلغاء')}</PillButton>
       </div>
     );
   }
@@ -81,11 +80,11 @@ export function Lobby({
   const mySlot = mySeat !== null ? roomState.seats[mySeat] : null;
 
   return (
-    <div className="min-h-full flex flex-col items-center gap-6 bg-felt-950 px-5 py-8 overflow-y-auto">
+    <div className="min-h-full flex flex-col items-center gap-4 bg-felt-950 px-5 py-6 overflow-y-auto">
       <div className="text-center">
         <p className="text-emerald-200 text-xs uppercase tracking-wide">{t('Room code', 'رمز الغرفة')}</p>
         <button
-          className="text-4xl font-bold tracking-[0.3em] text-amber-300 font-mono"
+          className="text-3xl font-bold tracking-[0.3em] text-amber-300 font-mono"
           onClick={copyCode}
           title={t('Tap to copy', 'اضغط للنسخ')}
         >
@@ -261,9 +260,9 @@ export function Lobby({
         <p className="text-emerald-300 text-xs">{t('Waiting for the host to start…', 'بانتظار أن يبدأ المضيف اللعبة…')}</p>
       )}
 
-      <button className="text-emerald-400 text-xs underline" onClick={onLeave}>
+      <PillButton tone="danger" onClick={onLeave}>
         {t('Leave room', 'مغادرة الغرفة')}
-      </button>
+      </PillButton>
     </div>
   );
 }

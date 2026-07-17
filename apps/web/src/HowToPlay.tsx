@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { pick, type Settings } from './settings';
+import { BackButton } from './components/buttons';
 
 const PAGES = {
   en: [
@@ -79,10 +80,10 @@ export function HowToPlay({ onBack, settings }: { onBack: () => void; settings: 
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
 
   return (
-    <div className="min-h-full flex flex-col bg-felt-950 text-white px-6 py-8">
-      <button className="self-start text-sm underline text-emerald-200 mb-6" onClick={onBack}>
-        {t('← Back', '→ رجوع')}
-      </button>
+    <div className="min-h-full flex flex-col bg-felt-950 text-white px-6 py-6">
+      <div className="self-start mb-4">
+        <BackButton label={t('Back', 'رجوع')} onClick={onBack} />
+      </div>
 
       <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full gap-4">
         <div className="text-xs uppercase tracking-wide text-amber-300">
