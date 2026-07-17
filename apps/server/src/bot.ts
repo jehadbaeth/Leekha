@@ -8,7 +8,12 @@ import type { BotLevel } from './types.js';
 const SEARCH_ROLLOUT_BUDGET = 320;
 
 export function botForLevel(level: BotLevel, rng: () => number = Math.random): Bot {
-  if (level === 'hard') {
+  if (level === 'hard' || level === 'insane') {
+    // Insane cheats on information, not on play choice: its plays are decided
+    // by chooseOraclePlay at the server call site, which has the true hands.
+    // The Bot returned here is the fallback if it is ever driven without them
+    // (and it supplies the pass, which is heuristic, NOT cheated -- a perfect
+    // information pass would be a separate routine). Passing reuses medium.
     const passFallback = makeHeuristicBot('medium', rng);
     return {
       choosePass: (view) => passFallback.choosePass(view),
@@ -16,6 +21,23 @@ export function botForLevel(level: BotLevel, rng: () => number = Math.random): B
     };
   }
   return makeHeuristicBot(level, rng);
+}
+
+/**
+ * Oracle ("cheating") play: picks the strongest legal card given the TRUE
+ * hands of all four seats. Reuses perfectInfoBest with the exact policy the
+ * duel harness and blunder auditor already trust as "perfect-info best"
+ * (noise 8 / endgameCounting off), so insane play stays consistent with that
+ * oracle. The information advantage is the whole strength; the play choice
+ * itself obeys every rule (it only ever ranks view.legal). Server-only: the
+ * true hands never reach a client, so this stays out of packages/bots.
+ */
+export function chooseOraclePlay(match: MatchState, seat: Seat, view: SeatView): Card {
+  const trueHands = ([0, 1, 2, 3] as Seat[]).map((s) => match.round.hands[s]);
+  const oracleRng = rngFromSeed(
+    `${match.seed}:oracle:${match.roundIndex}:${seat}:${view.trickNumber}:${view.currentTrick.plays.length}`,
+  );
+  return perfectInfoBest(view, trueHands, { noise: 8, rng: oracleRng, endgameCounting: false }).best;
 }
 
 function cardKey(c: Card): string {

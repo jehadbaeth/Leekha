@@ -9,8 +9,12 @@ export interface Settings {
   fourColorDeck: boolean;
   /** How long a finished trick stays frozen on screen before clearing, in ms (see the freeze effect in GameTable.tsx). */
   trickPauseMs: number;
-  /** Local vs-bots difficulty. Hard runs the sampled-world search bot in a Web Worker (useGame.ts). */
-  botDifficulty: 'easy' | 'medium' | 'hard';
+  /**
+   * Local vs-bots difficulty. Hard runs the sampled-world search bot in a Web
+   * Worker (useGame.ts). Insane ("Oracle") sees every hand and plays the
+   * perfect-information best move: it cheats on information, not on the rules.
+   */
+  botDifficulty: 'easy' | 'medium' | 'hard' | 'insane';
 }
 
 const KEY = 'leekha.settings.v1';

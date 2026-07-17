@@ -7,7 +7,7 @@ export const RankSchema = z.union([
 ]);
 export const CardSchema = z.object({ suit: SuitSchema, rank: RankSchema });
 export const SeatSchema = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]);
-export const BotLevelSchema = z.enum(['easy', 'medium', 'hard']);
+export const BotLevelSchema = z.enum(['easy', 'medium', 'hard', 'insane']);
 
 export const RulesConfigSchema = z.object({
   targetScore: z.number().int().positive(),

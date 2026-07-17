@@ -6,16 +6,17 @@ import {
   playCard,
   viewFor,
   defaultConfig,
+  rngFromSeed,
   IllegalAction,
   type Card,
   type GameEvent,
   type MatchState,
   type Seat,
 } from '@leekha/engine';
-import { makeHeuristicBot, type Bot } from '@leekha/bots';
+import { makeHeuristicBot, perfectInfoBest, type Bot } from '@leekha/bots';
 import type { BotWorkRequest, BotWorkResponse } from './botWorker';
 
-export type BotDifficulty = 'easy' | 'medium' | 'hard';
+export type BotDifficulty = 'easy' | 'medium' | 'hard' | 'insane';
 
 const BOT_SEATS: Seat[] = [1, 2, 3];
 
@@ -30,6 +31,22 @@ function randomDelay(kind: 'pass' | 'play' | 'forced'): number {
 
 function turnSeatOf(trick: { leader: Seat; plays: unknown[] }): Seat {
   return (((trick.leader as number) + trick.plays.length) % 4) as Seat;
+}
+
+/**
+ * Oracle ("insane") play: the perfect-information best legal card given the
+ * true hands of all four seats. Mirrors the server's chooseOraclePlay
+ * (apps/server/src/bot.ts) with the exact policy the duel harness and blunder
+ * auditor already trust. It cheats on INFORMATION only; every card it ranks is
+ * already legal, so it never breaks a rule. Runs in-thread: one deterministic
+ * rollout per candidate is cheap, so unlike the hard tier it needs no Worker.
+ */
+function oraclePlay(m: MatchState, seat: Seat, view: ReturnType<typeof viewFor>): Card {
+  const trueHands = ([0, 1, 2, 3] as Seat[]).map((s) => m.round.hands[s]);
+  const rng = rngFromSeed(
+    `${m.seed}:oracle:${m.roundIndex}:${seat}:${view.trickNumber}:${view.currentTrick.plays.length}`,
+  );
+  return perfectInfoBest(view, trueHands, { noise: 8, rng, endgameCounting: false }).best;
 }
 
 export interface GameEventLogItem {
@@ -234,10 +251,17 @@ export function useGame(botDifficulty: BotDifficulty = 'hard') {
               if (!m || m.phase !== 'playing') return;
               if (turnSeatOf(m.round.currentTrick) !== turn) return; // stale timer
               const freshView = viewFor(m, turn);
-              const searchCardStillLegal =
-                searchCard !== null &&
-                freshView.legal?.some((c) => c.suit === searchCard.suit && c.rank === searchCard.rank);
-              const card = searchCardStillLegal ? searchCard : heuristicBotsRef.current[turn].choosePlay(freshView);
+              let card: Card;
+              if (levelRef.current === 'insane') {
+                // Oracle: recompute against fresh state (all four hands) so a
+                // rematch mid-delay can never apply a stale card.
+                card = oraclePlay(m, turn, freshView);
+              } else {
+                const searchCardStillLegal =
+                  searchCard !== null &&
+                  freshView.legal?.some((c) => c.suit === searchCard.suit && c.rank === searchCard.rank);
+                card = searchCardStillLegal ? searchCard : heuristicBotsRef.current[turn].choosePlay(freshView);
+              }
               try {
                 const { state, events } = playCard(m, turn, card);
                 setMatch(state);

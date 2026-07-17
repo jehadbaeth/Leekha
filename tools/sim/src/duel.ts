@@ -16,11 +16,14 @@ import { makeHeuristicBot, chooseSearchPlay, perfectInfoBest, Bot, HeuristicOpti
 // Same shape as apps/server/src/bot.ts's botForLevel: kept independent so
 // tools-sim doesn't need to depend on apps/server, but must be kept in sync
 // with it by hand if that file's rollout budget or fallback policy changes.
-type Level = 'easy' | 'medium' | 'hard';
+type Level = 'easy' | 'medium' | 'hard' | 'insane';
 const SEARCH_ROLLOUT_BUDGET = 320;
 
 function botForLevel(level: Level, rng: () => number): Bot {
-  if (level === 'hard') {
+  // Insane's plays are decided by the oracle at the play call site (it needs
+  // the true hands, which the Bot interface doesn't carry); the hard fallback
+  // here only supplies its pass and a safety net. Mirrors apps/server/bot.ts.
+  if (level === 'hard' || level === 'insane') {
     const passFallback = makeHeuristicBot('medium', rng);
     return {
       choosePass: (view) => passFallback.choosePass(view),
@@ -87,7 +90,17 @@ function playOneRound(
     // The real decision is always made first, from the shared bot RNG stream,
     // so an oracle check never perturbs actual gameplay: --blunders must be a
     // passive audit, not something that changes which cards get played.
-    const card: Card = bots[seat].choosePlay(view);
+    // Insane cheats on information: it picks the perfect-information best from
+    // the true hands. Same policy the blunder oracle below uses, just driving
+    // the actual play instead of auditing it.
+    let card: Card;
+    if (levelBySeat[seat] === 'insane') {
+      const trueHands: Card[][] = ([0, 1, 2, 3] as Seat[]).map((s) => m.round.hands[s]);
+      const oracleRng = rngFromSeed(`${seed}:oracle-play:${seat}:${view.trickNumber}:${view.currentTrick.plays.length}`);
+      card = perfectInfoBest(view, trueHands, { noise: 8, rng: oracleRng, endgameCounting: false }).best;
+    } else {
+      card = bots[seat].choosePlay(view);
+    }
     if (blunders && levelBySeat[seat] === 'hard' && view.legal && view.legal.length > 1) {
       const trueHands: Card[][] = ([0, 1, 2, 3] as Seat[]).map((s) => m.round.hands[s]);
       // Independent RNG so the oracle's own rollout noise can't draw from (and

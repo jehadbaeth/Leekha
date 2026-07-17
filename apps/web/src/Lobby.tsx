@@ -6,14 +6,15 @@ import { useRoomShare } from './roomShare';
 import { Flag } from './components/Flag';
 
 type RoomState = Extract<ServerMessage, { type: 'room.state' }>;
-type BotLevel = 'easy' | 'medium' | 'hard';
+type BotLevel = 'easy' | 'medium' | 'hard' | 'insane';
 
 const SEATS: Seat[] = [0, 1, 2, 3];
-const LEVELS: BotLevel[] = ['easy', 'medium', 'hard'];
+const LEVELS: BotLevel[] = ['easy', 'medium', 'hard', 'insane'];
 const LEVEL_LABEL: Record<BotLevel, { en: string; ar: string }> = {
   easy: { en: 'easy', ar: 'سهل' },
   medium: { en: 'medium', ar: 'متوسط' },
   hard: { en: 'hard', ar: 'صعب' },
+  insane: { en: 'Oracle (cheating)', ar: 'العرّاف (غش)' },
 };
 
 // Presets for "how long can a turn sit idle before it's auto-played", in ms.

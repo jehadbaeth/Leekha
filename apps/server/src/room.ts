@@ -13,8 +13,8 @@ import {
   viewFor,
 } from '@leekha/engine';
 import type { ServerMessage, PublicRoom } from '@leekha/protocol';
-import { botForLevel, logHardBotBlunderIfAny } from './bot.js';
-import type { RoomPhase, SeatSlot } from './types.js';
+import { botForLevel, chooseOraclePlay, logHardBotBlunderIfAny } from './bot.js';
+import type { BotLevel, RoomPhase, SeatSlot } from './types.js';
 import type { RoomSnapshot } from './persistence.js';
 import type { MatchRecord } from './db.js';
 
@@ -238,7 +238,7 @@ export class Room {
     return slot.token;
   }
 
-  addBot(seat: Seat, level: 'easy' | 'medium' | 'hard'): void {
+  addBot(seat: Seat, level: BotLevel): void {
     this.touch();
     if (this.phase !== 'lobby') throw new IllegalAction('bad-phase', 'Can only add bots in the lobby');
     const slot = this.seats[seat];
@@ -572,9 +572,11 @@ export class Room {
     setTimeout(() => {
       if (!this.match || this.match.phase !== 'playing') return;
       if (this.actingSeat() !== seat) return;
-      const bot = botForLevel(level);
       const view = viewFor(this.match, seat);
-      const card = bot.choosePlay(view);
+      const card =
+        level === 'insane'
+          ? chooseOraclePlay(this.match, seat, view)
+          : botForLevel(level).choosePlay(view);
       if (level === 'hard') logHardBotBlunderIfAny(this.match, seat, view, card);
       this.applyPlay(seat, card);
     }, botThinkDelay());

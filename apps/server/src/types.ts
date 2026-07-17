@@ -1,6 +1,6 @@
 import type { Seat } from '@leekha/engine';
 
-export type BotLevel = 'easy' | 'medium' | 'hard';
+export type BotLevel = 'easy' | 'medium' | 'hard' | 'insane';
 
 export interface SeatSlot {
   seat: Seat;

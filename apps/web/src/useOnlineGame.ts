@@ -350,7 +350,7 @@ export function useOnlineGame() {
     return true;
   }, [setMySeat]);
 
-  const addBot = useCallback((seat: Seat, level: 'easy' | 'medium' | 'hard') => {
+  const addBot = useCallback((seat: Seat, level: 'easy' | 'medium' | 'hard' | 'insane') => {
     socketRef.current!.send({ type: 'room.addBot', seat, level });
   }, []);
   const removeBot = useCallback((seat: Seat) => {

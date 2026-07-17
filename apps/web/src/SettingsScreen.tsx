@@ -96,6 +96,7 @@ export function SettingsScreen({
                 ['easy', 'Easy', 'سهل'],
                 ['medium', 'Medium', 'متوسط'],
                 ['hard', 'Hard', 'صعب'],
+                ['insane', 'Oracle (cheating)', 'العرّاف (غش)'],
               ] as const
             ).map(([level, en, ar]) => (
               <button
