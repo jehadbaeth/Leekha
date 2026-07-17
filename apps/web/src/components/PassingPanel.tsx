@@ -59,11 +59,26 @@ export function PassingPanel({
     <div className="flex flex-col items-center gap-2 w-full px-4 pb-2 pt-1">
       {!committed ? (
           <>
-            <div className="bg-emerald-900/90 rounded-xl px-4 py-1.5 text-center">
-              {/* Both arrows point right: the recipient physically sits to
-                  your right in every language (seating is pinned LTR). */}
-              <div className="font-semibold text-amber-200">{t(`Pass 3 cards to ${recipientName} →`, `مرّر 3 أوراق إلى ${recipientName} →`)}</div>
-              <div className="text-xs text-emerald-200 mt-1">{t(`${selected.length}/3 selected`, `${selected.length}/3 مختارة`)}</div>
+            {/* Confirm lives up here in the instruction chip, above the fan,
+                not below it: below the cards it was the one control that
+                could sit off-screen on a phone, making every pass a scroll
+                trip (same complaint as the play-phase confirm). Always
+                rendered (disabled until 3 picked) so enabling it never
+                shifts the layout. */}
+            <div className="bg-emerald-900/90 rounded-xl px-4 py-1.5 flex items-center gap-4">
+              <div className="text-center">
+                {/* Both arrows point right: the recipient physically sits to
+                    your right in every language (seating is pinned LTR). */}
+                <div className="font-semibold text-amber-200">{t(`Pass 3 cards to ${recipientName} →`, `مرّر 3 أوراق إلى ${recipientName} →`)}</div>
+                <div className="text-xs text-emerald-200 mt-1">{t(`${selected.length}/3 selected`, `${selected.length}/3 مختارة`)}</div>
+              </div>
+              <button
+                disabled={selected.length !== 3}
+                onClick={() => onConfirm(selected as [Card, Card, Card])}
+                className="rounded-lg px-5 py-1.5 bg-amber-400 disabled:opacity-30 text-emerald-950 font-semibold"
+              >
+                {t('Confirm', 'تأكيد')}
+              </button>
             </div>
             {/* The picker uses the same fan layout as the play-phase hand
                 tray (same fanLayout/needsTwoStories, same sortHand order,
@@ -117,13 +132,6 @@ export function PassingPanel({
                 </div>
               );
             })()}
-            <button
-              disabled={selected.length !== 3}
-              onClick={() => onConfirm(selected as [Card, Card, Card])}
-              className="rounded-lg px-6 py-1.5 bg-amber-400 disabled:opacity-30 text-emerald-950 font-semibold"
-            >
-              {t('Confirm', 'تأكيد')}
-            </button>
           </>
         ) : (
           <div className="bg-emerald-900/90 rounded-xl px-4 py-3 text-center flex flex-col gap-2">
