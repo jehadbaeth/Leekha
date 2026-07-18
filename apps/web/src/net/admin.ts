@@ -88,10 +88,31 @@ export interface AdminUsage {
   recent: { name: string | null; country: string | null; startedAt: number; durationMs: number }[];
 }
 
+export interface AdminError {
+  id: string;
+  source: string;
+  message: string;
+  stack: string | null;
+  url: string | null;
+  userAgent: string | null;
+  createdAt: number;
+}
+
 export const fetchOverview = (token: string, sinceMs = 0) =>
   adminRequest<AdminOverview>(`/api/admin/overview?sinceMs=${sinceMs}`, token);
 export const fetchUsage = (token: string, sinceMs: number, bucket: 'day' | 'hour') =>
   adminRequest<AdminUsage>(`/api/admin/usage?sinceMs=${sinceMs}&bucket=${bucket}`, token);
+export const fetchErrors = (token: string, sinceMs: number) =>
+  adminRequest<{ summary: { total: number; server: number; client: number }; errors: AdminError[] }>(
+    `/api/admin/errors?sinceMs=${sinceMs}`,
+    token,
+  );
+export const clearData = (token: string, what: 'sessions' | 'errors' | 'matches') =>
+  adminRequest<{ cleared: number }>('/api/admin/clear', token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ what }),
+  });
 export const fetchLive = (token: string) => adminRequest<{ live: LiveGame[] }>('/api/admin/live', token);
 export const fetchAdminMatches = (token: string, limit = 100, offset = 0) =>
   adminRequest<{ matches: AdminMatch[]; total: number }>(`/api/admin/matches?limit=${limit}&offset=${offset}`, token);

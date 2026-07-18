@@ -53,7 +53,7 @@ export async function readJsonBody(req: IncomingMessage): Promise<Record<string,
 }
 
 /** Fixed-window per-IP limiter for register/login, mirroring SPEC 9.3-9.4's socket-side rate limiting. */
-function createRateLimiter() {
+export function createRateLimiter() {
   const hits = new Map<string, { count: number; windowStart: number }>();
   return function allow(key: string): boolean {
     const now = Date.now();

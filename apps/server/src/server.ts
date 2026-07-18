@@ -62,6 +62,8 @@ function detectCountry(socket: Socket): string | null {
 // table can't grow without bound on the shared box.
 const SESSION_GRACE_MS = 5 * 60_000;
 const SESSION_RETENTION_MS = 90 * 86_400_000;
+const ERROR_RETENTION_MS = 30 * 86_400_000;
+const MAX_ERROR_ROWS = 5000;
 
 export function createApp(options: { webDist?: string; redisUrl?: string; databasePath?: string } = {}) {
   const serveStatic = options.webDist ? createStaticHandler(options.webDist) : null;
@@ -69,6 +71,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
   // real entrypoint (index.ts) always passes an explicit DATABASE_PATH.
   const db = openDb(options.databasePath ?? ':memory:');
   db.pruneSessions(Date.now() - SESSION_RETENTION_MS);
+  db.pruneErrors(Date.now() - ERROR_RETENTION_MS, MAX_ERROR_ROWS);
   const handleAuthRequest = createAuthHandler(db);
   // Assigned just below once io/manager exist (getHealth needs them). Requests
   // only arrive after listen(), so it is always set by the time it is called.
@@ -399,8 +402,24 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
           }
         }
       } catch (err) {
-        if (err instanceof IllegalAction) sendError(err.code, err.message);
-        else throw err;
+        if (err instanceof IllegalAction) {
+          sendError(err.code, err.message);
+        } else {
+          // Unexpected server-side error while handling a message: capture it to
+          // telemetry (Phase 3) and answer with a generic error instead of
+          // re-throwing, which would crash the process and drop every live game.
+          const e = err as Error;
+          db.insertError({
+            source: 'server',
+            message: e?.message ?? String(err),
+            stack: e?.stack ?? null,
+            url: `msg:${msg.type}`,
+            userAgent: null,
+            createdAt: Date.now(),
+          });
+          console.error('[server error]', msg.type, err);
+          sendError('server-error', 'Something went wrong on the server.');
+        }
       }
     });
 

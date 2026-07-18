@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import type { Db } from './db.js';
-import { json } from './auth.js';
+import { json, readJsonBody, clientKey, createRateLimiter } from './auth.js';
 
 /** Live, non-persisted health numbers for the admin overview. */
 export interface HealthSnapshot {
@@ -53,9 +53,38 @@ function bearer(req: IncomingMessage): string | null {
  */
 export function createAdminHandler(db: Db, deps: AdminDeps) {
   const enabled = !!deps.token && deps.token.length >= 16;
+  const errorLimiter = createRateLimiter();
 
   return async function handleAdminRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const url = new URL(req.url ?? '/', 'http://internal');
+    const reqMethod = req.method ?? 'GET';
+
+    // Public, unauthenticated client-error sink (Phase 3). Rate-limited per IP
+    // and length-capped in db.insertError so a buggy or hostile client can't
+    // flood the shared box's disk. No token: browsers can't send one.
+    if (reqMethod === 'POST' && url.pathname === '/api/telemetry/error') {
+      if (!errorLimiter(clientKey(req))) {
+        json(res, 429, { error: 'rate-limited' });
+        return true;
+      }
+      const body = await readJsonBody(req);
+      const message = typeof body.message === 'string' ? body.message : '';
+      if (!message) {
+        json(res, 400, { error: 'no-message' });
+        return true;
+      }
+      db.insertError({
+        source: 'client',
+        message,
+        stack: typeof body.stack === 'string' ? body.stack : null,
+        url: typeof body.url === 'string' ? body.url : null,
+        userAgent: (req.headers['user-agent'] as string | undefined) ?? null,
+        createdAt: Date.now(),
+      });
+      json(res, 200, { ok: true });
+      return true;
+    }
+
     if (!url.pathname.startsWith('/api/admin/')) return false;
 
     if (!enabled) {
@@ -157,6 +186,40 @@ export function createAdminHandler(db: Db, deps: AdminDeps) {
         'Content-Disposition': `attachment; filename="match-${record.match.id}.json"`,
       });
       res.end(JSON.stringify(payload, null, 2));
+      return true;
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/errors') {
+      const sinceMs = Math.max(0, Number(url.searchParams.get('sinceMs')) || 0);
+      const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit')) || 200));
+      json(res, 200, { summary: db.errorSummary(sinceMs), errors: db.listErrors(sinceMs, limit) });
+      return true;
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/errors/export') {
+      const errors = db.listErrors(0, 5000);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="leekha-errors.json"`,
+      });
+      res.end(JSON.stringify(errors, null, 2));
+      return true;
+    }
+
+    // Destructive clear (Phase 4). Token + custom-header authed, so CSRF-safe.
+    // Accounts are deliberately not clearable here.
+    if (method === 'POST' && url.pathname === '/api/admin/clear') {
+      const body = await readJsonBody(req);
+      const what = body.what;
+      let cleared = 0;
+      if (what === 'sessions') cleared = db.clearSessions();
+      else if (what === 'errors') cleared = db.clearErrors();
+      else if (what === 'matches') cleared = db.clearMatches();
+      else {
+        json(res, 400, { error: 'bad-target' });
+        return true;
+      }
+      json(res, 200, { cleared });
       return true;
     }
 

@@ -96,6 +96,20 @@ export function openDb(path: string) {
     );
     CREATE INDEX IF NOT EXISTS idx_tsessions_visitor ON telemetry_sessions(visitor_id, last_seen);
     CREATE INDEX IF NOT EXISTS idx_tsessions_started ON telemetry_sessions(started_at);
+
+    -- Telemetry: captured errors (Phase 3), server-side and browser-side.
+    -- Fields are length-capped at insert; the table is pruned by age and row
+    -- count so a flood (e.g. a buggy client) can't fill the shared box's disk.
+    CREATE TABLE IF NOT EXISTS telemetry_errors (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      message TEXT NOT NULL,
+      stack TEXT,
+      url TEXT,
+      user_agent TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_terrors_created ON telemetry_errors(created_at);
   `);
 
   const insertMatch = db.prepare(
@@ -344,6 +358,54 @@ export function openDb(path: string) {
 
     clearSessions(): number {
       return db.prepare(`DELETE FROM telemetry_sessions`).run().changes;
+    },
+
+    // --- Telemetry errors (Phase 3) ---
+
+    /** Inserts a captured error, truncating each field to a safe cap so a hostile/buggy client can't bloat rows. */
+    insertError(e: { source: 'server' | 'client'; message: string; stack?: string | null; url?: string | null; userAgent?: string | null; createdAt: number }): void {
+      const cap = (s: string | null | undefined, n: number) => (s == null ? null : String(s).slice(0, n));
+      db.prepare(
+        `INSERT INTO telemetry_errors (id, source, message, stack, url, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(randomUUID(), e.source, cap(e.message, 2000) ?? '(empty)', cap(e.stack, 8000), cap(e.url, 500), cap(e.userAgent, 300), e.createdAt);
+    },
+
+    listErrors(sinceMs: number, limit = 200): { id: string; source: string; message: string; stack: string | null; url: string | null; userAgent: string | null; createdAt: number }[] {
+      return db
+        .prepare(
+          `SELECT id, source, message, stack, url, user_agent AS userAgent, created_at AS createdAt
+           FROM telemetry_errors WHERE created_at >= ? ORDER BY created_at DESC LIMIT ?`,
+        )
+        .all(sinceMs, limit) as { id: string; source: string; message: string; stack: string | null; url: string | null; userAgent: string | null; createdAt: number }[];
+    },
+
+    errorSummary(sinceMs: number): { total: number; server: number; client: number } {
+      const total = (db.prepare(`SELECT COUNT(*) AS n FROM telemetry_errors WHERE created_at >= ?`).get(sinceMs) as { n: number }).n;
+      const server = (db.prepare(`SELECT COUNT(*) AS n FROM telemetry_errors WHERE created_at >= ? AND source = 'server'`).get(sinceMs) as { n: number }).n;
+      return { total, server, client: total - server };
+    },
+
+    /** Retention: keep only errors newer than the cutoff AND only the newest maxRows overall. */
+    pruneErrors(olderThanMs: number, maxRows: number): number {
+      const byAge = db.prepare(`DELETE FROM telemetry_errors WHERE created_at < ?`).run(olderThanMs).changes;
+      const byCount = db.prepare(
+        `DELETE FROM telemetry_errors WHERE id NOT IN (SELECT id FROM telemetry_errors ORDER BY created_at DESC LIMIT ?)`,
+      ).run(maxRows).changes;
+      return byAge + byCount;
+    },
+
+    clearErrors(): number {
+      return db.prepare(`DELETE FROM telemetry_errors`).run().changes;
+    },
+
+    // --- Destructive clears (Phase 4). Accounts are intentionally NOT clearable here. ---
+
+    clearMatches(): number {
+      const tx = db.transaction(() => {
+        db.prepare(`DELETE FROM match_players`).run();
+        return db.prepare(`DELETE FROM matches`).run().changes;
+      });
+      return tx();
     },
 
     getMatch(matchId: string) {

@@ -6,17 +6,20 @@ import {
   verifyAdminToken,
   fetchOverview,
   fetchUsage,
+  fetchErrors,
   fetchLive,
   fetchAdminMatches,
   fetchMatchesPerDay,
+  clearData,
   downloadAdmin,
   type AdminOverview,
   type AdminUsage,
+  type AdminError,
   type AdminMatch,
   type LiveGame,
 } from './net/admin';
 
-type Tab = 'overview' | 'usage' | 'matches';
+type Tab = 'overview' | 'usage' | 'matches' | 'errors' | 'danger';
 
 /** ISO alpha-2 country code to flag emoji; falls back to the code or a globe. */
 function flag(code: string | null): string {
@@ -119,7 +122,7 @@ export function AdminScreen({ onExit }: { onExit: () => void }) {
         </div>
 
         <div className="flex gap-1 mb-5 border-b border-emerald-800">
-          {(['overview', 'usage', 'matches'] as Tab[]).map((tb) => (
+          {(['overview', 'usage', 'matches', 'errors', 'danger'] as Tab[]).map((tb) => (
             <button
               key={tb}
               className={`px-4 py-2 text-sm capitalize -mb-px border-b-2 ${tab === tb ? 'border-amber-400 text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}
@@ -133,6 +136,8 @@ export function AdminScreen({ onExit }: { onExit: () => void }) {
         {tab === 'overview' && <OverviewTab token={token!} />}
         {tab === 'usage' && <UsageTab token={token!} />}
         {tab === 'matches' && <MatchesTab token={token!} />}
+        {tab === 'errors' && <ErrorsTab token={token!} />}
+        {tab === 'danger' && <DangerTab token={token!} />}
       </div>
     </div>
   );
@@ -400,6 +405,127 @@ function MatchesTab({ token }: { token: string }) {
       </div>
 
       {selected && <MatchDetail match={selected} token={token} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
+
+function ErrorsTab({ token }: { token: string }) {
+  const [rangeKey, setRangeKey] = useState('7d');
+  const [data, setData] = useState<{ summary: { total: number; server: number; client: number }; errors: AdminError[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+
+  useEffect(() => {
+    const since = (RANGES.find((r) => r.key === rangeKey) ?? RANGES[1]).since();
+    fetchErrors(token, since).then(setData).catch((e) => setErr(String(e.message ?? e)));
+  }, [token, rangeKey]);
+
+  if (err) return <p className="text-rose-400">{err}</p>;
+  if (!data) return <p className="text-emerald-300">Loading…</p>;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex gap-1">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              className={`text-xs rounded-full px-3 py-1 ${rangeKey === r.key ? 'bg-amber-400 text-emerald-950 font-semibold' : 'bg-emerald-800 text-emerald-100'}`}
+              onClick={() => setRangeKey(r.key)}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <button
+          className="text-xs rounded-lg bg-emerald-800 hover:bg-emerald-700 text-emerald-100 px-3 py-1.5"
+          onClick={() => downloadAdmin('/api/admin/errors/export', token, 'leekha-errors.json')}
+        >
+          Export all
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Total" value={data.summary.total} />
+        <Stat label="Server" value={data.summary.server} />
+        <Stat label="Client" value={data.summary.client} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {data.errors.length === 0 && <p className="text-emerald-400 text-sm">No errors in this window. 🎉</p>}
+        {data.errors.map((e) => (
+          <div key={e.id} className="rounded-lg bg-emerald-950/50 border border-emerald-800 px-3 py-2">
+            <button className="w-full text-left flex items-start justify-between gap-3" onClick={() => setOpen(open === e.id ? null : e.id)}>
+              <span className="min-w-0">
+                <span className={`text-[10px] rounded px-1.5 py-0.5 mr-2 ${e.source === 'server' ? 'bg-rose-900 text-rose-200' : 'bg-sky-900 text-sky-200'}`}>
+                  {e.source}
+                </span>
+                {/* Rendered as text (React escapes it) -- error strings are attacker-controlled, never dangerouslySetInnerHTML. */}
+                <span className="text-sm text-white break-words">{e.message}</span>
+              </span>
+              <span className="text-[11px] text-emerald-400 shrink-0">{fmtDate(e.createdAt)}</span>
+            </button>
+            {open === e.id && (
+              <div className="mt-2 text-[11px] text-emerald-300 flex flex-col gap-1">
+                {e.url && <div className="break-all">URL: {e.url}</div>}
+                {e.stack && <pre className="whitespace-pre-wrap break-words bg-emerald-950 rounded p-2 overflow-x-auto max-h-64 no-scrollbar">{e.stack}</pre>}
+                {e.userAgent && <div className="break-all text-emerald-500">{e.userAgent}</div>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ClearButton({ label, description, token, what }: { label: string; description: string; token: string; what: 'sessions' | 'errors' | 'matches' }) {
+  const [confirming, setConfirming] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="rounded-xl border border-rose-700/40 bg-rose-950/20 p-4 flex flex-col gap-2">
+      <div className="text-sm font-semibold text-white">{label}</div>
+      <div className="text-xs text-emerald-300">{description}</div>
+      {result && <div className="text-xs text-amber-300">{result}</div>}
+      {!confirming ? (
+        <button className="self-start text-xs rounded-lg border border-rose-500/60 text-rose-200 px-3 py-1.5 hover:bg-rose-900/40" onClick={() => { setConfirming(true); setResult(null); }}>
+          Clear…
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button
+            disabled={busy}
+            className="text-xs rounded-lg bg-rose-600 text-white px-3 py-1.5 disabled:opacity-50"
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const { cleared } = await clearData(token, what);
+                setResult(`Deleted ${cleared} row${cleared === 1 ? '' : 's'}.`);
+              } catch (e) {
+                setResult(`Failed: ${String((e as Error).message ?? e)}`);
+              } finally {
+                setBusy(false);
+                setConfirming(false);
+              }
+            }}
+          >
+            {busy ? 'Clearing…' : 'Yes, delete permanently'}
+          </button>
+          <button className="text-xs text-emerald-300" onClick={() => setConfirming(false)}>Cancel</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DangerTab({ token }: { token: string }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-emerald-300">
+        These permanently delete data from the database. There is no undo. Accounts and logins are not touched.
+      </p>
+      <ClearButton token={token} what="sessions" label="Clear usage data" description="Deletes all visit/session records (counts, durations, geography). Does not affect matches or accounts." />
+      <ClearButton token={token} what="errors" label="Clear error logs" description="Deletes all captured server and client errors. Export first if you want a copy." />
+      <ClearButton token={token} what="matches" label="Clear match history" description="Deletes all stored matches and move logs. Note: logged-in players will lose their History too." />
     </div>
   );
 }
