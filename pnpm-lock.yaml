@@ -74,6 +74,12 @@ importers:
       '@leekha/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@leekha/trix':
+        specifier: workspace:*
+        version: link:../../packages/trix
+      '@leekha/trix-bots':
+        specifier: workspace:*
+        version: link:../../packages/trix-bots
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -142,6 +148,31 @@ importers:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@26.1.0)
+
+  packages/trix:
+    devDependencies:
+      fast-check:
+        specifier: ^3.22.0
+        version: 3.23.2
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@26.1.0)
+
+  packages/trix-bots:
+    dependencies:
+      '@leekha/trix':
+        specifier: workspace:*
+        version: link:../trix
     devDependencies:
       typescript:
         specifier: ^5.6.0

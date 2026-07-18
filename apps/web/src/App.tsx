@@ -8,6 +8,8 @@ import { SettingsScreen } from './SettingsScreen';
 import { AuthScreen } from './AuthScreen';
 import { HistoryScreen } from './HistoryScreen';
 import { AdminScreen } from './AdminScreen';
+import { GamePicker, type GameChoice } from './GamePicker';
+import { TrixGame } from './trix/TrixGame';
 import { GameTable } from './components/GameTable';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
@@ -36,6 +38,9 @@ export default function App() {
   // is gated server-side by the ADMIN_TOKEN, so the route being guessable is
   // fine; the panel just prompts for the token.
   const [adminMode, setAdminMode] = useState(() => window.location.hash === '#admin');
+  // Which game the player picked at the entry screen. null = show the picker.
+  // Leekha's entire flow stays behind the 'leekha' choice, byte-for-byte.
+  const [gameChoice, setGameChoice] = useState<GameChoice | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [user, setUser] = useState<AuthedUser | null>(null);
   const game = useGame(settings.botDifficulty);
@@ -168,6 +173,28 @@ export default function App() {
             setAdminMode(false);
           }}
         />
+      </div>
+    );
+  }
+
+  // Entry: pick a game. Leekha renders its unchanged shell below; Trix renders
+  // its own screen. Both share the same phone-shaped shell wrapper.
+  if (!gameChoice) {
+    return (
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
+        <div className="game-shell-inner relative h-[100dvh] w-full text-white">
+          <GamePicker settings={settings} onChoose={setGameChoice} />
+        </div>
+      </div>
+    );
+  }
+
+  if (gameChoice.game === 'trix') {
+    return (
+      <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
+        <div className="game-shell-inner relative h-[100dvh] w-full text-white">
+          <TrixGame config={gameChoice.config} onExit={() => setGameChoice(null)} />
+        </div>
       </div>
     );
   }
