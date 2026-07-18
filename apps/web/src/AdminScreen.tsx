@@ -121,11 +121,14 @@ export function AdminScreen({ onExit }: { onExit: () => void }) {
           </div>
         </div>
 
-        <div className="flex gap-1 mb-5 border-b border-emerald-800">
+        {/* Concise tabs, and the row itself scrolls (invisibly) rather than the
+            whole page if it ever can't fit -- the wider px-4/text-sm buttons
+            used to overflow a phone and scroll the admin panel sideways. */}
+        <div className="flex gap-1 mb-5 border-b border-emerald-800 overflow-x-auto no-scrollbar">
           {(['overview', 'usage', 'matches', 'errors', 'danger'] as Tab[]).map((tb) => (
             <button
               key={tb}
-              className={`px-4 py-2 text-sm capitalize -mb-px border-b-2 ${tab === tb ? 'border-amber-400 text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}
+              className={`shrink-0 px-3 py-2 text-xs capitalize whitespace-nowrap -mb-px border-b-2 ${tab === tb ? 'border-amber-400 text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}
               onClick={() => setTab(tb)}
             >
               {tb}
