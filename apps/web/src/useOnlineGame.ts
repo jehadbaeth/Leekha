@@ -107,6 +107,24 @@ export function useOnlineGame() {
               pendingJoinRef.current = null;
             }
           }
+          // Authoritative un-seat on reconnect. Normally the 'presence' event
+          // below tells a displaced player it was AFK-flipped, but that live
+          // event is lost when a phone backgrounds the tab: the socket dies
+          // while frozen, so the flip is only learned from the roster in the
+          // reconnect's sendObserverView (room.state here). Without this, mySeat
+          // stays set, the following game.publicSnapshot is blocked by its
+          // mySeatRef guard, and the player is stuck on a stale seated board
+          // until a manual refresh. Mirror the presence handler: drop the seat
+          // and resync so the observer/claim view lands. (Takeover-by-another-
+          // human while backgrounded is a rarer case that would need userId
+          // identity to detect here; not covered.)
+          if (mySeatRef.current !== null) {
+            const mine = msg.seats.find((s) => s.seat === mySeatRef.current);
+            if (mine && mine.isBot) {
+              setMySeat(null);
+              socket.send({ type: 'game.resync' });
+            }
+          }
           break;
         }
         case 'game.snapshot': {

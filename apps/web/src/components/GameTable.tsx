@@ -606,13 +606,15 @@ export function GameTable({
 
       {/* Emote button: right aligned, directly ABOVE the passed-cards memo
           chip (not squeezed between it and the HUD), still within easy
-          thumb reach of the hand tray. The negative top margin lets it
-          visually tuck into the trick area's bottom edge without eating a
-          whole row of layout height, and its picker opens UPWARD over the
-          table, so neither the button nor the picker can ever cover the
-          hand. */}
+          thumb reach of the hand tray. The small negative top margin tucks it
+          up toward the trick area's bottom edge without eating a whole row of
+          layout height, and its picker opens UPWARD over the table so it never
+          covers the hand. Keep this pull SMALL (-mt-3, not -mt-9): the button
+          is right aligned, exactly the column the right-seat avatar's score
+          sits in, so a larger negative margin rides up over that score on
+          short (address-bar-reduced) phone heights. */}
       {onEmote && (
-        <div dir="ltr" className="relative z-20 flex justify-end px-2 pb-1 -mt-9 pointer-events-none">
+        <div dir="ltr" className="relative z-20 flex justify-end px-2 pb-1 -mt-3 pointer-events-none">
           <div className="relative pointer-events-auto">
             {showEmotePicker && (
               // w-max: an absolutely positioned box shrink-wraps to its
