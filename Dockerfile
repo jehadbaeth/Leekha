@@ -15,6 +15,8 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/engine/package.json packages/engine/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/bots/package.json packages/bots/package.json
+COPY packages/trix/package.json packages/trix/package.json
+COPY packages/trix-bots/package.json packages/trix-bots/package.json
 COPY tools/sim/package.json tools/sim/package.json
 COPY apps/server/package.json apps/server/package.json
 COPY apps/web/package.json apps/web/package.json
