@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import geoip from 'geoip-lite';
 import { IllegalAction, type Seat, defaultConfig } from '@leekha/engine';
@@ -9,6 +9,7 @@ import { createStaticHandler } from './staticFiles.js';
 import { createPersistence } from './persistence.js';
 import { openDb } from './db.js';
 import { createAuthHandler, resolveSessionFromCookieHeader } from './auth.js';
+import { createAdminHandler } from './admin.js';
 
 interface SocketState {
   name: string | null;
@@ -62,6 +63,9 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
   // real entrypoint (index.ts) always passes an explicit DATABASE_PATH.
   const db = openDb(options.databasePath ?? ':memory:');
   const handleAuthRequest = createAuthHandler(db);
+  // Assigned just below once io/manager exist (getHealth needs them). Requests
+  // only arrive after listen(), so it is always set by the time it is called.
+  let handleAdminRequest: ((req: IncomingMessage, res: ServerResponse) => Promise<boolean>) | null = null;
   const httpServer = createServer((req, res) => {
     if ((req.url ?? '').startsWith('/socket.io/')) return;
     if ((req.url ?? '').startsWith('/api/')) {
@@ -83,17 +87,19 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
       }
       if (req.method === 'OPTIONS') {
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.writeHead(204);
         res.end();
         return;
       }
-      void handleAuthRequest(req, res).then((handled) => {
-        if (!handled) {
-          res.writeHead(404);
-          res.end('not found');
-        }
-      });
+      void (async () => {
+        // Admin router first (it only claims /api/admin/* and returns false
+        // otherwise), then the accounts router, then a 404.
+        if (handleAdminRequest && (await handleAdminRequest(req, res))) return;
+        if (await handleAuthRequest(req, res)) return;
+        res.writeHead(404);
+        res.end('not found');
+      })();
       return;
     }
     if (serveStatic) void serveStatic(req, res);
@@ -102,6 +108,21 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
   const persistence = createPersistence(options.redisUrl);
   const manager = new RoomManager(io, persistence, db);
   const tokenIndex = new Map<string, { roomCode: string; seat: Seat }>();
+
+  // Admin/telemetry API. Off unless ADMIN_TOKEN is set in the environment.
+  handleAdminRequest = createAdminHandler(db, {
+    token: process.env.ADMIN_TOKEN ?? null,
+    getHealth: () => {
+      const s = manager.stats();
+      return {
+        connectedSockets: io.engine.clientsCount,
+        activeRooms: s.activeRooms,
+        playersInGame: s.playersInGame,
+        uptimeSec: Math.round(process.uptime()),
+        memoryMb: Math.round(process.memoryUsage().rss / 1_048_576),
+      };
+    },
+  });
 
   if (persistence) {
     manager

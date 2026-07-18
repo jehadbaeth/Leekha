@@ -79,6 +79,16 @@ export class RoomManager {
     return this.rooms.get(code.toUpperCase());
   }
 
+  /** Live counts for the admin health view: total rooms and connected humans currently in a running match. */
+  stats(): { activeRooms: number; playersInGame: number } {
+    let playersInGame = 0;
+    for (const room of this.rooms.values()) {
+      if (room.phase !== 'game' || !room.match) continue;
+      for (const s of room.seats) if (s.name !== null && !s.isBot && s.connected) playersInGame++;
+    }
+    return { activeRooms: this.rooms.size, playersInGame };
+  }
+
   /** Rooms fit for the home screen's public list: still in the lobby, marked public, and joinable by a new human (empty seat OR a bot seat, since bot seats are freely claimable — see claimableSeats in App.tsx). A room with every seat taken by real players can only be reached as an observer, which the list doesn't offer. */
   listPublic(): PublicRoom[] {
     return [...this.rooms.values()]

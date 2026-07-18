@@ -11,7 +11,7 @@ const RATE_LIMIT_MAX = 10;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function json(res: ServerResponse, status: number, body: unknown): void {
+export function json(res: ServerResponse, status: number, body: unknown): void {
   const data = JSON.stringify(body);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(data);
@@ -39,7 +39,7 @@ function clearSessionCookie(res: ServerResponse): void {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+export async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
   const raw = Buffer.concat(chunks).toString('utf8');
@@ -67,7 +67,7 @@ function createRateLimiter() {
   };
 }
 
-function clientKey(req: IncomingMessage): string {
+export function clientKey(req: IncomingMessage): string {
   const forwarded = req.headers['x-forwarded-for'];
   const raw = typeof forwarded === 'string' && forwarded.length > 0 ? forwarded.split(',')[0].trim() : null;
   return raw ?? req.socket.remoteAddress ?? 'unknown';

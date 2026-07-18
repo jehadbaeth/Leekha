@@ -162,6 +162,79 @@ export function openDb(path: string) {
         .all(userId, limit) as { matchId: string; endedAt: number; finalScores: string; result: string }[];
     },
 
+    // --- Admin/telemetry read-only aggregates over existing match data (Phase 1) ---
+
+    countMatches(): number {
+      return (db.prepare(`SELECT COUNT(*) AS n FROM matches`).get() as { n: number }).n;
+    },
+
+    /** All matches newest-first, with seat display names folded in, for the admin match list. */
+    listAllMatches(limit = 100, offset = 0): {
+      id: string;
+      roomCode: string;
+      endedAt: number;
+      startedAt: number;
+      finalScores: string;
+      result: string;
+      players: string;
+    }[] {
+      const rows = db
+        .prepare(
+          `SELECT id, room_code AS roomCode, ended_at AS endedAt, started_at AS startedAt,
+                  final_scores AS finalScores, result AS result
+           FROM matches ORDER BY ended_at DESC LIMIT ? OFFSET ?`,
+        )
+        .all(limit, offset) as {
+        id: string;
+        roomCode: string;
+        endedAt: number;
+        startedAt: number;
+        finalScores: string;
+        result: string;
+      }[];
+      const playerStmt = db.prepare(
+        `SELECT seat, display_name AS displayName, was_bot AS wasBot FROM match_players WHERE match_id = ? ORDER BY seat`,
+      );
+      return rows.map((r) => ({ ...r, players: JSON.stringify(playerStmt.all(r.id)) }));
+    },
+
+    /** Match counts bucketed by local calendar day (SQLite date()), for the games-over-time view. */
+    matchesPerDay(sinceMs: number): { day: string; count: number }[] {
+      return db
+        .prepare(
+          `SELECT date(ended_at / 1000, 'unixepoch') AS day, COUNT(*) AS count
+           FROM matches WHERE ended_at >= ? GROUP BY day ORDER BY day`,
+        )
+        .all(sinceMs) as { day: string; count: number }[];
+    },
+
+    /** Headline numbers for the admin overview: totals, recent windows, average length, team win split. */
+    matchSummary(now: number): {
+      total: number;
+      last24h: number;
+      last7d: number;
+      avgDurationMs: number | null;
+      busts: number;
+    } {
+      const total = (db.prepare(`SELECT COUNT(*) AS n FROM matches`).get() as { n: number }).n;
+      const last24h = (
+        db.prepare(`SELECT COUNT(*) AS n FROM matches WHERE ended_at >= ?`).get(now - 86_400_000) as { n: number }
+      ).n;
+      const last7d = (
+        db.prepare(`SELECT COUNT(*) AS n FROM matches WHERE ended_at >= ?`).get(now - 7 * 86_400_000) as { n: number }
+      ).n;
+      const avg = db
+        .prepare(`SELECT AVG(ended_at - started_at) AS avg FROM matches WHERE ended_at > started_at`)
+        .get() as { avg: number | null };
+      // A "bust" match is one whose result recorded a losing team (game reached
+      // the target), vs. one that just ended -- cheap LIKE avoids parsing every
+      // result blob just for a headline count.
+      const busts = (
+        db.prepare(`SELECT COUNT(*) AS n FROM matches WHERE result LIKE '%losingTeam%'`).get() as { n: number }
+      ).n;
+      return { total, last24h, last7d, avgDurationMs: avg.avg, busts };
+    },
+
     getMatch(matchId: string) {
       const match = db.prepare(`SELECT * FROM matches WHERE id = ?`).get(matchId) as
         | {

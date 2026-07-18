@@ -7,6 +7,7 @@ import { HowToPlay } from './HowToPlay';
 import { SettingsScreen } from './SettingsScreen';
 import { AuthScreen } from './AuthScreen';
 import { HistoryScreen } from './HistoryScreen';
+import { AdminScreen } from './AdminScreen';
 import { GameTable } from './components/GameTable';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
@@ -31,6 +32,10 @@ function initialJoinCodeFromUrl(): string | undefined {
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [mode, setMode] = useState<Mode>('local');
+  // Discreet admin/telemetry panel, reached via the #admin URL fragment. Access
+  // is gated server-side by the ADMIN_TOKEN, so the route being guessable is
+  // fine; the panel just prompts for the token.
+  const [adminMode, setAdminMode] = useState(() => window.location.hash === '#admin');
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [user, setUser] = useState<AuthedUser | null>(null);
   const game = useGame(settings.botDifficulty);
@@ -39,6 +44,12 @@ export default function App() {
 
   useEffect(() => {
     setSettings(loadSettings());
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => setAdminMode(window.location.hash === '#admin');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
   useEffect(() => {
@@ -145,6 +156,19 @@ export default function App() {
   // a phone-sized silhouette once BOTH dimensions exceed a phone-shaped
   // threshold, so a real phone (portrait or landscape) always gets full
   // bleed and only a genuinely desktop-shaped window gets the centered box.
+  if (adminMode) {
+    return (
+      <div className="min-h-[100dvh] w-full bg-felt-950 overflow-y-auto">
+        <AdminScreen
+          onExit={() => {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+            setAdminMode(false);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
       <div className="game-shell-inner relative h-[100dvh] w-full text-white">
