@@ -1,5 +1,22 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ClientMessage, PublicRoom, ServerMessage } from '@leekha/protocol';
+import { loadSettings } from '../settings';
+
+// A stable per-browser id so the server can group reconnects into one visit for
+// telemetry (see SESSION_GRACE_MS in apps/server/src/server.ts). Anonymous and
+// non-identifying on its own; it just distinguishes this browser from others.
+function visitorQuery(): Record<string, string> {
+  try {
+    let id = localStorage.getItem('leekha_visitor_id');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('leekha_visitor_id', id);
+    }
+    return { visitorId: id, name: loadSettings().displayName || '' };
+  } catch {
+    return {};
+  }
+}
 
 // In production the client and server are the same single-image deployment
 // (see root Dockerfile), so whatever host:port served this page is also
@@ -38,7 +55,7 @@ export class GameSocket {
   status: ConnectionStatus = 'connecting';
 
   constructor(url: string = SERVER_URL) {
-    this.socket = io(url, { transports: ['websocket', 'polling'] });
+    this.socket = io(url, { transports: ['websocket', 'polling'], query: visitorQuery() });
 
     this.socket.on('connect', () => this.setStatus('connected'));
     this.socket.on('disconnect', () => this.setStatus('disconnected'));

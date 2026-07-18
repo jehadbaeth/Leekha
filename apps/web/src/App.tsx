@@ -10,7 +10,6 @@ import { HistoryScreen } from './HistoryScreen';
 import { AdminScreen } from './AdminScreen';
 import { GameTable } from './components/GameTable';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
-import { randomFunName } from './names';
 import { useGame } from './useGame';
 import { useOnlineGame } from './useOnlineGame';
 import { loadSession } from './net/session';
@@ -44,15 +43,10 @@ export default function App() {
   const install = useInstallPrompt();
 
   useEffect(() => {
-    const loaded = loadSettings();
-    // First-run players get a fun handle (Mad Llama, Cosmic Otter) instead of
-    // "Guest", so they read as distinct on the table and in telemetry. Persisted
-    // so it stays stable for this browser across sessions.
-    if (!loaded.displayName.trim()) {
-      loaded.displayName = randomFunName();
-      saveSettings(loaded);
-    }
-    setSettings(loaded);
+    // loadSettings fills a persisted fun handle (Mad Llama, Cosmic Otter) when
+    // the name is blank, so first-run players read as distinct on the table and
+    // in telemetry, and it's set before the socket handshake reads it.
+    setSettings(loadSettings());
   }, []);
 
   useEffect(() => {

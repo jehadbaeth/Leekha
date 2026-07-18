@@ -117,6 +117,21 @@ export function createAdminHandler(db: Db, deps: AdminDeps) {
       return true;
     }
 
+    // Usage/session telemetry: summary, time buckets, geography, and a recent
+    // visits list, all bounded by the caller's time window.
+    if (method === 'GET' && url.pathname === '/api/admin/usage') {
+      const sinceMs = Math.max(0, Number(url.searchParams.get('sinceMs')) || 0);
+      const bucket = url.searchParams.get('bucket') === 'hour' ? 'hour' : 'day';
+      json(res, 200, {
+        sinceMs,
+        summary: db.sessionSummary(sinceMs),
+        buckets: db.sessionBuckets(sinceMs, bucket),
+        byCountry: db.sessionsByCountry(sinceMs),
+        recent: db.recentSessions(sinceMs, 100),
+      });
+      return true;
+    }
+
     // Per-match move-log export: streams the full stored record as a download.
     const exportMatch = /^\/api\/admin\/matches\/([^/]+)\/export$/.exec(url.pathname);
     if (method === 'GET' && exportMatch) {

@@ -57,11 +57,18 @@ function detectCountry(socket: Socket): string | null {
   return regionFromLanguageTag(socket.handshake.headers['accept-language'] as string | undefined);
 }
 
+// Telemetry visit tracking: a reconnect within the grace window is the same
+// visit; visits older than the retention window are pruned on startup so the
+// table can't grow without bound on the shared box.
+const SESSION_GRACE_MS = 5 * 60_000;
+const SESSION_RETENTION_MS = 90 * 86_400_000;
+
 export function createApp(options: { webDist?: string; redisUrl?: string; databasePath?: string } = {}) {
   const serveStatic = options.webDist ? createStaticHandler(options.webDist) : null;
   // No databasePath means an ephemeral in-memory store (used by tests); the
   // real entrypoint (index.ts) always passes an explicit DATABASE_PATH.
   const db = openDb(options.databasePath ?? ':memory:');
+  db.pruneSessions(Date.now() - SESSION_RETENTION_MS);
   const handleAuthRequest = createAuthHandler(db);
   // Assigned just below once io/manager exist (getHealth needs them). Requests
   // only arrive after listen(), so it is always set by the time it is called.
@@ -147,6 +154,14 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
       country: detectCountry(socket),
       userId: resolveSessionFromCookieHeader(db, cookieHeader)?.id ?? null,
     };
+
+    // Telemetry visit tracking (Phase 2). visitorId is a stable per-browser id
+    // the client sends in the handshake; a reconnect within SESSION_GRACE_MS
+    // extends the same visit instead of counting a new one.
+    const q = socket.handshake.query;
+    const visitorId = typeof q.visitorId === 'string' ? q.visitorId.slice(0, 64) : null;
+    const visitorName = typeof q.name === 'string' ? q.name.slice(0, 40) : null;
+    if (visitorId) db.recordSessionPing(visitorId, visitorName, state.country, Date.now(), SESSION_GRACE_MS);
 
     function sendError(code: string, message: string) {
       socket.emit('msg', { type: 'error', code, message });
@@ -391,6 +406,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
 
     socket.on('disconnect', () => {
       currentRoom()?.disconnectSocket(socket.id);
+      if (visitorId) db.endSession(visitorId, Date.now());
     });
   });
 

@@ -80,8 +80,18 @@ export async function verifyAdminToken(token: string): Promise<boolean> {
   }
 }
 
+export interface AdminUsage {
+  sinceMs: number;
+  summary: { sessions: number; uniqueVisitors: number; avgDurationMs: number | null };
+  buckets: { bucket: string; sessions: number; avgDurationMs: number }[];
+  byCountry: { country: string | null; sessions: number }[];
+  recent: { name: string | null; country: string | null; startedAt: number; durationMs: number }[];
+}
+
 export const fetchOverview = (token: string, sinceMs = 0) =>
   adminRequest<AdminOverview>(`/api/admin/overview?sinceMs=${sinceMs}`, token);
+export const fetchUsage = (token: string, sinceMs: number, bucket: 'day' | 'hour') =>
+  adminRequest<AdminUsage>(`/api/admin/usage?sinceMs=${sinceMs}&bucket=${bucket}`, token);
 export const fetchLive = (token: string) => adminRequest<{ live: LiveGame[] }>('/api/admin/live', token);
 export const fetchAdminMatches = (token: string, limit = 100, offset = 0) =>
   adminRequest<{ matches: AdminMatch[]; total: number }>(`/api/admin/matches?limit=${limit}&offset=${offset}`, token);

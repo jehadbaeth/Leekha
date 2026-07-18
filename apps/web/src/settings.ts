@@ -1,3 +1,5 @@
+import { randomFunName } from './names';
+
 export interface Settings {
   displayName: string;
   language: 'en' | 'ar';
@@ -36,14 +38,21 @@ export const defaultSettings: Settings = {
 };
 
 export function loadSettings(): Settings {
+  let loaded: Settings;
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...defaultSettings };
-    const parsed = JSON.parse(raw);
-    return { ...defaultSettings, ...parsed };
+    loaded = raw ? { ...defaultSettings, ...JSON.parse(raw) } : { ...defaultSettings };
   } catch {
-    return { ...defaultSettings };
+    loaded = { ...defaultSettings };
   }
+  // Fill (and persist) a fun handle here rather than in a React effect, so it's
+  // already present the moment the socket reads settings for its handshake --
+  // otherwise the very first telemetry session records an empty name.
+  if (!loaded.displayName.trim()) {
+    loaded.displayName = randomFunName();
+    saveSettings(loaded);
+  }
+  return loaded;
 }
 
 export function saveSettings(s: Settings): void {

@@ -5,16 +5,26 @@ import {
   clearAdminToken,
   verifyAdminToken,
   fetchOverview,
+  fetchUsage,
   fetchLive,
   fetchAdminMatches,
   fetchMatchesPerDay,
   downloadAdmin,
   type AdminOverview,
+  type AdminUsage,
   type AdminMatch,
   type LiveGame,
 } from './net/admin';
 
-type Tab = 'overview' | 'matches';
+type Tab = 'overview' | 'usage' | 'matches';
+
+/** ISO alpha-2 country code to flag emoji; falls back to the code or a globe. */
+function flag(code: string | null): string {
+  if (!code || code.length !== 2) return '🌐';
+  const cc = code.toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return '🌐';
+  return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
 
 function fmtDuration(ms: number | null): string {
   if (!ms || ms <= 0) return '—';
@@ -40,15 +50,21 @@ function Stat({ label, value, sub }: { label: string; value: string | number; su
   );
 }
 
-/** Minimal dependency-free bar chart for the games-per-day view. */
+/**
+ * Minimal dependency-free bar chart. Each column is full height (items-stretch
+ * + a flex-1 bar area), so the bar's percentage height actually resolves --
+ * a plain items-end row leaves the columns content-sized and the bars collapse.
+ */
 function MiniBars({ data }: { data: { label: string; value: number }[] }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   return (
-    <div className="flex items-end gap-1 h-32">
+    <div className="flex items-stretch gap-1 h-32">
       {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 min-w-0" title={`${d.label}: ${d.value}`}>
-          <div className="w-full rounded-t bg-amber-400/80" style={{ height: `${(d.value / max) * 100}%` }} />
-          <div className="text-[8px] text-emerald-400 truncate w-full text-center">{d.label.slice(5)}</div>
+        <div key={i} className="flex-1 min-w-0 flex flex-col" title={`${d.label}: ${d.value}`}>
+          <div className="flex-1 flex flex-col justify-end">
+            <div className="w-full rounded-t bg-amber-400/80" style={{ height: `${(d.value / max) * 100}%` }} />
+          </div>
+          <div className="text-[8px] text-emerald-400 truncate text-center mt-1">{d.label.slice(5)}</div>
         </div>
       ))}
     </div>
@@ -103,7 +119,7 @@ export function AdminScreen({ onExit }: { onExit: () => void }) {
         </div>
 
         <div className="flex gap-1 mb-5 border-b border-emerald-800">
-          {(['overview', 'matches'] as Tab[]).map((tb) => (
+          {(['overview', 'usage', 'matches'] as Tab[]).map((tb) => (
             <button
               key={tb}
               className={`px-4 py-2 text-sm capitalize -mb-px border-b-2 ${tab === tb ? 'border-amber-400 text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}
@@ -115,6 +131,7 @@ export function AdminScreen({ onExit }: { onExit: () => void }) {
         </div>
 
         {tab === 'overview' && <OverviewTab token={token!} />}
+        {tab === 'usage' && <UsageTab token={token!} />}
         {tab === 'matches' && <MatchesTab token={token!} />}
       </div>
     </div>
@@ -227,6 +244,94 @@ function OverviewTab({ token }: { token: string }) {
           <MiniBars data={perDay.map((d) => ({ label: d.day, value: d.count }))} />
         </div>
       )}
+    </div>
+  );
+}
+
+function UsageTab({ token }: { token: string }) {
+  const [rangeKey, setRangeKey] = useState('7d');
+  const [data, setData] = useState<AdminUsage | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const range = RANGES.find((r) => r.key === rangeKey) ?? RANGES[1];
+    const bucket = rangeKey === 'today' ? 'hour' : 'day';
+    fetchUsage(token, range.since(), bucket).then(setData).catch((e) => setErr(String(e.message ?? e)));
+  }, [token, rangeKey]);
+
+  if (err) return <p className="text-rose-400">{err}</p>;
+  if (!data) return <p className="text-emerald-300">Loading…</p>;
+
+  const maxCountry = Math.max(1, ...data.byCountry.map((c) => c.sessions));
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="text-sm uppercase tracking-wide text-emerald-300">Visits</h2>
+        <div className="flex gap-1">
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              className={`text-xs rounded-full px-3 py-1 ${rangeKey === r.key ? 'bg-amber-400 text-emerald-950 font-semibold' : 'bg-emerald-800 text-emerald-100'}`}
+              onClick={() => setRangeKey(r.key)}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Stat label="Visits" value={data.summary.sessions} sub="sessions" />
+        <Stat label="Unique visitors" value={data.summary.uniqueVisitors} sub="distinct browsers" />
+        <Stat label="Avg session" value={fmtDuration(data.summary.avgDurationMs)} sub="time on site" />
+      </div>
+
+      {data.buckets.length > 0 && (
+        <div>
+          <h3 className="text-xs uppercase tracking-wide text-emerald-400 mb-2">
+            Visits per {rangeKey === 'today' ? 'hour' : 'day'}
+          </h3>
+          <MiniBars data={data.buckets.map((b) => ({ label: b.bucket, value: b.sessions }))} />
+        </div>
+      )}
+
+      <div>
+        <h3 className="text-xs uppercase tracking-wide text-emerald-400 mb-2">Where from</h3>
+        {data.byCountry.length === 0 ? (
+          <p className="text-emerald-400 text-sm">No data yet.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {data.byCountry.map((c) => (
+              <div key={c.country ?? 'unknown'} className="flex items-center gap-2 text-sm">
+                <span className="w-12 shrink-0">{flag(c.country)} {c.country ?? '??'}</span>
+                <div className="flex-1 h-4 rounded bg-emerald-950 overflow-hidden">
+                  <div className="h-full bg-emerald-500/70" style={{ width: `${(c.sessions / maxCountry) * 100}%` }} />
+                </div>
+                <span className="w-8 text-right tabular-nums text-emerald-200">{c.sessions}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-emerald-500 mt-1">Location is approximate (GeoIP where available, else browser locale).</p>
+      </div>
+
+      <div>
+        <h3 className="text-xs uppercase tracking-wide text-emerald-400 mb-2">Recent visits</h3>
+        <div className="flex flex-col gap-1">
+          {data.recent.map((s, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 rounded-lg bg-emerald-950/50 border border-emerald-800 px-3 py-1.5 text-sm">
+              <span className="text-white truncate">
+                {flag(s.country)} {s.name || 'Anonymous'}
+              </span>
+              <span className="text-[11px] text-emerald-400 shrink-0">
+                {fmtDate(s.startedAt)} · {fmtDuration(s.durationMs)}
+              </span>
+            </div>
+          ))}
+          {data.recent.length === 0 && <p className="text-emerald-400 text-sm">No visits in this window yet.</p>}
+        </div>
+      </div>
     </div>
   );
 }

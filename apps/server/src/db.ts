@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 
 export interface UserRow {
@@ -80,6 +81,21 @@ export function openDb(path: string) {
       PRIMARY KEY (match_id, seat)
     );
     CREATE INDEX IF NOT EXISTS idx_match_players_user ON match_players(user_id);
+
+    -- Telemetry: one row per site visit (Phase 2). Keyed by a stable per-browser
+    -- visitor_id so a reconnect within the grace window extends the same visit
+    -- rather than starting a new one (mobile app-switch would otherwise fragment
+    -- and inflate the count). duration = last_seen - started_at.
+    CREATE TABLE IF NOT EXISTS telemetry_sessions (
+      id TEXT PRIMARY KEY,
+      visitor_id TEXT NOT NULL,
+      name TEXT,
+      country TEXT,
+      started_at INTEGER NOT NULL,
+      last_seen INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_tsessions_visitor ON telemetry_sessions(visitor_id, last_seen);
+    CREATE INDEX IF NOT EXISTS idx_tsessions_started ON telemetry_sessions(started_at);
   `);
 
   const insertMatch = db.prepare(
@@ -244,6 +260,90 @@ export function openDb(path: string) {
           .get(sinceMs) as { n: number }
       ).n;
       return { count, avgDurationMs: avg.avg, busts, uniquePlayers };
+    },
+
+    // --- Telemetry sessions (Phase 2) ---
+
+    /**
+     * Records activity for a visit. If the visitor's most recent session was
+     * seen within graceMs, that session is extended (a reconnect, not a new
+     * visit); otherwise a fresh session row is opened. Name/country refresh to
+     * the latest non-null values seen.
+     */
+    recordSessionPing(visitorId: string, name: string | null, country: string | null, now: number, graceMs: number): void {
+      const latest = db
+        .prepare(`SELECT id, last_seen FROM telemetry_sessions WHERE visitor_id = ? ORDER BY last_seen DESC LIMIT 1`)
+        .get(visitorId) as { id: string; last_seen: number } | undefined;
+      if (latest && latest.last_seen >= now - graceMs) {
+        db.prepare(
+          `UPDATE telemetry_sessions SET last_seen = ?, name = COALESCE(?, name), country = COALESCE(?, country) WHERE id = ?`,
+        ).run(now, name, country, latest.id);
+      } else {
+        db.prepare(
+          `INSERT INTO telemetry_sessions (id, visitor_id, name, country, started_at, last_seen) VALUES (?, ?, ?, ?, ?, ?)`,
+        ).run(randomUUID(), visitorId, name, country, now, now);
+      }
+    },
+
+    /** Bumps the visitor's latest session last_seen to now (on disconnect), so its duration reflects the full visit. */
+    endSession(visitorId: string, now: number): void {
+      db.prepare(
+        `UPDATE telemetry_sessions SET last_seen = ?
+         WHERE id = (SELECT id FROM telemetry_sessions WHERE visitor_id = ? ORDER BY last_seen DESC LIMIT 1)
+           AND last_seen < ?`,
+      ).run(now, visitorId, now);
+    },
+
+    /** Session counts + average duration bucketed by day or hour, for the usage chart. */
+    sessionBuckets(sinceMs: number, bucket: 'day' | 'hour'): { bucket: string; sessions: number; avgDurationMs: number }[] {
+      const fmt =
+        bucket === 'hour'
+          ? `strftime('%Y-%m-%d %H:00', started_at / 1000, 'unixepoch', 'localtime')`
+          : `date(started_at / 1000, 'unixepoch', 'localtime')`;
+      return db
+        .prepare(
+          `SELECT ${fmt} AS bucket, COUNT(*) AS sessions, AVG(last_seen - started_at) AS avgDurationMs
+           FROM telemetry_sessions WHERE started_at >= ? GROUP BY bucket ORDER BY bucket`,
+        )
+        .all(sinceMs) as { bucket: string; sessions: number; avgDurationMs: number }[];
+    },
+
+    sessionsByCountry(sinceMs: number): { country: string | null; sessions: number }[] {
+      return db
+        .prepare(
+          `SELECT country, COUNT(*) AS sessions FROM telemetry_sessions
+           WHERE started_at >= ? GROUP BY country ORDER BY sessions DESC`,
+        )
+        .all(sinceMs) as { country: string | null; sessions: number }[];
+    },
+
+    /** Recent visits (who, from where, when, how long) -- the "who played and for how long" list. */
+    recentSessions(sinceMs: number, limit = 100): { name: string | null; country: string | null; startedAt: number; durationMs: number }[] {
+      return db
+        .prepare(
+          `SELECT name, country, started_at AS startedAt, (last_seen - started_at) AS durationMs
+           FROM telemetry_sessions WHERE started_at >= ? ORDER BY started_at DESC LIMIT ?`,
+        )
+        .all(sinceMs, limit) as { name: string | null; country: string | null; startedAt: number; durationMs: number }[];
+    },
+
+    sessionSummary(sinceMs: number): { sessions: number; uniqueVisitors: number; avgDurationMs: number | null } {
+      const row = db
+        .prepare(
+          `SELECT COUNT(*) AS sessions, COUNT(DISTINCT visitor_id) AS uniqueVisitors, AVG(last_seen - started_at) AS avgDurationMs
+           FROM telemetry_sessions WHERE started_at >= ?`,
+        )
+        .get(sinceMs) as { sessions: number; uniqueVisitors: number; avgDurationMs: number | null };
+      return row;
+    },
+
+    /** Retention: drop visits older than the cutoff so this table can't grow unbounded on the shared box. */
+    pruneSessions(olderThanMs: number): number {
+      return db.prepare(`DELETE FROM telemetry_sessions WHERE started_at < ?`).run(olderThanMs).changes;
+    },
+
+    clearSessions(): number {
+      return db.prepare(`DELETE FROM telemetry_sessions`).run().changes;
     },
 
     getMatch(matchId: string) {
