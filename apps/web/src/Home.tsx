@@ -65,13 +65,13 @@ export function Home({
   // Blank is not allowed to persist: an empty field rerolls a fresh fun handle
   // rather than falling back to a shared "Guest", so players stay distinguishable.
   function commitName() {
-    const finalName = name.trim() || randomFunName();
+    const finalName = name.trim() || randomFunName(L);
     if (finalName !== name) setName(finalName);
     onUpdateSettings({ displayName: finalName });
   }
 
   function shuffleName() {
-    const next = randomFunName();
+    const next = randomFunName(L);
     setName(next);
     onUpdateSettings({ displayName: next });
   }

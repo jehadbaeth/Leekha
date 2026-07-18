@@ -5,3 +5,5 @@ dist/
 .env
 coverage/
 apps/server/data/
+# stray downloads / installers that occasionally land in the repo root
+*.dmg

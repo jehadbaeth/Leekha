@@ -16,11 +16,23 @@ const ANIMALS = [
   'Puffin', 'Walrus', 'Mantis', 'Dingo', 'Koala', 'Owl', 'Crane', 'Ibex', 'Stoat', 'Viper',
 ];
 
+// Arabic names are a curated list of correct animal + adjective pairs rather
+// than a free adjective x animal cross product: Arabic adjectives agree with
+// the noun's gender (بومة حكيمة vs ذئب ماكر), so a random mashup would produce
+// grammatically wrong combos. Hand-picked pairs keep every one correct.
+const ARABIC_NAMES = [
+  'ذئب ماكر', 'ثعلب ذكي', 'صقر شجاع', 'نمر سريع', 'دب نعسان', 'قط مشاغب',
+  'أسد جريء', 'قرد مشاكس', 'جمل صبور', 'غزال رشيق', 'أرنب مرح', 'فيل ضخم',
+  'بطريق أنيق', 'حصان أصيل', 'بومة حكيمة', 'سلحفاة بطيئة', 'نحلة نشيطة',
+  'فراشة جميلة', 'أفعى ماكرة', 'عقاب حاد',
+];
+
 function pick<T>(list: T[]): T {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-/** e.g. "Mad Llama", "Cosmic Otter". */
-export function randomFunName(): string {
+/** e.g. "Mad Llama" / "Cosmic Otter", or a correct Arabic pair when lang is 'ar'. */
+export function randomFunName(lang: 'en' | 'ar' = 'en'): string {
+  if (lang === 'ar') return pick(ARABIC_NAMES);
   return `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
 }

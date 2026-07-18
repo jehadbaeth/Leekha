@@ -49,7 +49,7 @@ export function loadSettings(): Settings {
   // already present the moment the socket reads settings for its handshake --
   // otherwise the very first telemetry session records an empty name.
   if (!loaded.displayName.trim()) {
-    loaded.displayName = randomFunName();
+    loaded.displayName = randomFunName(loaded.language);
     saveSettings(loaded);
   }
   return loaded;
