@@ -3,6 +3,7 @@ import { pick, type Settings } from './settings';
 import type { AuthedUser } from './net/api';
 import type { PublicRoom } from '@leekha/protocol';
 import { PillButton } from './components/buttons';
+import { randomFunName } from './names';
 
 export function Home({
   settings,
@@ -55,8 +56,24 @@ export function Home({
     return () => clearInterval(id);
   }, [onRefreshPublicRooms]);
 
+  // Pick up the fun name App seeds into settings after the async settings load,
+  // but never stomp what the player is actively typing.
+  useEffect(() => {
+    if (!name && settings.displayName) setName(settings.displayName);
+  }, [settings.displayName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Blank is not allowed to persist: an empty field rerolls a fresh fun handle
+  // rather than falling back to a shared "Guest", so players stay distinguishable.
   function commitName() {
-    onUpdateSettings({ displayName: name.trim() });
+    const finalName = name.trim() || randomFunName();
+    if (finalName !== name) setName(finalName);
+    onUpdateSettings({ displayName: finalName });
+  }
+
+  function shuffleName() {
+    const next = randomFunName();
+    setName(next);
+    onUpdateSettings({ displayName: next });
   }
 
   return (
@@ -69,14 +86,25 @@ export function Home({
       <div className="w-full max-w-xs flex flex-col gap-4">
         <label className="flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide text-emerald-200">{t('Display name', 'الاسم')}</span>
-          <input
-            className="rounded-lg px-3 py-2 text-slate-900 bg-white"
-            value={name}
-            placeholder={t('Guest', 'ضيف')}
-            maxLength={20}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={commitName}
-          />
+          <div className="flex gap-2">
+            <input
+              className="flex-1 min-w-0 rounded-lg px-3 py-2 text-slate-900 bg-white"
+              value={name}
+              placeholder={t('Your name', 'اسمك')}
+              maxLength={20}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={commitName}
+            />
+            <button
+              type="button"
+              className="shrink-0 rounded-lg bg-emerald-800 hover:bg-emerald-700 px-3 text-lg active:scale-95 transition"
+              title={t('Surprise me', 'اسم عشوائي')}
+              aria-label={t('Random name', 'اسم عشوائي')}
+              onClick={shuffleName}
+            >
+              🎲
+            </button>
+          </div>
         </label>
 
         <button
