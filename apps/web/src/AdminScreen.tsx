@@ -5,11 +5,13 @@ import {
   clearAdminToken,
   verifyAdminToken,
   fetchOverview,
+  fetchLive,
   fetchAdminMatches,
   fetchMatchesPerDay,
   downloadAdmin,
   type AdminOverview,
   type AdminMatch,
+  type LiveGame,
 } from './net/admin';
 
 type Tab = 'overview' | 'matches';
@@ -156,15 +158,24 @@ function TokenGate({ onSubmit, onExit }: { onSubmit: (t: string) => void; onExit
   );
 }
 
+const RANGES: { key: string; label: string; since: () => number }[] = [
+  { key: 'today', label: 'Today', since: () => new Date(new Date().setHours(0, 0, 0, 0)).getTime() },
+  { key: '7d', label: '7 days', since: () => Date.now() - 7 * 86_400_000 },
+  { key: '30d', label: '30 days', since: () => Date.now() - 30 * 86_400_000 },
+  { key: 'all', label: 'All time', since: () => 0 },
+];
+
 function OverviewTab({ token }: { token: string }) {
+  const [rangeKey, setRangeKey] = useState('7d');
   const [data, setData] = useState<AdminOverview | null>(null);
   const [perDay, setPerDay] = useState<{ day: string; count: number }[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
-    fetchOverview(token).then(setData).catch((e) => setErr(String(e.message ?? e)));
+    const since = (RANGES.find((r) => r.key === rangeKey) ?? RANGES[1]).since();
+    fetchOverview(token, since).then(setData).catch((e) => setErr(String(e.message ?? e)));
     fetchMatchesPerDay(token, 21).then((r) => setPerDay(r.buckets)).catch(() => {});
-  }, [token]);
+  }, [token, rangeKey]);
 
   // Live health refresh every 5s; the DB summary rides along, it's cheap.
   useEffect(() => {
@@ -189,12 +200,25 @@ function OverviewTab({ token }: { token: string }) {
         </div>
       </div>
       <div>
-        <h2 className="text-sm uppercase tracking-wide text-emerald-300 mb-2">Matches</h2>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <h2 className="text-sm uppercase tracking-wide text-emerald-300">Matches</h2>
+          <div className="flex gap-1">
+            {RANGES.map((r) => (
+              <button
+                key={r.key}
+                className={`text-xs rounded-full px-3 py-1 ${rangeKey === r.key ? 'bg-amber-400 text-emerald-950 font-semibold' : 'bg-emerald-800 text-emerald-100'}`}
+                onClick={() => setRangeKey(r.key)}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="Total" value={data.matches.total} />
-          <Stat label="Last 24h" value={data.matches.last24h} />
-          <Stat label="Last 7d" value={data.matches.last7d} />
-          <Stat label="Avg length" value={fmtDuration(data.matches.avgDurationMs)} />
+          <Stat label="Matches" value={data.stats.count} sub={`of ${data.total} all-time`} />
+          <Stat label="Players" value={data.stats.uniquePlayers} sub="distinct humans" />
+          <Stat label="Avg length" value={fmtDuration(data.stats.avgDurationMs)} />
+          <Stat label="Busts" value={data.stats.busts} sub="reached target" />
         </div>
       </div>
       {perDay.length > 0 && (
@@ -209,36 +233,117 @@ function OverviewTab({ token }: { token: string }) {
 
 function MatchesTab({ token }: { token: string }) {
   const [matches, setMatches] = useState<AdminMatch[]>([]);
+  const [live, setLive] = useState<LiveGame[]>([]);
   const [total, setTotal] = useState(0);
   const [err, setErr] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AdminMatch | null>(null);
 
   useEffect(() => {
     fetchAdminMatches(token, 100, 0).then((r) => { setMatches(r.matches); setTotal(r.total); }).catch((e) => setErr(String(e.message ?? e)));
+    const loadLive = () => fetchLive(token).then((r) => setLive(r.live)).catch(() => {});
+    loadLive();
+    const id = setInterval(loadLive, 5000);
+    return () => clearInterval(id);
   }, [token]);
 
   if (err) return <p className="text-rose-400">{err}</p>;
   return (
-    <div>
-      <p className="text-xs text-emerald-400 mb-2">{total} matches total, showing latest {matches.length}.</p>
-      <div className="flex flex-col gap-1.5">
-        {matches.map((m) => (
-          <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg bg-emerald-950/50 border border-emerald-800 px-3 py-2">
-            <div className="min-w-0">
-              <div className="text-sm text-white truncate">
-                {m.players.map((p) => `${p.displayName}${p.wasBot ? ' (bot)' : ''}`).join(', ')}
+    <div className="flex flex-col gap-5">
+      {live.length > 0 && (
+        <div>
+          <h2 className="text-sm uppercase tracking-wide text-amber-300 mb-2">Ongoing ({live.length})</h2>
+          <div className="flex flex-col gap-1.5">
+            {live.map((g) => (
+              <div key={g.roomCode} className="rounded-lg bg-amber-950/30 border border-amber-700/50 px-3 py-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-white">
+                    {g.players.map((p) => `${p.name ?? 'Empty'}${p.isBot ? ' (bot)' : ''}`).join(', ')}
+                  </span>
+                  <span className="text-amber-300 text-xs shrink-0">room {g.roomCode}</span>
+                </div>
+                <div className="text-[11px] text-emerald-300 mt-0.5">
+                  {g.phase} · round {g.roundIndex + 1} · scores {g.scores.join(' / ')}
+                </div>
               </div>
-              <div className="text-[11px] text-emerald-400">
-                {fmtDate(m.endedAt)} · {m.finalScores.join(' / ')} · room {m.roomCode}
-              </div>
-            </div>
-            <button
-              className="shrink-0 text-xs rounded-lg bg-emerald-800 hover:bg-emerald-700 text-emerald-100 px-3 py-1.5"
-              onClick={() => downloadAdmin(`/api/admin/matches/${encodeURIComponent(m.id)}/export`, token, `match-${m.id}.json`)}
-            >
-              Export
-            </button>
+            ))}
           </div>
-        ))}
+        </div>
+      )}
+
+      <div>
+        <h2 className="text-sm uppercase tracking-wide text-emerald-300 mb-1">Finished</h2>
+        <p className="text-xs text-emerald-400 mb-2">{total} total, showing latest {matches.length}. Tap a match for details.</p>
+        <div className="flex flex-col gap-1.5">
+          {matches.map((m) => (
+            <button
+              key={m.id}
+              className="text-left flex items-center justify-between gap-3 rounded-lg bg-emerald-950/50 border border-emerald-800 px-3 py-2 hover:bg-emerald-900/50"
+              onClick={() => setSelected(m)}
+            >
+              <div className="min-w-0">
+                <div className="text-sm text-white truncate">
+                  {m.players.map((p) => `${p.displayName}${p.wasBot ? ' (bot)' : ''}`).join(', ')}
+                </div>
+                <div className="text-[11px] text-emerald-400">
+                  {fmtDate(m.endedAt)} · {fmtDuration(m.endedAt - m.startedAt)} · room {m.roomCode}
+                </div>
+              </div>
+              <span className="shrink-0 text-emerald-400 text-xs">details ›</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selected && <MatchDetail match={selected} token={token} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
+
+function MatchDetail({ match, token, onClose }: { match: AdminMatch; token: string; onClose: () => void }) {
+  const winningTeam = match.result ? (match.result.losingTeam === 0 ? 1 : 0) : null;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-emerald-950 border border-emerald-700 p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white">Match detail</h3>
+          <button className="text-emerald-300 text-sm" onClick={onClose}>Close</button>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-emerald-800 px-2.5 py-1 text-emerald-100">Finished</span>
+          {match.result ? (
+            <span className="rounded-full bg-rose-900/50 border border-rose-700/50 px-2.5 py-1 text-rose-200">
+              Team {winningTeam} won · seat {match.result.bustSeat} busted
+            </span>
+          ) : (
+            <span className="rounded-full bg-emerald-800 px-2.5 py-1 text-emerald-100">Ended (no bust)</span>
+          )}
+          <span className="rounded-full bg-emerald-800 px-2.5 py-1 text-emerald-100">room {match.roomCode}</span>
+        </div>
+        <div className="text-xs text-emerald-300">
+          {fmtDate(match.startedAt)} → {fmtDate(match.endedAt)} · {fmtDuration(match.endedAt - match.startedAt)}
+        </div>
+        <div className="flex flex-col gap-1">
+          {[...match.players].sort((a, b) => a.seat - b.seat).map((p) => {
+            const team = p.seat % 2;
+            const onWinningTeam = winningTeam !== null && team === winningTeam;
+            return (
+              <div key={p.seat} className="flex items-center justify-between rounded-lg bg-emerald-900/40 px-3 py-1.5 text-sm">
+                <span className="text-white">
+                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${team === 0 ? 'bg-sky-400' : 'bg-rose-400'}`} />
+                  {p.displayName}{p.wasBot ? ' (bot)' : ''}
+                  {onWinningTeam && <span className="text-amber-300 text-xs ml-2">winner</span>}
+                </span>
+                <span className="font-mono tabular-nums text-emerald-200">{match.finalScores[p.seat]}</span>
+              </div>
+            );
+          })}
+        </div>
+        <button
+          className="rounded-xl bg-amber-400 text-emerald-950 font-semibold py-2.5"
+          onClick={() => downloadAdmin(`/api/admin/matches/${encodeURIComponent(match.id)}/export`, token, `match-${match.id}.json`)}
+        >
+          Export move log
+        </button>
       </div>
     </div>
   );

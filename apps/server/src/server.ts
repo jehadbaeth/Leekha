@@ -122,6 +122,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
         memoryMb: Math.round(process.memoryUsage().rss / 1_048_576),
       };
     },
+    getLive: () => manager.liveGames(),
   });
 
   if (persistence) {

@@ -79,6 +79,28 @@ export class RoomManager {
     return this.rooms.get(code.toUpperCase());
   }
 
+  /** Snapshot of every currently-running match, for the admin "ongoing" list. */
+  liveGames(): {
+    roomCode: string;
+    phase: string;
+    roundIndex: number;
+    scores: [number, number, number, number];
+    players: { seat: number; name: string | null; isBot: boolean; connected: boolean }[];
+  }[] {
+    const out: ReturnType<RoomManager['liveGames']> = [];
+    for (const room of this.rooms.values()) {
+      if (room.phase !== 'game' || !room.match) continue;
+      out.push({
+        roomCode: room.code,
+        phase: room.match.phase,
+        roundIndex: room.match.roundIndex,
+        scores: room.match.scores,
+        players: room.seats.map((s) => ({ seat: s.seat, name: s.name, isBot: s.isBot, connected: s.connected })),
+      });
+    }
+    return out;
+  }
+
   /** Live counts for the admin health view: total rooms and connected humans currently in a running match. */
   stats(): { activeRooms: number; playersInGame: number } {
     let playersInGame = 0;

@@ -208,31 +208,42 @@ export function openDb(path: string) {
         .all(sinceMs) as { day: string; count: number }[];
     },
 
-    /** Headline numbers for the admin overview: totals, recent windows, average length, team win split. */
-    matchSummary(now: number): {
-      total: number;
-      last24h: number;
-      last7d: number;
+    /**
+     * Match stats over a caller-chosen window [sinceMs, now], for the admin
+     * overview's configurable time-range selector. `sinceMs = 0` means all time.
+     * uniquePlayers counts distinct non-bot display names that appear in those
+     * matches -- the "who played" headcount for the window.
+     */
+    matchStatsSince(sinceMs: number): {
+      count: number;
       avgDurationMs: number | null;
       busts: number;
+      uniquePlayers: number;
     } {
-      const total = (db.prepare(`SELECT COUNT(*) AS n FROM matches`).get() as { n: number }).n;
-      const last24h = (
-        db.prepare(`SELECT COUNT(*) AS n FROM matches WHERE ended_at >= ?`).get(now - 86_400_000) as { n: number }
-      ).n;
-      const last7d = (
-        db.prepare(`SELECT COUNT(*) AS n FROM matches WHERE ended_at >= ?`).get(now - 7 * 86_400_000) as { n: number }
+      const count = (
+        db.prepare(`SELECT COUNT(*) AS n FROM matches WHERE ended_at >= ?`).get(sinceMs) as { n: number }
       ).n;
       const avg = db
-        .prepare(`SELECT AVG(ended_at - started_at) AS avg FROM matches WHERE ended_at > started_at`)
-        .get() as { avg: number | null };
+        .prepare(`SELECT AVG(ended_at - started_at) AS avg FROM matches WHERE ended_at >= ? AND ended_at > started_at`)
+        .get(sinceMs) as { avg: number | null };
       // A "bust" match is one whose result recorded a losing team (game reached
       // the target), vs. one that just ended -- cheap LIKE avoids parsing every
       // result blob just for a headline count.
       const busts = (
-        db.prepare(`SELECT COUNT(*) AS n FROM matches WHERE result LIKE '%losingTeam%'`).get() as { n: number }
+        db
+          .prepare(`SELECT COUNT(*) AS n FROM matches WHERE ended_at >= ? AND result LIKE '%losingTeam%'`)
+          .get(sinceMs) as { n: number }
       ).n;
-      return { total, last24h, last7d, avgDurationMs: avg.avg, busts };
+      const uniquePlayers = (
+        db
+          .prepare(
+            `SELECT COUNT(DISTINCT mp.display_name) AS n
+             FROM match_players mp JOIN matches m ON m.id = mp.match_id
+             WHERE m.ended_at >= ? AND mp.was_bot = 0`,
+          )
+          .get(sinceMs) as { n: number }
+      ).n;
+      return { count, avgDurationMs: avg.avg, busts, uniquePlayers };
     },
 
     getMatch(matchId: string) {

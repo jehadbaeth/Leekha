@@ -36,7 +36,9 @@ export interface AdminHealth {
   memoryMb: number;
 }
 export interface AdminOverview {
-  matches: { total: number; last24h: number; last7d: number; avgDurationMs: number | null; busts: number };
+  sinceMs: number;
+  total: number;
+  stats: { count: number; avgDurationMs: number | null; busts: number; uniquePlayers: number };
   health: AdminHealth;
 }
 export interface AdminMatch {
@@ -47,6 +49,13 @@ export interface AdminMatch {
   finalScores: [number, number, number, number];
   result: { losingTeam: 0 | 1; bustSeat: number } | null;
   players: { seat: number; displayName: string; wasBot: number }[];
+}
+export interface LiveGame {
+  roomCode: string;
+  phase: string;
+  roundIndex: number;
+  scores: [number, number, number, number];
+  players: { seat: number; name: string | null; isBot: boolean; connected: boolean }[];
 }
 
 async function adminRequest<T>(path: string, token: string, init?: RequestInit): Promise<T> {
@@ -71,7 +80,9 @@ export async function verifyAdminToken(token: string): Promise<boolean> {
   }
 }
 
-export const fetchOverview = (token: string) => adminRequest<AdminOverview>('/api/admin/overview', token);
+export const fetchOverview = (token: string, sinceMs = 0) =>
+  adminRequest<AdminOverview>(`/api/admin/overview?sinceMs=${sinceMs}`, token);
+export const fetchLive = (token: string) => adminRequest<{ live: LiveGame[] }>('/api/admin/live', token);
 export const fetchAdminMatches = (token: string, limit = 100, offset = 0) =>
   adminRequest<{ matches: AdminMatch[]; total: number }>(`/api/admin/matches?limit=${limit}&offset=${offset}`, token);
 export const fetchMatchesPerDay = (token: string, days = 30) =>

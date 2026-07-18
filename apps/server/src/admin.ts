@@ -12,10 +12,19 @@ export interface HealthSnapshot {
   memoryMb: number;
 }
 
+export interface LiveGame {
+  roomCode: string;
+  phase: string;
+  roundIndex: number;
+  scores: [number, number, number, number];
+  players: { seat: number; name: string | null; isBot: boolean; connected: boolean }[];
+}
+
 export interface AdminDeps {
   /** The shared secret from ADMIN_TOKEN. Null/empty disables the whole admin API. */
   token: string | null;
   getHealth: () => HealthSnapshot;
+  getLive: () => LiveGame[];
 }
 
 /** Constant-time bearer-token check so the admin surface can't be timing-probed. */
@@ -69,7 +78,20 @@ export function createAdminHandler(db: Db, deps: AdminDeps) {
     }
 
     if (method === 'GET' && url.pathname === '/api/admin/overview') {
-      json(res, 200, { matches: db.matchSummary(now), health: deps.getHealth() });
+      // sinceMs bounds the stats window (0 = all time), so the panel's
+      // time-range selector drives the numbers server-side.
+      const sinceMs = Math.max(0, Number(url.searchParams.get('sinceMs')) || 0);
+      json(res, 200, {
+        sinceMs,
+        total: db.countMatches(),
+        stats: db.matchStatsSince(sinceMs),
+        health: deps.getHealth(),
+      });
+      return true;
+    }
+
+    if (method === 'GET' && url.pathname === '/api/admin/live') {
+      json(res, 200, { live: deps.getLive() });
       return true;
     }
 
