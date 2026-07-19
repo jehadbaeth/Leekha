@@ -2,9 +2,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { Server, type Socket } from 'socket.io';
 import geoip from 'geoip-lite';
 import { IllegalAction, type Seat, defaultConfig } from '@leekha/engine';
+import { defaultTrixConfig, IllegalTrixAction } from '@leekha/trix';
 import { ClientMessageSchema, type ClientMessage } from '@leekha/protocol';
-import { RoomManager } from './roomManager.js';
-import type { Room } from './room.js';
+import { RoomManager, TrixRoom, type AnyRoom } from './roomManager.js';
 import { createStaticHandler } from './staticFiles.js';
 import { createPersistence } from './persistence.js';
 import { openDb } from './db.js';
@@ -170,7 +170,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
       socket.emit('msg', { type: 'error', code, message });
     }
 
-    function currentRoom(): Room | null {
+    function currentRoom(): AnyRoom | null {
       if (!state.roomCode) return null;
       return manager.get(state.roomCode) ?? null;
     }
@@ -180,7 +180,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
     }
 
     /** The roster plus (mid-match) a blanked public snapshot — what a socket that holds no seat gets. Also registers the socket as a spectator, which rebroadcasts the watcher count to the whole room. */
-    function sendObserverView(room: Room) {
+    function sendObserverView(room: AnyRoom) {
       socket.emit('msg', room.roomStateMessage());
       const pub = room.publicSnapshotMessage();
       if (pub) socket.emit('msg', pub);
@@ -250,7 +250,10 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
           }
 
           case 'room.create': {
-            const room = manager.create(msg.config, msg.isPublic ?? false);
+            const room =
+              msg.gameType === 'trix'
+                ? manager.createTrix(msg.trixConfig ?? defaultTrixConfig, msg.isPublic ?? false)
+                : manager.create(msg.config, msg.isPublic ?? false);
             const token = room.sit(0, state.name ?? 'Host', socket.id, state.country, state.userId);
             tokenIndex.set(token, { roomCode: room.code, seat: 0 });
             state.roomCode = room.code;
@@ -331,7 +334,13 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
 
           case 'room.configure': {
             const room = currentRoom();
-            if (room && mySeat() === room.hostSeat && msg.config) room.configure(msg.config);
+            if (room && mySeat() === room.hostSeat) {
+              if (room instanceof TrixRoom) {
+                if (msg.trixConfig) room.configure(msg.trixConfig);
+              } else if (msg.config) {
+                room.configure(msg.config);
+              }
+            }
             break;
           }
 
@@ -365,13 +374,43 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
 
           case 'game.pass': {
             const seat = mySeat();
-            if (seat !== null) currentRoom()?.pass(seat, msg.cards);
+            const room = currentRoom();
+            if (seat !== null && room && !(room instanceof TrixRoom)) room.pass(seat, msg.cards);
             break;
           }
 
           case 'game.play': {
             const seat = mySeat();
-            if (seat !== null) currentRoom()?.play(seat, msg.card);
+            const room = currentRoom();
+            if (seat !== null && room && !(room instanceof TrixRoom)) room.play(seat, msg.card);
+            break;
+          }
+
+          case 'trix.chooseContract': {
+            const seat = mySeat();
+            const room = currentRoom();
+            if (seat !== null && room instanceof TrixRoom) room.chooseContract(seat, msg.contracts);
+            break;
+          }
+
+          case 'trix.expose': {
+            const seat = mySeat();
+            const room = currentRoom();
+            if (seat !== null && room instanceof TrixRoom) room.expose(seat, msg.card);
+            break;
+          }
+
+          case 'trix.pass': {
+            const seat = mySeat();
+            const room = currentRoom();
+            if (seat !== null && room instanceof TrixRoom) room.passAction(seat);
+            break;
+          }
+
+          case 'trix.play': {
+            const seat = mySeat();
+            const room = currentRoom();
+            if (seat !== null && room instanceof TrixRoom) room.playAction(seat, msg.card);
             break;
           }
 
@@ -402,7 +441,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
           }
         }
       } catch (err) {
-        if (err instanceof IllegalAction) {
+        if (err instanceof IllegalAction || err instanceof IllegalTrixAction) {
           sendError(err.code, err.message);
         } else {
           // Unexpected server-side error while handling a message: capture it to

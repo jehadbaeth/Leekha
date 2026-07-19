@@ -13,6 +13,8 @@
     "@leekha/bots": "workspace:*",
     "@leekha/engine": "workspace:*",
     "@leekha/protocol": "workspace:*",
+    "@leekha/trix": "workspace:*",
+    "@leekha/trix-bots": "workspace:*",
     "argon2": "^0.41.1",
     "better-sqlite3": "^12.11.1",
     "geoip-lite": "^2.0.3",

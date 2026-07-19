@@ -81,10 +81,12 @@ export abstract class RoomBase<TConfig> {
   abstract resync(seat: Seat): void;
   /** The room.state message for this room (carries the game-specific config/gameType). */
   abstract roomStateMessage(): Extract<ServerMessage, { type: 'room.state' }>;
+  /** A blanked spectator snapshot for a socket that holds no seat, or null if no match is running. */
+  abstract publicSnapshotMessage(): ServerMessage | null;
   /** One row for the home screen's public rooms list. */
   abstract publicSummary(): PublicRoom;
-  /** True once the current match has ended (drives rematch-vote counting on an AFK flip). */
-  protected abstract isMatchOver(): boolean;
+  /** True once the current match has ended (drives rematch-vote counting on an AFK flip, and the idle sweep). */
+  abstract isMatchOver(): boolean;
   /** Re-drive bots after a seat flips to bot control mid-decision (game-specific scheduling). */
   protected abstract resumeBotsAfterFlip(): void;
   /** Clear every game-specific timer on destroy. */

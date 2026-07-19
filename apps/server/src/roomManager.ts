@@ -1,10 +1,16 @@
 import type { Server } from 'socket.io';
 import { defaultConfig } from '@leekha/engine';
 import type { RulesConfig, Seat } from '@leekha/engine';
+import type { TrixRulesConfig } from '@leekha/trix';
 import type { ServerMessage, PublicRoom } from '@leekha/protocol';
-import { Room, type Emit, type EmitTarget } from './room.js';
+import { Room } from './room.js';
+import { TrixRoom } from './trixRoom.js';
+import { type Emit, type EmitTarget } from './roomBase.js';
 import type { Persistence } from './persistence.js';
 import type { Db } from './db.js';
+
+/** A room is either a Leekha room or a Trix room; both extend RoomBase and share its seat/connection machinery. */
+export type AnyRoom = Room | TrixRoom;
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -18,7 +24,7 @@ const LOBBY_IDLE_MS = 15 * 60 * 1000;
 const GAME_OVER_IDLE_MS = 5 * 60 * 1000;
 
 export class RoomManager {
-  private rooms = new Map<string, Room>();
+  private rooms = new Map<string, AnyRoom>();
 
   constructor(
     private io: Server,
@@ -26,7 +32,7 @@ export class RoomManager {
     private db: Db | null = null,
   ) {}
 
-  private makeEmit(room: Room): Emit {
+  private makeEmit(room: AnyRoom): Emit {
     return (target: EmitTarget, msg) => {
       if (target === null) {
         this.io.to(`room:${room.code}`).emit('msg', msg);
@@ -54,7 +60,7 @@ export class RoomManager {
     };
   }
 
-  private register(room: Room): void {
+  private register(room: AnyRoom): void {
     room.setEmit(this.makeEmit(room));
     room.setOnChange(() => this.persist(room.code));
     room.setOnMatchEnd((record) => this.db?.recordMatch(record));
@@ -63,19 +69,32 @@ export class RoomManager {
 
   private persist(code: string): void {
     const room = this.rooms.get(code);
-    if (room) this.persistence?.save(code, room.serialize());
+    if (!room) return;
+    const snapshot = room.serialize();
+    if (snapshot) this.persistence?.save(code, snapshot);
+  }
+
+  private freshCode(): string {
+    let code = randomCode();
+    while (this.rooms.has(code)) code = randomCode();
+    return code;
   }
 
   create(config: RulesConfig = defaultConfig, isPublic = false): Room {
-    let code = randomCode();
-    while (this.rooms.has(code)) code = randomCode();
-    const room = new Room(code, config, () => {}, isPublic);
+    const room = new Room(this.freshCode(), config, () => {}, isPublic);
     this.register(room);
-    this.persist(code);
+    this.persist(room.code);
     return room;
   }
 
-  get(code: string): Room | undefined {
+  createTrix(config: TrixRulesConfig, isPublic = false): TrixRoom {
+    const room = new TrixRoom(this.freshCode(), config, () => {}, isPublic);
+    this.register(room);
+    this.persist(room.code);
+    return room;
+  }
+
+  get(code: string): AnyRoom | undefined {
     return this.rooms.get(code.toUpperCase());
   }
 
@@ -89,12 +108,13 @@ export class RoomManager {
   }[] {
     const out: ReturnType<RoomManager['liveGames']> = [];
     for (const room of this.rooms.values()) {
-      if (room.phase !== 'game' || !room.match) continue;
+      const live = room.liveSnapshot();
+      if (!live) continue;
       out.push({
         roomCode: room.code,
-        phase: room.match.phase,
-        roundIndex: room.match.roundIndex,
-        scores: room.match.scores,
+        phase: live.phase,
+        roundIndex: live.roundIndex,
+        scores: live.scores,
         players: room.seats.map((s) => ({ seat: s.seat, name: s.name, isBot: s.isBot, connected: s.connected })),
       });
     }
@@ -105,7 +125,7 @@ export class RoomManager {
   stats(): { activeRooms: number; playersInGame: number } {
     let playersInGame = 0;
     for (const room of this.rooms.values()) {
-      if (room.phase !== 'game' || !room.match) continue;
+      if (!room.liveSnapshot()) continue;
       for (const s of room.seats) if (s.name !== null && !s.isBot && s.connected) playersInGame++;
     }
     return { activeRooms: this.rooms.size, playersInGame };
@@ -159,11 +179,12 @@ export class RoomManager {
         this.destroy(code);
         continue;
       }
-      if (room.match?.phase === 'gameOver' && now - room.lastActivity > GAME_OVER_IDLE_MS) {
+      if (room.isMatchOver() && now - room.lastActivity > GAME_OVER_IDLE_MS) {
         this.destroy(code);
       }
     }
   }
 }
 
-export type { Room, Emit, EmitTarget, ServerMessage };
+export { Room, TrixRoom };
+export type { Emit, EmitTarget, ServerMessage };

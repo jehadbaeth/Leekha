@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
 import type { AddressInfo } from 'node:net';
 import { createApp } from '../src/server.js';
+import type { Room } from '../src/room.js';
 
 function connect(port: number): ClientSocket {
   return ioClient(`http://127.0.0.1:${port}`, { transports: ['websocket'], forceNew: true });
@@ -484,7 +485,7 @@ describe('apps/server end to end', () => {
     fire(a2, { type: 'auth', name: 'Alice', seatToken });
     await new Promise((r) => setTimeout(r, 100));
 
-    const room = app.manager.get(roomCode)!;
+    const room = app.manager.get(roomCode)! as Room;
     const playsBefore = room.match!.round.currentTrick.plays.length;
     const noPlayedEvent = waitFor(a1, (m) => m.type === 'game.played' && m.seat === 0, 1500).then(
       () => 'played',

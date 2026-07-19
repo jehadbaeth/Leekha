@@ -75,7 +75,7 @@ export class Room extends RoomBase<RulesConfig> {
 
   // ---- RoomBase seam ----
 
-  protected isMatchOver(): boolean {
+  isMatchOver(): boolean {
     return !!this.match && this.match.phase === 'gameOver';
   }
 
