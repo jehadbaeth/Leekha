@@ -10,6 +10,7 @@ import {
   CONTRACT_TOTAL,
   scoreTrickDeal,
   scoreLayoutDeal,
+  trickLegalPlays,
   isLayoutLegal,
   emptyLayout,
   applyLayout,
@@ -171,6 +172,29 @@ describe('trix engine — layout legality', () => {
     expect(isLayoutLegal({ suit: 'S', rank: 10 }, layout)).toBe(true); // 10 below J
     expect(isLayoutLegal({ suit: 'S', rank: 13 }, layout)).toBe(false); // K needs Q first
     expect(isLayoutLegal({ suit: 'S', rank: 11 }, layout)).toBe(false); // jack already down
+  });
+});
+
+describe('trix engine — leading hearts under King of Hearts', () => {
+  const hand: Card[] = [
+    { suit: 'H', rank: 5 },
+    { suit: 'H', rank: 9 },
+    { suit: 'S', rank: 3 },
+    { suit: 'D', rank: 8 },
+  ];
+  it('by default a heart IS leadable (mainstream game / Wikipedia Trex)', () => {
+    const legal = trickLegalPlays(hand, [], ['kingOfHearts']);
+    expect(legal.some((c) => c.suit === 'H')).toBe(true);
+    expect(legal.length).toBe(4); // no restriction at all
+  });
+  it('the pagat variant (opt-in) forbids leading a heart while holding non-hearts', () => {
+    const legal = trickLegalPlays(hand, [], ['kingOfHearts'], true);
+    expect(legal.some((c) => c.suit === 'H')).toBe(false);
+    expect(legal.length).toBe(2); // only the spade and diamond
+  });
+  it('even the variant lets an all-hearts hand lead a heart', () => {
+    const allHearts: Card[] = [{ suit: 'H', rank: 5 }, { suit: 'H', rank: 9 }];
+    expect(trickLegalPlays(allHearts, [], ['kingOfHearts'], true).length).toBe(2);
   });
 });
 

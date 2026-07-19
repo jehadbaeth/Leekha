@@ -89,7 +89,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
           </span>
         )}
       </div>
-      {view.phase === 'trick' && view.contracts.includes('kingOfHearts') && (
+      {config.restrictKingOfHeartsLead && view.phase === 'trick' && view.contracts.includes('kingOfHearts') && (
         <div className="text-center text-[9px] text-rose-200/80">
           ♥ can&rsquo;t be led while King of Hearts is live (only when you hold nothing else)
         </div>

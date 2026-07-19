@@ -192,7 +192,8 @@ function passExposing(state: TrixMatchState, seat: Seat): Applied {
 export function legalPlays(state: TrixMatchState, seat: Seat): Card[] | null {
   const deal = state.deal;
   if (!deal || deal.turn !== seat) return null;
-  if (state.phase === 'trick') return trickLegalPlays(deal.hands[seat], deal.currentTrick.plays, deal.contracts);
+  if (state.phase === 'trick')
+    return trickLegalPlays(deal.hands[seat], deal.currentTrick.plays, deal.contracts, state.config.restrictKingOfHeartsLead);
   if (state.phase === 'layout') return layoutLegalPlays(deal.hands[seat], deal.layout);
   return null;
 }
@@ -212,7 +213,7 @@ export function pass(state: TrixMatchState, seat: Seat): Applied {
 function playTrick(state: TrixMatchState, seat: Seat, card: Card): Applied {
   const deal = state.deal!;
   if (deal.turn !== seat) throw new IllegalTrixAction('not-your-turn', 'Not your turn');
-  const legal = trickLegalPlays(deal.hands[seat], deal.currentTrick.plays, deal.contracts);
+  const legal = trickLegalPlays(deal.hands[seat], deal.currentTrick.plays, deal.contracts, state.config.restrictKingOfHeartsLead);
   if (!legal.some((c) => cardEquals(c, card))) throw new IllegalTrixAction('illegal-play', 'That card is not legal');
 
   const hands = deal.hands.map((h, i) => (i === seat ? removeCard(h, card) : h)) as DealState['hands'];

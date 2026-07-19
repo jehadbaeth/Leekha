@@ -34,6 +34,15 @@ export interface TrixRulesConfig {
   complex: boolean;
   /** Doubling ("exposing") of the King of Hearts and Queens before the first lead. Default on. */
   doubling: boolean;
+  /**
+   * King of Hearts variant: forbid LEADING a heart unless your hand is nothing
+   * but hearts. This is pagat's documented rule, but it directly contradicts
+   * the mainstream Levantine/Egyptian game (and Wikipedia's Trex), where
+   * deliberately leading hearts to force the King's holder to eat it is a core
+   * tactic. Off by default so the common game is the default; on enables the
+   * pagat variant.
+   */
+  restrictKingOfHeartsLead: boolean;
   timers: { selectMs: number; playMs: number };
 }
 
@@ -41,6 +50,7 @@ export const defaultTrixConfig: TrixRulesConfig = {
   partnership: true,
   complex: false,
   doubling: true,
+  restrictKingOfHeartsLead: false,
   timers: { selectMs: 30_000, playMs: 25_000 },
 };
 

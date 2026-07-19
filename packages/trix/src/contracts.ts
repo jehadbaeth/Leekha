@@ -28,13 +28,21 @@ export function exposableCards(hand: Card[], contracts: Contract[]): Card[] {
 
 /**
  * Legal plays for a trick-taking contract. Follow the led suit if you can;
- * otherwise anything. Special: when a King-of-Hearts contract is active you may
- * not LEAD a heart unless your hand is nothing but hearts.
+ * otherwise anything. Variant (off by default, see RulesConfig
+ * `restrictKingOfHeartsLead`): when a King-of-Hearts contract is active you may
+ * not LEAD a heart unless your hand is nothing but hearts. The mainstream game
+ * has no such restriction — leading hearts to smoke out the King is a core
+ * tactic — so this only applies when the caller opts in.
  */
-export function trickLegalPlays(hand: Card[], trick: TrickPlay[], contracts: Contract[]): Card[] {
+export function trickLegalPlays(
+  hand: Card[],
+  trick: TrickPlay[],
+  contracts: Contract[],
+  restrictKingOfHeartsLead = false,
+): Card[] {
   if (trick.length === 0) {
     // Leading.
-    if (contracts.includes('kingOfHearts')) {
+    if (restrictKingOfHeartsLead && contracts.includes('kingOfHearts')) {
       const nonHearts = hand.filter((c) => !isHeart(c));
       if (nonHearts.length > 0) return nonHearts; // can't lead a heart while holding non-hearts
     }
