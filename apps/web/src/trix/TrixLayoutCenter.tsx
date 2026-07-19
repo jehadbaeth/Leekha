@@ -3,22 +3,28 @@ import { pick } from '../settings';
 import { CardFace } from '../components/CardFace';
 import { SUIT_ORDER, SUIT_SYMBOL, suitColorClass, SEAT_NAMES } from './trixLabels';
 
-// The Fan-Tan (Trex layout) tableau, modelled on how Trex apps actually draw it
-// (see the reference the user supplied and pagat.com/compendium/trex.html): FOUR
-// VERTICAL COLUMNS, one per suit. Each column is the placed run as an overlapping
-// downward fan — highest card (up toward the ace) at the top, the JACK anchored
-// in the middle, lowest card (down toward the 2) at the bottom. Buried cards show
-// only their top rank strip; the bottom card is fully visible.
+// The Fan-Tan (Trex layout) tableau: FOUR VERTICAL COLUMNS, one per suit. The
+// HIGH side is shown in full (A / K / Q down to the Jack anchor at the top) since
+// it is at most four cards. The LOW side is a long run (up to nine cards) so it is
+// collapsed to just its FRONTIER — the single last-placed (lowest) card — with a
+// gap marker for the implied run. This keeps every column at most five cards tall
+// so the towers can never grow off-screen or cover the avatars.
 
 const CARD_W = 40;
 const OVERLAP = 17; // vertical peek of each buried card
 
-/** Placed ranks for a suit, highest first (top of the column) to lowest (bottom). */
-function columnRanks(s: SuitLayout): Rank[] {
-  if (s.up === null) return [];
-  const out: Rank[] = [];
-  for (let r = s.up; r >= (s.down !== null ? s.down : 11); r--) out.push(r as Rank);
-  return out;
+interface Column {
+  highs: Rank[]; // A..J, top to bottom (Jack last); [] if not opened
+  low: Rank | null; // single frontier card below the jack, null if none/only-jack
+  gap: boolean; // true when cards are skipped between the jack and the low frontier
+}
+
+function columnFor(s: SuitLayout): Column {
+  if (s.up === null) return { highs: [], low: null, gap: false };
+  const highs: Rank[] = [];
+  for (let r = s.up; r >= 11; r--) highs.push(r as Rank); // A,K,Q,...,J
+  const low = s.down !== null && s.down < 11 ? (s.down as Rank) : null;
+  return { highs, low, gap: low !== null && low < 10 };
 }
 
 const PLACE_EN = ['1st', '2nd', '3rd', '4th'];
@@ -56,14 +62,14 @@ export function TrixLayoutCenter({
       {/* dir=ltr keeps the suit columns in a stable order regardless of UI language. */}
       <div dir="ltr" className="flex items-start justify-center gap-2">
         {SUIT_ORDER.map((suit) => {
-          const ranks = columnRanks(view.layout[suit]);
-          const colH = ranks.length > 0 ? (ranks.length - 1) * OVERLAP + cardH : cardH;
+          const { highs, low, gap } = columnFor(view.layout[suit]);
+          const bury = { marginTop: -(cardH - OVERLAP) }; // overlap the card above, leaving a rank strip
           return (
             <div key={suit} className="flex flex-col items-center gap-1">
               <div className={`text-sm font-bold leading-none ${suitColorClass(suit)} bg-white rounded px-1`}>
                 {SUIT_SYMBOL[suit]}
               </div>
-              {ranks.length === 0 ? (
+              {highs.length === 0 ? (
                 <div
                   className="rounded-md border border-dashed border-emerald-600/60 flex items-center justify-center text-emerald-500/60 text-[9px] text-center px-0.5"
                   style={{ width: CARD_W, height: cardH }}
@@ -71,21 +77,31 @@ export function TrixLayoutCenter({
                   {t('play J', 'العب الشايب')}
                 </div>
               ) : (
-                <div className="relative" style={{ width: CARD_W, height: colH }}>
-                  {ranks.map((r, i) => {
-                    const card: Card = { suit, rank: r };
+                // A short flex column: high honors down to the jack overlap into a
+                // strip; the single low frontier card (if any) sits below, after a
+                // gap marker when ranks are skipped.
+                <div className="flex flex-col items-center">
+                  {highs.map((r, i) => {
                     const isJack = r === 11;
-                    // Draw top→bottom; later (lower) cards sit on top so each shows its top strip.
                     return (
-                      <div
-                        key={r}
-                        className={`absolute rounded ${isJack ? 'ring-2 ring-amber-400' : ''}`}
-                        style={{ top: i * OVERLAP, zIndex: i }}
-                      >
-                        <CardFace card={card} width={CARD_W} fourColor={fourColor} />
+                      <div key={r} className={`rounded ${isJack ? 'ring-2 ring-amber-400' : ''}`} style={i === 0 ? undefined : bury}>
+                        <CardFace card={{ suit, rank: r }} width={CARD_W} fourColor={fourColor} />
                       </div>
                     );
                   })}
+                  {low !== null &&
+                    (gap ? (
+                      <>
+                        <div className="text-emerald-300/70 text-xs leading-none my-0.5">⋮</div>
+                        <div className="rounded">
+                          <CardFace card={{ suit, rank: low }} width={CARD_W} fourColor={fourColor} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded" style={bury}>
+                        <CardFace card={{ suit, rank: low }} width={CARD_W} fourColor={fourColor} />
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
