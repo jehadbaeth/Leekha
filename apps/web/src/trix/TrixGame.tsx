@@ -1,15 +1,38 @@
 import { useEffect, useState } from 'react';
-import { ALL_CONTRACTS, TRICK_CONTRACTS, type Contract, type Seat, type TrixRulesConfig } from '@leekha/trix';
+import {
+  ALL_CONTRACTS,
+  TRICK_CONTRACTS,
+  type Card,
+  type Contract,
+  type Seat,
+  type TrixRulesConfig,
+  type TrixSeatView,
+} from '@leekha/trix';
 import { GameTable } from '../components/GameTable';
 import type { Settings } from '../settings';
 import { useTrixGame } from './useTrixGame';
 import { TrixLayoutCenter } from './TrixLayoutCenter';
 import { trixToSeatView, trixSeatTally, contractLabel } from './trixAdapter';
-import { CardFace } from '../components/CardFace';
 import { CONTRACT_LABEL, SEAT_NAMES, cardKey, cardLabel } from './trixLabels';
 
-const HUMAN_SEAT: Seat = 0;
 const ALL_SEATS: Seat[] = [0, 1, 2, 3];
+
+/**
+ * The identical shape returned by both the local hook (useTrixGame) and the
+ * online hook (useOnlineTrixGame). TrixGame renders purely off this controller,
+ * so the same board drives a local vs-bots game and an online room — only how
+ * the controller is produced differs (in-process engine vs socket).
+ */
+export interface TrixController {
+  view: TrixSeatView | null;
+  pendingDeal: { dealScores: [number, number, number, number]; totals: [number, number, number, number] } | null;
+  continueDeal: () => void;
+  startMatch: () => void;
+  humanChooseContract: (contracts: Contract[]) => void;
+  humanExpose: (card: Card) => void;
+  humanPass: () => void;
+  humanPlay: (card: Card) => void;
+}
 
 /**
  * Trix reuses Leekha's real GameTable (avatars, hand fan, trick circle, emotes,
@@ -18,15 +41,22 @@ const ALL_SEATS: Seat[] = [0, 1, 2, 3];
  * centre for the layout contract, a contract picker / doubling panel in the
  * bottom slot, and the deal-recap / match-over overlays.
  */
-export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig; settings: Settings; onExit: () => void }) {
-  const { match, view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } =
-    useTrixGame(config);
+export function TrixGame({
+  controller,
+  config,
+  settings,
+  onExit,
+  names = SEAT_NAMES,
+}: {
+  controller: TrixController;
+  config: TrixRulesConfig;
+  settings: Settings;
+  onExit: () => void;
+  names?: Record<Seat, string>;
+}) {
+  const { view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } = controller;
   const [selected, setSelected] = useState<Contract[]>([]);
 
-  useEffect(() => {
-    startMatch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   // Entering a fresh contract choice: under Complex, pre-select every remaining
   // penalty (trick) contract so the natural one-tap action plays them combined,
   // which is what "Complex" means. The player can still deselect to split them.
@@ -39,7 +69,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view?.phase, view?.kingdomIndex]);
 
-  if (!match || !view) {
+  if (!view) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-felt-900 to-felt-950 text-emerald-100">
         Dealing…
@@ -47,6 +77,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
     );
   }
 
+  const me = view.seat;
   const ownerIsHuman = view.choosableContracts !== null;
   const teamScores: [number, number] | null = config.partnership
     ? [view.scores[0] + view.scores[2], view.scores[1] + view.scores[3]]
@@ -65,7 +96,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
         )}
         <span className="text-emerald-400">·</span>
         <span className="text-emerald-300">
-          K{view.kingdomIndex + 1}/4 {SEAT_NAMES[view.kingdomOwner]}&rsquo;s
+          K{view.kingdomIndex + 1}/4 {names[view.kingdomOwner]}&rsquo;s
         </span>
       </div>
       <div className="flex items-center justify-center gap-1 flex-wrap">
@@ -130,7 +161,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
             )}
           </>
         ) : (
-          <div className="text-emerald-200 text-sm">Waiting for {SEAT_NAMES[view.kingdomOwner]} to choose a contract…</div>
+          <div className="text-emerald-200 text-sm">Waiting for {names[view.kingdomOwner]} to choose a contract…</div>
         )}
       </div>
     );
@@ -138,7 +169,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
     bottom = (
       <div className="flex flex-col items-center gap-2 px-4 py-4">
         <div className="text-emerald-100 text-sm font-semibold">Doubling window</div>
-        {view.turn === HUMAN_SEAT ? (
+        {view.turn === me ? (
           <div className="flex flex-wrap gap-2 justify-center">
             {view.exposable.map((c) => (
               <button key={cardKey(c)} onClick={() => humanExpose(c)} className="rounded-lg px-4 py-2 text-sm font-semibold bg-amber-400 text-emerald-950 shadow">
@@ -152,7 +183,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
             )}
           </div>
         ) : (
-          <div className="text-emerald-200 text-sm">Waiting for {SEAT_NAMES[view.turn ?? view.kingdomOwner]}…</div>
+          <div className="text-emerald-200 text-sm">Waiting for {names[view.turn ?? view.kingdomOwner]}…</div>
         )}
       </div>
     );
@@ -163,9 +194,9 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
   if (view.phase === 'done') {
     const winner = teamScores
       ? teamScores[0] >= teamScores[1]
-        ? `${SEAT_NAMES[0]} + ${SEAT_NAMES[2]}`
-        : `${SEAT_NAMES[1]} + ${SEAT_NAMES[3]}`
-      : SEAT_NAMES[[...ALL_SEATS].sort((a, b) => view.scores[b] - view.scores[a])[0]];
+        ? `${names[0]} + ${names[2]}`
+        : `${names[1]} + ${names[3]}`
+      : names[[...ALL_SEATS].sort((a, b) => view.scores[b] - view.scores[a])[0]];
     overlay = (
       <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-40 px-4">
         <div className="bg-emerald-950 border border-emerald-700 rounded-2xl p-5 flex flex-col items-center gap-3 max-w-xs w-full">
@@ -173,7 +204,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
           <div className="flex flex-col gap-1 text-sm text-emerald-100 w-full">
             {[...ALL_SEATS].sort((a, b) => view.scores[b] - view.scores[a]).map((s) => (
               <div key={s} className="flex justify-between">
-                <span className={s === HUMAN_SEAT ? 'text-amber-300 font-semibold' : ''}>{SEAT_NAMES[s]}</span>
+                <span className={s === me ? 'text-amber-300 font-semibold' : ''}>{names[s]}</span>
                 <span className="font-mono">{view.scores[s]}</span>
               </div>
             ))}
@@ -197,7 +228,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
           <div className="flex flex-col gap-1 text-sm text-emerald-100">
             {ALL_SEATS.map((s) => (
               <span key={s}>
-                {SEAT_NAMES[s]}: {pendingDeal.dealScores[s] >= 0 ? '+' : ''}
+                {names[s]}: {pendingDeal.dealScores[s] >= 0 ? '+' : ''}
                 {pendingDeal.dealScores[s]} <span className="text-emerald-400">(total {pendingDeal.totals[s]})</span>
               </span>
             ))}
@@ -213,7 +244,7 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
   return (
     <GameTable
       view={trixToSeatView(view)}
-      names={SEAT_NAMES}
+      names={names}
       events={[]}
       clearEvent={() => {}}
       passesApplied
@@ -233,4 +264,14 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
   );
 }
 
-export default TrixGame;
+/** Local vs-bots Trix: owns an in-process engine (useTrixGame) and starts a match on mount. */
+export function TrixLocalGame({ config, settings, onExit }: { config: TrixRulesConfig; settings: Settings; onExit: () => void }) {
+  const controller = useTrixGame(config);
+  useEffect(() => {
+    controller.startMatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <TrixGame controller={controller} config={config} settings={settings} onExit={onExit} />;
+}
+
+export default TrixLocalGame;
