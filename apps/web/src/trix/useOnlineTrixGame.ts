@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Card, Contract, Seat, TrickPlay, TrixRulesConfig, TrixSeatView } from '@leekha/trix';
-import type { ServerMessage } from '@leekha/protocol';
+import type { PublicRoom, ServerMessage } from '@leekha/protocol';
 import { GameSocket, type ConnectionStatus } from '../net/socket';
 import { clearSession, loadSession, saveSession, type StoredSession } from '../net/session';
 
@@ -31,8 +31,18 @@ export function useOnlineTrixGame() {
   const [turnDeadline, setTurnDeadline] = useState<{ seat: Seat | null; deadline: number | null } | null>(null);
   const [presence, setPresence] = useState<Record<Seat, PresenceStatus>>({ 0: 'connected', 1: 'connected', 2: 'connected', 3: 'connected' });
   const [emotes, setEmotes] = useState<Record<Seat, { id: string; ts: number } | null>>({ 0: null, 1: null, 2: null, 3: null });
+  const [rematchVotes, setRematchVotes] = useState<{ seatsVoted: Seat[]; seatsNeeded: Seat[] } | null>(null);
+  const [spectators, setSpectators] = useState<{ count: number; countries: Record<string, number> } | null>(null);
+  const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
   const roomStateRef = useRef<RoomState | null>(null);
+  // Ref mirror of mySeat so the socket message handler reads the live value, not
+  // a stale closure capture (same race guard useOnlineGame uses).
+  const mySeatRef = useRef<Seat | null>(null);
+  const setMySeatBoth = useCallback((s: Seat | null) => {
+    mySeatRef.current = s;
+    setMySeat(s);
+  }, []);
   // Event stream (from trix.played/trix.trickEnd) + completed tricks this deal,
   // feeding GameTable's sounds/haptics/trick-freeze + last-trick review, exactly
   // like the local hook. Reset per deal, keyed on (kingdom, contracts spent).
@@ -58,11 +68,21 @@ export function useOnlineTrixGame() {
             for (const slot of msg.seats) next[slot.seat] = slot.isBot ? 'bot' : slot.connected ? 'connected' : 'reconnecting';
             return next;
           });
+          // AFK-flip recovery via the roster (covers a backgrounded tab that
+          // missed the live 'presence' event): if our own seat is now a bot, we
+          // lost it — drop to observer and resync (same as useOnlineGame).
+          if (mySeatRef.current !== null) {
+            const mine = msg.seats.find((s) => s.seat === mySeatRef.current);
+            if (mine && mine.isBot) {
+              setMySeatBoth(null);
+              socket.send({ type: 'game.resync' });
+            }
+          }
           break;
         }
         case 'trix.snapshot': {
           setView(msg.view);
-          setMySeat(msg.view.seat);
+          setMySeatBoth(msg.view.seat);
           // A fresh snapshot means the game moved on; clear any lingering recap.
           // The deal-recap pause holds because the server sends no snapshot
           // during its advance delay (see TrixRoom.applyResult).
@@ -79,7 +99,7 @@ export function useOnlineTrixGame() {
           break;
         }
         case 'trix.publicSnapshot': {
-          if (mySeat !== null) break;
+          if (mySeatRef.current !== null) break;
           setView(msg.view);
           break;
         }
@@ -107,6 +127,20 @@ export function useOnlineTrixGame() {
         }
         case 'presence': {
           setPresence((prev) => ({ ...prev, [msg.seat]: msg.status }));
+          // The live AFK-flip signal for our own seat: we lost it to a bot, so
+          // drop to observer and resync (mirrors useOnlineGame).
+          if (msg.seat === mySeatRef.current && msg.status === 'bot') {
+            setMySeatBoth(null);
+            socket.send({ type: 'game.resync' });
+          }
+          break;
+        }
+        case 'game.rematchVotes': {
+          setRematchVotes({ seatsVoted: msg.seatsVoted, seatsNeeded: msg.seatsNeeded });
+          break;
+        }
+        case 'room.spectators': {
+          setSpectators({ count: msg.count, countries: msg.countries });
           break;
         }
         case 'emote': {
@@ -123,20 +157,28 @@ export function useOnlineTrixGame() {
       offStatus();
       offMsg();
     };
-  }, [mySeat]);
+    // Handlers read mySeatRef (not state), so no need to re-subscribe on seat change.
+  }, [pushEvent, setMySeatBoth]);
 
-  // Reconnect: replay a stored seat token so a refreshed tab resumes its seat.
+  const refreshPublicRooms = useCallback(async () => {
+    const res = await socketRef.current!.request<{ rooms: PublicRoom[] } | { error: string }>({ type: 'room.list' });
+    if ('rooms' in res) setPublicRooms(res.rooms);
+  }, []);
+
+  // Reconnect: replay a stored seat token so a refreshed tab resumes its seat,
+  // and refresh the public rooms list on every (re)connect.
   useEffect(() => {
     const socket = socketRef.current!;
     return socket.onStatus((s) => {
       if (s !== 'connected') return;
+      void refreshPublicRooms();
       const stored = loadSession();
       if (stored) {
         socket.send({ type: 'auth', name: 'Guest', seatToken: stored.seatToken, locale: navigator.language });
         socket.send({ type: 'game.resync' });
       }
     });
-  }, []);
+  }, [refreshPublicRooms]);
 
   const createRoom = useCallback(async (name: string, config: TrixRulesConfig) => {
     socketRef.current!.send({ type: 'auth', name: name || 'Guest', locale: navigator.language });
@@ -151,12 +193,25 @@ export function useOnlineTrixGame() {
     }
     const session: StoredSession = { roomCode: res.code, seatToken: res.seatToken, seat: 0 };
     saveSession(session);
-    setMySeat(0);
+    setMySeatBoth(0);
     // The first room.state was broadcast before this socket joined its room (see
     // useOnlineGame.createRoom's note); resync re-triggers it now.
     socketRef.current!.send({ type: 'game.resync' });
     return res.code;
-  }, []);
+  }, [setMySeatBoth]);
+
+  const claimSeat = useCallback(async (seat: Seat) => {
+    const res = await socketRef.current!.request<{ seatToken: string } | { error: string }>({ type: 'room.sit', seat });
+    if ('error' in res) {
+      setLastError(res.error);
+      return false;
+    }
+    const roomCode = roomStateRef.current?.roomCode ?? '';
+    saveSession({ roomCode, seatToken: res.seatToken, seat });
+    setMySeatBoth(seat);
+    socketRef.current!.send({ type: 'game.resync' });
+    return true;
+  }, [setMySeatBoth]);
 
   const joinRoom = useCallback(async (name: string, code: string) => {
     const resolved = name || 'Guest';
@@ -193,9 +248,11 @@ export function useOnlineTrixGame() {
     clearSession();
     setRoomState(null);
     setView(null);
-    setMySeat(null);
+    setMySeatBoth(null);
     setPendingDeal(null);
-  }, []);
+    setRematchVotes(null);
+    setSpectators(null);
+  }, [setMySeatBoth]);
 
   // --- TrixController API (identical shape to useTrixGame's return) ---
   const humanChooseContract = useCallback((contracts: Contract[]) => {
@@ -220,6 +277,10 @@ export function useOnlineTrixGame() {
     socketRef.current!.send({ type: 'emote', id: emoteId });
   }, []);
 
+  // Per-seat country (ISO alpha-2) from the roster, for the flag next to names.
+  const countries: Partial<Record<Seat, string | null>> = {};
+  for (const slot of roomState?.seats ?? []) countries[slot.seat] = slot.country ?? null;
+
   return {
     status,
     roomState,
@@ -227,11 +288,14 @@ export function useOnlineTrixGame() {
     lastError,
     createRoom,
     joinRoom,
+    claimSeat,
     addBot,
     removeBot,
     setReady,
     startGame,
     leaveRoom,
+    refreshPublicRooms,
+    publicRooms,
     // controller
     view,
     pendingDeal,
@@ -252,5 +316,8 @@ export function useOnlineTrixGame() {
     roomCode: roomState?.roomCode ?? null,
     emotes,
     sendEmote,
+    rematchVotes,
+    spectators,
+    countries,
   };
 }

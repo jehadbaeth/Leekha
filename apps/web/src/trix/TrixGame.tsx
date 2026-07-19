@@ -43,6 +43,12 @@ export interface TrixController {
   roomCode?: string | null;
   emotes?: Record<Seat, { id: string; ts: number } | null>;
   sendEmote?: (id: string) => void;
+  rematchVotes?: { seatsVoted: Seat[]; seatsNeeded: Seat[] } | null;
+  spectators?: { count: number; countries: Record<string, number> } | null;
+  countries?: Partial<Record<Seat, string | null>>;
+  spectator?: boolean;
+  claimableSeats?: Seat[];
+  onClaimSeat?: (seat: Seat) => void;
 }
 
 /**
@@ -310,6 +316,12 @@ export function TrixGame({
       roomCode={controller.roomCode ?? undefined}
       emotes={controller.emotes}
       onEmote={controller.sendEmote}
+      rematchVotes={controller.rematchVotes}
+      spectators={controller.spectators}
+      countries={controller.countries}
+      spectator={controller.spectator}
+      claimableSeats={controller.claimableSeats}
+      onClaimSeat={controller.onClaimSeat}
       onCommitPass={() => {}}
       onPlayCard={humanPlay}
       onAdvanceRound={continueDeal}

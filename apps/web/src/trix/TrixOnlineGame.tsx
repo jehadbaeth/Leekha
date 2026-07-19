@@ -58,7 +58,12 @@ export function TrixOnlineGame({
   // 'game', so — like Leekha's online client — we switch on view presence, not
   // roomState.phase.
   if (view) {
-    return <TrixGame controller={online} config={config} settings={settings} onExit={leave} names={names} recapAutoAdvances />;
+    // Seatless watcher of a running match: render read-only, and offer the
+    // bot-controlled seats as claimable from the sidelines.
+    const spectator = online.mySeat === null;
+    const claimableSeats = spectator ? ALL_SEATS.filter((s) => online.presence[s] === 'bot') : [];
+    const controller = { ...online, spectator, claimableSeats, onClaimSeat: online.claimSeat };
+    return <TrixGame controller={controller} config={config} settings={settings} onExit={leave} names={names} recapAutoAdvances />;
   }
 
   if (!roomState) {
