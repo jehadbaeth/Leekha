@@ -3,6 +3,22 @@
 Ground-truth checklist for bringing Trix (local + online) to parity with Leekha,
 and for the abstraction discipline that lets game #3 inherit the same features.
 
+## Status (after the parity push)
+
+DONE + exercised in-browser + deployed: Batch D (Trex board, page-scroll,
+doubling-hand, recap), Batch B+A-local (sounds/haptics/trick-pause/last-trick +
+presence/turn/share-chip forwarding, local), Batch A-online (trix.played/
+trix.trickEnd so online gets the same), Batch C+i18n (emotes online + Arabic
+throughout), Batch E in-game robustness (AFK recovery both paths, reconnect
+ref, rematch votes, spectators, seat-claim, country flags, public-rooms in hook).
+
+DEFERRED (tracked as follow-ons): the entry/discovery chrome — join-by-code UI +
+deep-link ?join= routing (needs game-type detection before picking the Leekha
+vs Trix hook), a Trix public-rooms list in the picker, cold tab-reopen
+auto-resume into a Trix room, a Trix How-to-Play screen, the PWA install banner
+on the picker/Trix screens; plus Trix bot difficulty tiers (one tier today) and
+admin-panel gameType filtering (column written, UI doesn't split yet).
+
 **Core finding.** Almost every gap has one root cause: Trix bypasses the shared
 `GameTable`'s own systems instead of feeding them. It passes `events={[]}` (kills
 every sound / haptic / trick-pause / animation), replaces whole regions via
