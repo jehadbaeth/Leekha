@@ -9,11 +9,11 @@ import {
   type TrixSeatView,
 } from '@leekha/trix';
 import { GameTable } from '../components/GameTable';
-import type { Settings } from '../settings';
+import { pick, type Settings } from '../settings';
 import { useTrixGame } from './useTrixGame';
 import { TrixLayoutCenter } from './TrixLayoutCenter';
-import { trixToSeatView, trixSeatTally, contractLabel } from './trixAdapter';
-import { CONTRACT_LABEL, SEAT_NAMES, cardKey, cardLabel } from './trixLabels';
+import { trixToSeatView, trixSeatTally } from './trixAdapter';
+import { CONTRACT_SHORT, SEAT_NAMES, cardKey, cardLabel, contractName } from './trixLabels';
 
 const ALL_SEATS: Seat[] = [0, 1, 2, 3];
 
@@ -41,6 +41,8 @@ export interface TrixController {
   presence?: Record<Seat, 'connected' | 'reconnecting' | 'bot'>;
   turnDeadline?: { seat: Seat; deadline: number | null } | null;
   roomCode?: string | null;
+  emotes?: Record<Seat, { id: string; ts: number } | null>;
+  sendEmote?: (id: string) => void;
 }
 
 /**
@@ -98,17 +100,19 @@ export function TrixGame({
   if (!view) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-felt-900 to-felt-950 text-emerald-100">
-        Dealing…
+        {pick(settings.language, 'Dealing…', 'يوزّع…')}
       </div>
     );
   }
 
+  const L = settings.language;
+  const t = (en: string, ar: string) => pick(L, en, ar);
   const me = view.seat;
   const ownerIsHuman = view.choosableContracts !== null;
   const teamScores: [number, number] | null = config.partnership
     ? [view.scores[0] + view.scores[2], view.scores[1] + view.scores[3]]
     : null;
-  const contractText = view.contracts.map(contractLabel).join(' + ') || '—';
+  const contractText = view.contracts.map((c) => contractName(c, L)).join(' + ') || '—';
 
   // --- HUD: kingdom + contract + progress, in the shared HUD strip slot ---
   const hud = (
@@ -117,12 +121,14 @@ export function TrixGame({
         <span className="font-semibold text-amber-200">{contractText}</span>
         {(view.phase === 'trick' || view.phase === 'layout') && (
           <span className="text-emerald-300">
-            {view.phase === 'layout' ? `${view.hand.length} left` : `trick ${view.trickNumber}/13`}
+            {view.phase === 'layout'
+              ? t(`${view.hand.length} left`, `بقي ${view.hand.length}`)
+              : t(`trick ${view.trickNumber}/13`, `اللفة ${view.trickNumber}/13`)}
           </span>
         )}
         <span className="text-emerald-400">·</span>
         <span className="text-emerald-300">
-          K{view.kingdomIndex + 1}/4 {names[view.kingdomOwner]}&rsquo;s
+          {t(`K${view.kingdomIndex + 1}/4 ${names[view.kingdomOwner]}’s`, `مملكة ${view.kingdomIndex + 1}/4 لـ${names[view.kingdomOwner]}`)}
         </span>
       </div>
       <div className="flex items-center justify-center gap-1 flex-wrap">
@@ -137,7 +143,7 @@ export function TrixGame({
                   : 'text-emerald-300'
             }`}
           >
-            {CONTRACT_LABEL[c]}
+            {CONTRACT_SHORT[c]}
           </span>
         ))}
         {teamScores && (
@@ -148,7 +154,10 @@ export function TrixGame({
       </div>
       {config.restrictKingOfHeartsLead && view.phase === 'trick' && view.contracts.includes('kingOfHearts') && (
         <div className="text-center text-[9px] text-rose-200/80">
-          ♥ can&rsquo;t be led while King of Hearts is live (only when you hold nothing else)
+          {t(
+            '♥ can’t be led while King of Hearts is live (only when you hold nothing else)',
+            'لا يمكن فتح ♥ أثناء الشايب (إلا إذا لم يبقَ معك سواها)',
+          )}
         </div>
       )}
     </div>
@@ -162,31 +171,31 @@ export function TrixGame({
   // hand stays on screen. ---
   let center: React.ReactNode = undefined;
   if (view.phase === 'layout') {
-    center = <TrixLayoutCenter view={view} onPass={humanPass} />;
+    center = <TrixLayoutCenter view={view} onPass={humanPass} language={L} names={names} />;
   } else if (view.phase === 'exposing') {
     center = (
       <div className="flex flex-col items-center gap-2 px-4 text-center">
-        <div className="text-emerald-100 text-sm font-semibold">Doubling window</div>
+        <div className="text-emerald-100 text-sm font-semibold">{t('Doubling window', 'المضاعفة')}</div>
         {view.turn === me ? (
           <>
             <div className="text-emerald-300 text-[11px] max-w-[16rem]">
-              Expose an honor to double its value (your hand is below). Or skip.
+              {t('Expose an honor to double its value (your hand is below). Or skip.', 'اكشف ورقة لمضاعفة قيمتها (يدك بالأسفل). أو تخطَّ.')}
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
               {view.exposable.map((c) => (
                 <button key={cardKey(c)} onClick={() => humanExpose(c)} className="rounded-lg px-4 py-2 text-sm font-semibold bg-amber-400 text-emerald-950 shadow">
-                  Double {cardLabel(c)}
+                  {t('Double', 'ضاعف')} {cardLabel(c)}
                 </button>
               ))}
               {view.canPass && (
                 <button onClick={humanPass} className="rounded-lg px-4 py-2 text-sm font-semibold bg-emerald-800 text-emerald-50 shadow">
-                  {view.exposable.length > 0 ? 'Skip' : 'Done'}
+                  {view.exposable.length > 0 ? t('Skip', 'تخطَّ') : t('Done', 'تم')}
                 </button>
               )}
             </div>
           </>
         ) : (
-          <div className="text-emerald-200 text-sm">Waiting for {names[view.turn ?? view.kingdomOwner]}…</div>
+          <div className="text-emerald-200 text-sm">{t(`Waiting for ${names[view.turn ?? view.kingdomOwner]}…`, `بانتظار ${names[view.turn ?? view.kingdomOwner]}…`)}</div>
         )}
       </div>
     );
@@ -199,7 +208,7 @@ export function TrixGame({
       <div className="flex flex-col items-center gap-2 px-4 py-4">
         {ownerIsHuman ? (
           <>
-            <div className="text-emerald-100 text-sm font-semibold">Choose a contract</div>
+            <div className="text-emerald-100 text-sm font-semibold">{t('Choose a contract', 'اختر مشروعاً')}</div>
             <div className="flex flex-wrap gap-2 justify-center max-w-xs">
               {(view.choosableContracts ?? []).map((c) => {
                 const isSelected = selected.includes(c);
@@ -212,20 +221,20 @@ export function TrixGame({
                     }}
                     className={`rounded-lg px-4 py-2 text-sm font-semibold shadow ${isSelected ? 'bg-amber-400 text-emerald-950' : 'bg-emerald-800 text-emerald-50'}`}
                   >
-                    {CONTRACT_LABEL[c]}
+                    {contractName(c, L)}
                   </button>
                 );
               })}
             </div>
             {config.complex && selected.length > 0 && (
               <button onClick={() => humanChooseContract(selected)} className="rounded-lg px-5 py-2 text-sm font-bold bg-amber-400 text-emerald-950 shadow">
-                {selected.length > 1 ? 'Play combined: ' : 'Play '}
-                {selected.map(contractLabel).join(' + ')}
+                {selected.length > 1 ? t('Play combined: ', 'العب مجتمعاً: ') : t('Play ', 'العب ')}
+                {selected.map((c) => contractName(c, L)).join(' + ')}
               </button>
             )}
           </>
         ) : (
-          <div className="text-emerald-200 text-sm">Waiting for {names[view.kingdomOwner]} to choose a contract…</div>
+          <div className="text-emerald-200 text-sm">{t(`Waiting for ${names[view.kingdomOwner]} to choose a contract…`, `بانتظار ${names[view.kingdomOwner]} لاختيار مشروع…`)}</div>
         )}
       </div>
     );
@@ -242,7 +251,7 @@ export function TrixGame({
     overlay = (
       <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-40 px-4">
         <div className="bg-emerald-950 border border-emerald-700 rounded-2xl p-5 flex flex-col items-center gap-3 max-w-xs w-full">
-          <div className="text-amber-300 text-lg font-bold">🏆 {winner} win</div>
+          <div className="text-amber-300 text-lg font-bold">🏆 {t(`${winner} win`, `فاز ${winner}`)}</div>
           <div className="flex flex-col gap-1 text-sm text-emerald-100 w-full">
             {[...ALL_SEATS].sort((a, b) => view.scores[b] - view.scores[a]).map((s) => (
               <div key={s} className="flex justify-between">
@@ -253,10 +262,10 @@ export function TrixGame({
           </div>
           <div className="flex gap-3">
             <button onClick={() => startMatch()} className="rounded-lg px-4 py-2 text-sm font-semibold bg-amber-400 text-emerald-950 shadow">
-              Play again
+              {t('Play again', 'العب مجدداً')}
             </button>
             <button onClick={onExit} className="rounded-lg px-4 py-2 text-sm font-semibold bg-emerald-800 text-emerald-50 shadow">
-              Exit
+              {t('Exit', 'خروج')}
             </button>
           </div>
         </div>
@@ -266,20 +275,20 @@ export function TrixGame({
     overlay = (
       <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-40 px-4" onClick={continueDeal}>
         <div className="bg-emerald-950 border border-emerald-700 rounded-2xl p-5 flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
-          <div className="text-emerald-100 font-bold">Deal complete</div>
+          <div className="text-emerald-100 font-bold">{t('Deal complete', 'انتهت الجولة')}</div>
           <div className="flex flex-col gap-1 text-sm text-emerald-100">
             {ALL_SEATS.map((s) => (
               <span key={s}>
                 {names[s]}: {pendingDeal.dealScores[s] >= 0 ? '+' : ''}
-                {pendingDeal.dealScores[s]} <span className="text-emerald-400">(total {pendingDeal.totals[s]})</span>
+                {pendingDeal.dealScores[s]} <span className="text-emerald-400">{t(`(total ${pendingDeal.totals[s]})`, `(المجموع ${pendingDeal.totals[s]})`)}</span>
               </span>
             ))}
           </div>
           {recapAutoAdvances ? (
-            <div className="text-emerald-300 text-xs">Next deal starting shortly…</div>
+            <div className="text-emerald-300 text-xs">{t('Next deal starting shortly…', 'الجولة التالية تبدأ قريباً…')}</div>
           ) : (
             <button className="rounded-lg bg-amber-400 text-emerald-950 font-semibold text-sm px-4 py-1.5" onClick={continueDeal}>
-              Continue
+              {t('Continue', 'متابعة')}
             </button>
           )}
         </div>
@@ -299,6 +308,8 @@ export function TrixGame({
       presence={controller.presence}
       turnDeadline={controller.turnDeadline ?? undefined}
       roomCode={controller.roomCode ?? undefined}
+      emotes={controller.emotes}
+      onEmote={controller.sendEmote}
       onCommitPass={() => {}}
       onPlayCard={humanPlay}
       onAdvanceRound={continueDeal}

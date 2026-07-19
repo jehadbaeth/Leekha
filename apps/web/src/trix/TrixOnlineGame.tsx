@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Seat, TrixRulesConfig } from '@leekha/trix';
-import type { Settings } from '../settings';
+import { pick, type Settings } from '../settings';
 import { Lobby } from '../Lobby';
 import { TrixGame } from './TrixGame';
 import { useOnlineTrixGame } from './useOnlineTrixGame';
@@ -49,7 +49,7 @@ export function TrixOnlineGame({
   if (roomState) {
     for (const s of ALL_SEATS) {
       const slot = roomState.seats[s];
-      if (slot?.name) names[s] = slot.seat === online.mySeat ? `${slot.name} (you)` : slot.name;
+      if (slot?.name) names[s] = slot.seat === online.mySeat ? `${slot.name} ${pick(settings.language, '(you)', '(أنت)')}` : slot.name;
     }
   }
 
@@ -64,7 +64,9 @@ export function TrixOnlineGame({
   if (!roomState) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-felt-900 to-felt-950 text-emerald-100">
-        {online.status === 'connected' ? 'Setting up room…' : 'Connecting…'}
+        {online.status === 'connected'
+          ? pick(settings.language, 'Setting up room…', 'يُجهّز الغرفة…')
+          : pick(settings.language, 'Connecting…', 'يتصل…')}
       </div>
     );
   }

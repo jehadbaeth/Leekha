@@ -1,4 +1,5 @@
-import type { Rank, Suit, SuitLayout, TrixSeatView } from '@leekha/trix';
+import type { Rank, Seat, Suit, SuitLayout, TrixSeatView } from '@leekha/trix';
+import { pick } from '../settings';
 import { SUIT_ORDER, SUIT_SYMBOL, rankLabel, suitColorClass, SEAT_NAMES } from './trixLabels';
 
 // The Fan-Tan (Trex layout) tableau, rendered into the shared GameTable's centre
@@ -31,9 +32,22 @@ function Chip({ rank, suit, anchor }: { rank: Rank; suit: Suit; anchor?: boolean
   );
 }
 
-const PLACE = ['1st', '2nd', '3rd', '4th'];
+const PLACE_EN = ['1st', '2nd', '3rd', '4th'];
+const PLACE_AR = ['الأول', 'الثاني', 'الثالث', 'الرابع'];
 
-export function TrixLayoutCenter({ view, onPass }: { view: TrixSeatView; onPass: () => void }) {
+export function TrixLayoutCenter({
+  view,
+  onPass,
+  language = 'en',
+  names = SEAT_NAMES,
+}: {
+  view: TrixSeatView;
+  onPass: () => void;
+  language?: 'en' | 'ar';
+  names?: Record<Seat, string>;
+}) {
+  const t = (en: string, ar: string) => pick(language, en, ar);
+  const PLACE = language === 'ar' ? PLACE_AR : PLACE_EN;
   const isMyTurn = view.turn === view.seat;
   return (
     <div className="w-full max-w-sm flex flex-col items-stretch gap-1.5 px-2 max-h-full overflow-y-auto">
@@ -41,7 +55,7 @@ export function TrixLayoutCenter({ view, onPass }: { view: TrixSeatView; onPass:
         <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-200 flex-wrap">
           {view.finished.map((seat, i) => (
             <span key={seat} className="bg-emerald-950/70 rounded-full px-2 py-0.5">
-              {PLACE[i] ?? `${i + 1}th`} {SEAT_NAMES[seat]}
+              {PLACE[i] ?? `${i + 1}`} {names[seat]}
             </span>
           ))}
         </div>
@@ -57,7 +71,7 @@ export function TrixLayoutCenter({ view, onPass }: { view: TrixSeatView; onPass:
               <div className="flex-1 min-w-0 overflow-x-auto">
                 {seq.length === 0 ? (
                   <span className="text-emerald-400/60 text-[10px] leading-8">
-                    not opened — the {SUIT_SYMBOL[suit]} jack opens it
+                    {t(`not opened — the ${SUIT_SYMBOL[suit]} jack opens it`, `مغلقة — يفتحها شايب ${SUIT_SYMBOL[suit]}`)}
                   </span>
                 ) : (
                   <div className="flex gap-0.5 w-max">
@@ -76,7 +90,7 @@ export function TrixLayoutCenter({ view, onPass }: { view: TrixSeatView; onPass:
           onClick={onPass}
           className="self-center mt-0.5 text-xs font-semibold bg-amber-400 text-emerald-950 rounded-full px-4 py-1.5 shadow active:scale-95"
         >
-          Pass (no legal card)
+          {t('Pass (no legal card)', 'مرّر (لا ورقة صالحة)')}
         </button>
       )}
     </div>

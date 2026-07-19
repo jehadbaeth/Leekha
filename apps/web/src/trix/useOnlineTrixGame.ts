@@ -30,6 +30,7 @@ export function useOnlineTrixGame() {
   const [pendingDeal, setPendingDeal] = useState<{ dealScores: [number, number, number, number]; totals: [number, number, number, number] } | null>(null);
   const [turnDeadline, setTurnDeadline] = useState<{ seat: Seat | null; deadline: number | null } | null>(null);
   const [presence, setPresence] = useState<Record<Seat, PresenceStatus>>({ 0: 'connected', 1: 'connected', 2: 'connected', 3: 'connected' });
+  const [emotes, setEmotes] = useState<Record<Seat, { id: string; ts: number } | null>>({ 0: null, 1: null, 2: null, 3: null });
   const [lastError, setLastError] = useState<string | null>(null);
   const roomStateRef = useRef<RoomState | null>(null);
   // Event stream (from trix.played/trix.trickEnd) + completed tricks this deal,
@@ -106,6 +107,10 @@ export function useOnlineTrixGame() {
         }
         case 'presence': {
           setPresence((prev) => ({ ...prev, [msg.seat]: msg.status }));
+          break;
+        }
+        case 'emote': {
+          setEmotes((prev) => ({ ...prev, [msg.seat]: { id: msg.id, ts: Date.now() } }));
           break;
         }
         case 'error': {
@@ -211,6 +216,9 @@ export function useOnlineTrixGame() {
   const startMatch = useCallback(() => {
     socketRef.current!.send({ type: 'room.rematch' });
   }, []);
+  const sendEmote = useCallback((emoteId: string) => {
+    socketRef.current!.send({ type: 'emote', id: emoteId });
+  }, []);
 
   return {
     status,
@@ -242,5 +250,7 @@ export function useOnlineTrixGame() {
     presence,
     turnDeadline: turnDeadline && turnDeadline.seat !== null ? { seat: turnDeadline.seat, deadline: turnDeadline.deadline } : null,
     roomCode: roomState?.roomCode ?? null,
+    emotes,
+    sendEmote,
   };
 }

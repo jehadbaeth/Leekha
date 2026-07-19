@@ -1,6 +1,6 @@
 import type { Card, Contract, Seat, Suit } from '@leekha/trix';
 
-/** Nice English display names for the five contracts (Arabic names noted in comments per SPEC-TRIX, English is enough for v1). */
+/** English display names for the five contracts. */
 export const CONTRACT_LABEL: Record<Contract, string> = {
   kingOfHearts: 'King of Hearts',
   diamonds: 'Diamonds',
@@ -8,6 +8,19 @@ export const CONTRACT_LABEL: Record<Contract, string> = {
   slaps: 'Slaps',
   trix: 'Trix',
 };
+
+/** Arabic (Levantine Trix) contract names. */
+export const CONTRACT_LABEL_AR: Record<Contract, string> = {
+  kingOfHearts: 'الشايب',
+  diamonds: 'الديناري',
+  queens: 'البنات',
+  slaps: 'اللطوش',
+  trix: 'تركس',
+};
+
+export function contractName(c: Contract, lang: 'en' | 'ar'): string {
+  return lang === 'ar' ? CONTRACT_LABEL_AR[c] : CONTRACT_LABEL[c];
+}
 
 /** Short label for chips/badges (kingdom progress, contract banner). */
 export const CONTRACT_SHORT: Record<Contract, string> = {
