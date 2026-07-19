@@ -183,7 +183,11 @@ export function Lobby({
 
       {/* Section 12: how long an idle seat gets before it's auto-played, and
           before two such strikes flip it to bot control (Room.flipToBot).
-          Host-editable only, and only before the match starts. */}
+          Host-editable only, and only before the match starts. Leekha rooms
+          always carry a RulesConfig; a Trix room's lobby (gameType 'trix')
+          carries trixConfig instead and renders its own controls, so this
+          Leekha timer panel is gated on config being present. */}
+      {roomState.config && (
       <div className="w-full max-w-xs rounded-xl border border-emerald-700 bg-emerald-950/40 p-3 flex flex-col gap-2">
         <p className="text-[10px] uppercase tracking-wide text-emerald-300">
           {t('Idle timers', 'مؤقتات الخمول')}
@@ -195,7 +199,7 @@ export function Lobby({
               className="bg-emerald-900 border border-emerald-700 rounded px-2 py-1 text-xs text-white"
               value={roomState.config.timers.playMs}
               onChange={(e) =>
-                onConfigure({ ...roomState.config, timers: { ...roomState.config.timers, playMs: Number(e.target.value) } })
+                onConfigure({ ...roomState.config!, timers: { ...roomState.config!.timers, playMs: Number(e.target.value) } })
               }
             >
               {PLAY_TIMER_PRESETS_MS.map((ms) => (
@@ -215,7 +219,7 @@ export function Lobby({
               className="bg-emerald-900 border border-emerald-700 rounded px-2 py-1 text-xs text-white"
               value={roomState.config.timers.passMs}
               onChange={(e) =>
-                onConfigure({ ...roomState.config, timers: { ...roomState.config.timers, passMs: Number(e.target.value) } })
+                onConfigure({ ...roomState.config!, timers: { ...roomState.config!.timers, passMs: Number(e.target.value) } })
               }
             >
               {PASS_TIMER_PRESETS_MS.map((ms) => (
@@ -235,6 +239,7 @@ export function Lobby({
           )}
         </p>
       </div>
+      )}
 
       {mySlot && !mySlot.isBot && (
         <button

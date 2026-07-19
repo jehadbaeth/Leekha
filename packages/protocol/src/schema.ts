@@ -1,13 +1,13 @@
 import { z } from 'zod';
-
-export const SuitSchema = z.enum(['S', 'H', 'D', 'C']);
-export const RankSchema = z.union([
-  z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7),
-  z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.literal(12), z.literal(13), z.literal(14),
-]);
-export const CardSchema = z.object({ suit: SuitSchema, rank: RankSchema });
-export const SeatSchema = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]);
-export const BotLevelSchema = z.enum(['easy', 'medium', 'hard', 'insane']);
+// Primitives (SuitSchema/CardSchema/SeatSchema/...) live in primitives.ts and are
+// re-exported from the package index; schema.ts just consumes them here.
+import { SuitSchema, RankSchema, CardSchema, SeatSchema, BotLevelSchema } from './primitives.js';
+import {
+  GameTypeSchema,
+  TrixRulesConfigSchema,
+  TrixClientMessages,
+  TrixServerMessages,
+} from './trix.js';
 
 export const RulesConfigSchema = z.object({
   targetScore: z.number().int().positive(),
@@ -56,7 +56,10 @@ export const AuthMsg = z.object({
 });
 export const RoomCreateMsg = z.object({
   type: z.literal('room.create'),
-  config: RulesConfigSchema,
+  /** Absent means 'leekha' (keeps the existing Leekha create message byte-for-byte valid). 'trix' rooms carry trixConfig instead of config. */
+  gameType: GameTypeSchema.optional(),
+  config: RulesConfigSchema.optional(),
+  trixConfig: TrixRulesConfigSchema.optional(),
   /** Lists the room on the home screen's public rooms list while it's still joinable (lobby, seats open). Defaults to false: a room is code/link-only unless the host opts in. */
   isPublic: z.boolean().optional(),
 });
@@ -65,7 +68,11 @@ export const RoomListMsg = z.object({ type: z.literal('room.list') });
 export const RoomSitMsg = z.object({ type: z.literal('room.sit'), seat: SeatSchema });
 export const RoomAddBotMsg = z.object({ type: z.literal('room.addBot'), seat: SeatSchema, level: BotLevelSchema });
 export const RoomRemoveBotMsg = z.object({ type: z.literal('room.removeBot'), seat: SeatSchema });
-export const RoomConfigureMsg = z.object({ type: z.literal('room.configure'), config: RulesConfigSchema });
+export const RoomConfigureMsg = z.object({
+  type: z.literal('room.configure'),
+  config: RulesConfigSchema.optional(),
+  trixConfig: TrixRulesConfigSchema.optional(),
+});
 export const RoomReadyMsg = z.object({ type: z.literal('room.ready'), ready: z.boolean() });
 export const RoomStartMsg = z.object({ type: z.literal('room.start') });
 export const RoomLeaveMsg = z.object({ type: z.literal('room.leave') });
@@ -92,6 +99,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   GameResyncMsg,
   EmoteMsg,
   RoomRematchMsg,
+  ...TrixClientMessages,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -124,7 +132,11 @@ export const RoomStateMsg = z.object({
   seq: z.number().int().nonnegative(),
   roomCode: z.string(),
   seats: z.array(SeatSlotSchema),
-  config: RulesConfigSchema,
+  // Absent gameType means 'leekha' (Leekha rooms carry config exactly as before);
+  // 'trix' rooms carry trixConfig instead. Purely additive.
+  gameType: GameTypeSchema.optional(),
+  config: RulesConfigSchema.optional(),
+  trixConfig: TrixRulesConfigSchema.optional(),
   hostSeat: SeatSchema,
   // Lets a joiner who received no seatToken (an observer, see RoomSitMsg) tell
   // "match already running, I'm watching the roster" apart from "founding lobby".
@@ -185,6 +197,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   ServerEmoteMsg,
   GameRematchVotesMsg,
   RoomSpectatorsMsg,
+  ...TrixServerMessages,
 ]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

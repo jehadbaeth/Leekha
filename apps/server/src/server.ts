@@ -331,7 +331,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
 
           case 'room.configure': {
             const room = currentRoom();
-            if (room && mySeat() === room.hostSeat) room.configure(msg.config);
+            if (room && mySeat() === room.hostSeat && msg.config) room.configure(msg.config);
             break;
           }
 
