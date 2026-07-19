@@ -174,6 +174,51 @@ describe('trix engine — layout legality', () => {
   });
 });
 
+describe('trix engine — doubling window reaches every honor holder', () => {
+  const isQueen = (c: Card): boolean => c.rank === 12;
+
+  // Regression for the reported "doubling phase won't let me double queens I
+  // hold" bug. The real defect was upstream (a bot owner never combined, so
+  // queens were never an active contract), but the exposing turn logic must
+  // still be proven never to skip a NON-owner who holds the only honors. Drive
+  // a combined all-four penalty deal with an all-pass policy and assert that
+  // every seat holding an exposable honor gets an exposing turn with that honor
+  // offered — including seats downstream of the kingdom owner.
+  it('a non-owner holding queens is offered them before the window closes', () => {
+    const config: TrixRulesConfig = { ...defaultTrixConfig, complex: true };
+    let sawNonOwnerQueenOffered = false;
+
+    for (let n = 0; n < 200; n++) {
+      let state = newMatch(config, `expose-${n}`);
+      const owner = state.kingdomOwner;
+      state = chooseContract(state, owner, ['kingOfHearts', 'diamonds', 'queens', 'slaps']).state;
+      if (state.phase !== 'exposing') continue; // nobody held an honor this deal
+
+      // Which seats hold a queen at the start of the deal (from each own view).
+      const queenHolders = ([0, 1, 2, 3] as Seat[]).filter((s) => viewFor(state, s).hand.some(isQueen));
+      const offeredQueen = new Set<Seat>();
+
+      let guard = 0;
+      while (state.phase === 'exposing' && guard < 20) {
+        guard++;
+        const seat = actingSeat(state)!;
+        const v = viewFor(state, seat);
+        expect(v.turn).toBe(seat); // the acting seat always sees it as its own turn
+        if (v.exposable.some(isQueen)) offeredQueen.add(seat);
+        state = pass(state, seat).state; // everyone declines
+      }
+      expect(state.phase).toBe('trick'); // window closed cleanly
+
+      // Every queen holder must have been offered their queen before the close.
+      for (const s of queenHolders) expect(offeredQueen.has(s)).toBe(true);
+      if (queenHolders.some((s) => s !== owner && offeredQueen.has(s))) sawNonOwnerQueenOffered = true;
+    }
+
+    // The non-owner path (turn must rotate past the owner) is actually exercised.
+    expect(sawNonOwnerQueenOffered).toBe(true);
+  });
+});
+
 describe('trix engine — no cheating', () => {
   it('viewFor only returns the requested seat\'s hand', () => {
     let state = newMatch(defaultTrixConfig, 'nc');

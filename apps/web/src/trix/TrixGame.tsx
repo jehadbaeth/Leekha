@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ALL_CONTRACTS, type Contract, type Seat, type TrixRulesConfig } from '@leekha/trix';
+import { ALL_CONTRACTS, TRICK_CONTRACTS, type Contract, type Seat, type TrixRulesConfig } from '@leekha/trix';
 import { GameTable } from '../components/GameTable';
 import type { Settings } from '../settings';
 import { useTrixGame } from './useTrixGame';
@@ -27,8 +27,16 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
     startMatch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Entering a fresh contract choice: under Complex, pre-select every remaining
+  // penalty (trick) contract so the natural one-tap action plays them combined,
+  // which is what "Complex" means. The player can still deselect to split them.
   useEffect(() => {
-    setSelected([]);
+    if (config.complex && view?.phase === 'selecting' && view.choosableContracts) {
+      setSelected(view.choosableContracts.filter((c) => TRICK_CONTRACTS.includes(c)));
+    } else {
+      setSelected([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view?.phase, view?.kingdomIndex]);
 
   if (!match || !view) {
@@ -81,6 +89,11 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
           </span>
         )}
       </div>
+      {view.phase === 'trick' && view.contracts.includes('kingOfHearts') && (
+        <div className="text-center text-[9px] text-rose-200/80">
+          ♥ can&rsquo;t be led while King of Hearts is live (only when you hold nothing else)
+        </div>
+      )}
     </div>
   );
 
@@ -111,7 +124,8 @@ export function TrixGame({ config, settings, onExit }: { config: TrixRulesConfig
             </div>
             {config.complex && selected.length > 0 && (
               <button onClick={() => humanChooseContract(selected)} className="rounded-lg px-5 py-2 text-sm font-bold bg-amber-400 text-emerald-950 shadow">
-                Play {selected.map(contractLabel).join(' + ')}
+                {selected.length > 1 ? 'Play combined: ' : 'Play '}
+                {selected.map(contractLabel).join(' + ')}
               </button>
             )}
           </>
