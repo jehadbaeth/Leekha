@@ -1,0 +1,65 @@
+import { defaultConfig, type Card as LeekhaCard, type SeatView } from '@leekha/engine';
+import { isDiamond, isQueen, isKingOfHearts, type Contract, type Seat, type TrixSeatView } from '@leekha/trix';
+
+// Maps a Trix SeatView into the SeatView shape Leekha's shared GameTable
+// consumes, so Trix reuses the exact same avatars, hand fan, trick circle,
+// emotes, and sounds. Trix-specific chrome (contract banner, layout board,
+// contract picker, deal recap) rides on GameTable's seam overrides instead.
+// A tuned config keeps Leekha-only markers (undercut, forced dump, danger)
+// switched off, and the phase is pinned to 'playing' so the table stays in its
+// in-game layout; Trix's own phase drives which seam overrides are supplied.
+
+export function trixToSeatView(tv: TrixSeatView): SeatView {
+  // GameTable reads "whose turn" as (currentTrick.leader + plays.length) % 4.
+  // In a trick contract the real trick already yields the right seat; in every
+  // other Trix phase (layout/selecting/exposing) there is no trick, so encode
+  // the acting seat as the leader with no plays, so the turn highlight and the
+  // hand-fan interactivity land on the correct player.
+  const currentTrick =
+    tv.phase === 'trick'
+      ? {
+          leader: tv.currentTrick.leader,
+          plays: tv.currentTrick.plays.map((p) => ({ seat: p.seat, card: p.card as unknown as LeekhaCard, forced: false })),
+        }
+      : { leader: (tv.turn ?? tv.kingdomOwner) as Seat, plays: [] };
+  return {
+    seat: tv.seat,
+    hand: tv.hand as unknown as LeekhaCard[],
+    phase: 'playing',
+    dealer: tv.kingdomOwner,
+    roundIndex: tv.kingdomIndex,
+    trickNumber: Math.max(1, tv.trickNumber),
+    currentTrick,
+    playedCards: [],
+    eatenPoints: [0, 0, 0, 0],
+    eatenCards: [[], [], [], []],
+    scores: tv.scores,
+    youPassed: null,
+    youReceived: null,
+    legal: (tv.legal as unknown as LeekhaCard[] | null) ?? null,
+    config: { ...defaultConfig, targetScore: 999999, undercutRule: 'off', forcedLeekhaDiscard: false },
+  };
+}
+
+/** Per-seat tally shown under each avatar (the count of penalty units captured this deal, or tricks won for Slaps). */
+export function trixSeatTally(tv: TrixSeatView, seat: Seat): number {
+  const contracts = tv.contracts;
+  let n = 0;
+  if (contracts.includes('slaps')) n += tv.tricksWon[seat];
+  if (contracts.includes('diamonds')) n += tv.captured[seat].filter(isDiamond).length;
+  if (contracts.includes('queens')) n += tv.captured[seat].filter(isQueen).length;
+  if (contracts.includes('kingOfHearts')) n += tv.captured[seat].filter(isKingOfHearts).length;
+  return n;
+}
+
+const CONTRACT_LABEL: Record<Contract, string> = {
+  kingOfHearts: 'King of Hearts',
+  diamonds: 'Diamonds',
+  queens: 'Queens',
+  slaps: 'Slaps',
+  trix: 'Trix',
+};
+
+export function contractLabel(c: Contract): string {
+  return CONTRACT_LABEL[c];
+}

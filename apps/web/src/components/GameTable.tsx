@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { Card, MatchResult, Seat, SeatView } from '@leekha/engine';
 import { nextSeat, partnerOf, prevSeat, teamOf } from '@leekha/engine';
 import { CardFace } from './CardFace';
@@ -77,6 +77,11 @@ export function GameTable({
   onRematch,
   onHome,
   roomCode,
+  hudOverride,
+  centerOverride,
+  bottomOverride,
+  overlayOverride,
+  seatSubline,
 }: {
   view: SeatView;
   names: Record<Seat, string>;
@@ -111,6 +116,15 @@ export function GameTable({
   onHome: () => void;
   /** Online only: lets the room-code share button render inside the game screen too, not just the pre-game Lobby (SPEC.md 7.1 item 2). */
   roomCode?: string | null;
+  // Game-agnostic seams (SPEC-TRIX: one shared table, rule engines differ).
+  // All optional; when omitted the table renders EXACTLY as Leekha always has,
+  // so Leekha parity is preserved by construction. Trix supplies these to reuse
+  // the same avatars, hand fan, trick circle, emotes, and sounds.
+  hudOverride?: ReactNode; // replaces the HUD strip content
+  centerOverride?: ReactNode; // replaces the trick circle (e.g. Trix Fan-Tan board)
+  bottomOverride?: ReactNode; // replaces the hand tray / passing panel region
+  overlayOverride?: ReactNode; // replaces the round-summary / match-end overlay
+  seatSubline?: (seat: Seat) => number; // replaces each avatar's round-score line (e.g. Trix tally)
 }) {
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
   const mySeat = view.seat;
@@ -477,7 +491,7 @@ export function GameTable({
         <Avatar
           name={names[topSeat]}
           score={view.scores[topSeat]}
-          roundScore={view.eatenPoints[topSeat]}
+          roundScore={seatSubline ? seatSubline(topSeat) : view.eatenPoints[topSeat]}
           isTurn={turn === topSeat}
           isDealer={dealer === topSeat}
           danger={dangerFor(topSeat)}
@@ -516,7 +530,7 @@ export function GameTable({
         <Avatar
           name={names[leftSeat]}
           score={view.scores[leftSeat]}
-          roundScore={view.eatenPoints[leftSeat]}
+          roundScore={seatSubline ? seatSubline(leftSeat) : view.eatenPoints[leftSeat]}
           isTurn={turn === leftSeat}
           isDealer={dealer === leftSeat}
           danger={dangerFor(leftSeat)}
@@ -535,6 +549,7 @@ export function GameTable({
           {/* Continuous diameter, not the old @[480px]/@[900px] tiers: those
               froze at a fixed size past 900px container width, which is what
               left a big empty-looking disc on a wide desktop shell. */}
+          {centerOverride ?? (
           <div className="relative" style={{ width: trickCircleForContainer(tableW), height: trickCircleForContainer(tableW) }}>
             {/* The bounded playing surface: without it the trick's cards just
                 float on the same flat felt as the rest of the table, so any
@@ -569,6 +584,7 @@ export function GameTable({
               {trickPlays.length === 0 ? '↺' : ''}
             </div>
           </div>
+          )}
           {frozenTrick && frozenTrick.points > 0 && (
             <div className="text-amber-300 text-sm font-bold animate-bounce">+{frozenTrick.points} {names[frozenTrick.winner]}</div>
           )}
@@ -591,7 +607,7 @@ export function GameTable({
         <Avatar
           name={names[rightSeat]}
           score={view.scores[rightSeat]}
-          roundScore={view.eatenPoints[rightSeat]}
+          roundScore={seatSubline ? seatSubline(rightSeat) : view.eatenPoints[rightSeat]}
           isTurn={turn === rightSeat}
           isDealer={dealer === rightSeat}
           danger={dangerFor(rightSeat)}
@@ -668,6 +684,7 @@ export function GameTable({
       )}
 
       {/* HUD strip */}
+      {hudOverride ?? (
       <div className="flex items-center justify-center gap-3 text-[11px] text-emerald-200 bg-emerald-950/60 py-1.5 px-2">
         <span
           className={`font-semibold px-1.5 rounded ${spectator ? 'text-amber-200' : dangerFor(mySeat) ? 'bg-red-600 text-white' : 'text-amber-200'}`}
@@ -691,6 +708,7 @@ export function GameTable({
           </>
         )}
       </div>
+      )}
 
       {/* Top-left cluster: a way back to the first/home screen mid-game
           (previously only reachable once the match had fully ended, via
@@ -784,7 +802,7 @@ export function GameTable({
           <Avatar
             name={names[mySeat]}
             score={view.scores[mySeat]}
-            roundScore={view.eatenPoints[mySeat]}
+            roundScore={seatSubline ? seatSubline(mySeat) : view.eatenPoints[mySeat]}
             isTurn={turn === mySeat}
             isDealer={dealer === mySeat}
             danger={dangerFor(mySeat)}
@@ -830,7 +848,11 @@ export function GameTable({
           the emote button), and the arc lifts the CENTER up from the
           baseline, so no card ever pokes below the tray. Order is the same
           sortHand() order as PassingPanel in every language. */}
-      {!spectator && view.phase !== 'passing' && (
+      {/* Game-specific bottom region (Trix contract-select / deal-recap) takes
+          over the hand/passing slot when supplied; otherwise Leekha's hand fan
+          and passing panel render exactly as before. */}
+      {!spectator && bottomOverride}
+      {!spectator && !bottomOverride && view.phase !== 'passing' && (
         // pb-3: the outermost cards rotate around their bottom-center, which
         // dips their lower corners up to ~10px below the layout box; the
         // padding is what keeps those corners on screen.
@@ -936,7 +958,7 @@ export function GameTable({
       )}
 
       {/* Passing picker: occupies the same flow slot as the hand tray above. */}
-      {!spectator && view.phase === 'passing' && (
+      {!spectator && !bottomOverride && view.phase === 'passing' && (
         <PassingPanel
           hand={view.hand}
           recipientName={passRecipient}
@@ -948,8 +970,12 @@ export function GameTable({
         />
       )}
 
+      {/* Game-specific overlay (Trix deal recap / match-over) replaces Leekha's
+          round-summary and match-end overlays when supplied. */}
+      {overlayOverride}
+
       {/* Round summary overlay */}
-      {view.phase === 'roundEnd' && (
+      {!overlayOverride && view.phase === 'roundEnd' && (
         <RoundSummary
           names={names}
           eaten={view.eatenPoints}
@@ -968,7 +994,7 @@ export function GameTable({
       )}
 
       {/* Match end overlay */}
-      {view.phase === 'gameOver' && matchResult?.over && (
+      {!overlayOverride && view.phase === 'gameOver' && matchResult?.over && (
         <MatchEnd
           names={names}
           totals={view.scores}

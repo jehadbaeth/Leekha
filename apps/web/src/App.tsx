@@ -41,6 +41,7 @@ export default function App() {
   // Which game the player picked at the entry screen. null = show the picker.
   // Leekha's entire flow stays behind the 'leekha' choice, byte-for-byte.
   const [gameChoice, setGameChoice] = useState<GameChoice | null>(null);
+  const [landingAuth, setLandingAuth] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [user, setUser] = useState<AuthedUser | null>(null);
   const game = useGame(settings.botDifficulty);
@@ -177,13 +178,31 @@ export default function App() {
     );
   }
 
-  // Entry: pick a game. Leekha renders its unchanged shell below; Trix renders
-  // its own screen. Both share the same phone-shaped shell wrapper.
+  // Entry: pick a game (with global identity/account). Leekha renders its
+  // unchanged shell below; Trix renders through the same shared table.
   if (!gameChoice) {
     return (
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
         <div className="game-shell-inner relative h-[100dvh] w-full text-white">
-          <GamePicker settings={settings} onChoose={setGameChoice} />
+          {landingAuth ? (
+            <AuthScreen
+              settings={settings}
+              onBack={() => setLandingAuth(false)}
+              onAuthed={(u) => {
+                setUser(u);
+                setLandingAuth(false);
+              }}
+            />
+          ) : (
+            <GamePicker
+              settings={settings}
+              onUpdateSettings={updateSettings}
+              user={user}
+              onAuth={() => setLandingAuth(true)}
+              onLogout={() => void apiLogout().finally(() => setUser(null))}
+              onChoose={setGameChoice}
+            />
+          )}
         </div>
       </div>
     );
@@ -193,7 +212,7 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
         <div className="game-shell-inner relative h-[100dvh] w-full text-white">
-          <TrixGame config={gameChoice.config} onExit={() => setGameChoice(null)} />
+          <TrixGame config={gameChoice.config} settings={settings} onExit={() => setGameChoice(null)} />
         </div>
       </div>
     );
