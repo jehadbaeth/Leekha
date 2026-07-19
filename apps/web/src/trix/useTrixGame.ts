@@ -23,6 +23,9 @@ const HUMAN_SEAT: Seat = 0;
 const BOT_SEATS: Seat[] = [1, 2, 3];
 
 function randomDelay(): number {
+  // Inert dev/test hook: set window.__trixFastBots to collapse bot pacing so an
+  // automated harness can reach late game states quickly. Unset in production.
+  if (typeof window !== 'undefined' && (window as unknown as { __trixFastBots?: boolean }).__trixFastBots) return 15;
   return 500 + Math.random() * 900;
 }
 

@@ -177,7 +177,7 @@ export function TrixGame({
   // hand stays on screen. ---
   let center: React.ReactNode = undefined;
   if (view.phase === 'layout') {
-    center = <TrixLayoutCenter view={view} onPass={humanPass} language={L} names={names} />;
+    center = <TrixLayoutCenter view={view} onPass={humanPass} language={L} names={names} fourColor={settings.fourColorDeck} />;
   } else if (view.phase === 'exposing') {
     center = (
       <div className="flex flex-col items-center gap-2 px-4 text-center">
