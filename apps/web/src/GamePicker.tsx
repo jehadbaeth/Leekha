@@ -4,7 +4,9 @@ import { pick, type Settings } from './settings';
 import { randomFunName } from './names';
 import type { AuthedUser } from './net/api';
 
-export type GameChoice = { game: 'leekha' } | { game: 'trix'; config: TrixRulesConfig };
+export type GameChoice =
+  | { game: 'leekha' }
+  | { game: 'trix'; config: TrixRulesConfig; online?: boolean };
 
 /**
  * The landing screen: your identity/account (global across games) plus the game
@@ -86,8 +88,18 @@ export function GamePicker({
           <span className="block text-xs font-medium text-emerald-900/80 mt-0.5">{t('The Idlib variant', 'نسخة إدلب')}</span>
         </button>
 
-        <TrixCard settings={settings} complex={false} onPlay={(config) => { commitName(); onChoose({ game: 'trix', config }); }} />
-        <TrixCard settings={settings} complex={true} onPlay={(config) => { commitName(); onChoose({ game: 'trix', config }); }} />
+        <TrixCard
+          settings={settings}
+          complex={false}
+          onPlay={(config) => { commitName(); onChoose({ game: 'trix', config }); }}
+          onPlayOnline={(config) => { commitName(); onChoose({ game: 'trix', config, online: true }); }}
+        />
+        <TrixCard
+          settings={settings}
+          complex={true}
+          onPlay={(config) => { commitName(); onChoose({ game: 'trix', config }); }}
+          onPlayOnline={(config) => { commitName(); onChoose({ game: 'trix', config, online: true }); }}
+        />
 
         {/* Global account + language. */}
         <div className="flex justify-center text-xs text-emerald-300 mt-1">
@@ -121,10 +133,12 @@ function TrixCard({
   settings,
   complex,
   onPlay,
+  onPlayOnline,
 }: {
   settings: Settings;
   complex: boolean;
   onPlay: (config: TrixRulesConfig) => void;
+  onPlayOnline: (config: TrixRulesConfig) => void;
 }) {
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
   const [partnership, setPartnership] = useState(true);
@@ -162,12 +176,20 @@ function TrixCard({
           {t('Doubling', 'مضاعفة')} {doubling ? '✓' : '✕'}
         </button>
       </div>
-      <button
-        className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 active:scale-[0.98] transition"
-        onClick={() => onPlay({ ...defaultTrixConfig, complex, partnership, doubling })}
-      >
-        {t('Play', 'العب')}
-      </button>
+      <div className="flex gap-2">
+        <button
+          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 active:scale-[0.98] transition"
+          onClick={() => onPlay({ ...defaultTrixConfig, complex, partnership, doubling })}
+        >
+          {t('Play vs bots', 'العب ضد البوتات')}
+        </button>
+        <button
+          className="flex-1 rounded-xl bg-sky-700 hover:bg-sky-600 text-white font-semibold py-2.5 active:scale-[0.98] transition"
+          onClick={() => onPlayOnline({ ...defaultTrixConfig, complex, partnership, doubling })}
+        >
+          {t('Play online', 'العب أونلاين')}
+        </button>
+      </div>
     </div>
   );
 }

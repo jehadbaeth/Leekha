@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CardSchema, SeatSchema } from './primitives.js';
+import { CardSchema, SeatSchema, RankSchema } from './primitives.js';
 
 // Trix protocol arms. These are ADDITIVE: Leekha's existing message shapes in
 // schema.ts are untouched. A room is either a Leekha room or a Trix room,
@@ -21,7 +21,7 @@ export const TrixRulesConfigSchema = z.object({
 });
 
 const TrixTrickPlaySchema = z.object({ seat: SeatSchema, card: CardSchema });
-const SuitLayoutSchema = z.object({ up: z.number().nullable(), down: z.number().nullable() });
+const SuitLayoutSchema = z.object({ up: RankSchema.nullable(), down: RankSchema.nullable() });
 const LayoutSchema = z.object({ S: SuitLayoutSchema, H: SuitLayoutSchema, D: SuitLayoutSchema, C: SuitLayoutSchema });
 const ExposedSchema = z.object({ seat: SeatSchema, card: CardSchema });
 const Quad = <T extends z.ZodTypeAny>(t: T) => z.tuple([t, t, t, t]);

@@ -10,6 +10,7 @@ import { HistoryScreen } from './HistoryScreen';
 import { AdminScreen } from './AdminScreen';
 import { GamePicker, type GameChoice } from './GamePicker';
 import { TrixLocalGame } from './trix/TrixGame';
+import { TrixOnlineGame } from './trix/TrixOnlineGame';
 import { GameTable } from './components/GameTable';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
@@ -212,7 +213,11 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
         <div className="game-shell-inner relative h-[100dvh] w-full text-white">
-          <TrixLocalGame config={gameChoice.config} settings={settings} onExit={() => setGameChoice(null)} />
+          {gameChoice.online ? (
+            <TrixOnlineGame config={gameChoice.config} settings={settings} onExit={() => setGameChoice(null)} />
+          ) : (
+            <TrixLocalGame config={gameChoice.config} settings={settings} onExit={() => setGameChoice(null)} />
+          )}
         </div>
       </div>
     );
