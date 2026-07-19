@@ -15,6 +15,7 @@ import {
   type TrixMatchState,
   type TrixRulesConfig,
   type TrixSeatView,
+  type TrickPlay,
 } from '@leekha/trix';
 import { makeTrixBot } from '@leekha/trix-bots';
 
@@ -59,6 +60,10 @@ export interface TrixEventLogItem {
 export function useTrixGame(config: TrixRulesConfig) {
   const [match, setMatchState] = useState<TrixMatchState | null>(null);
   const [events, setEvents] = useState<TrixEventLogItem[]>([]);
+  // Completed tricks of the CURRENT deal, newest last — feeds GameTable's
+  // trick-freeze pause and the "last trick" review (both read view.playedCards).
+  // Reset each deal so "last trick" never shows a prior deal's trick.
+  const [playedCards, setPlayedCards] = useState<TrickPlay[][]>([]);
   const matchRef = useRef<TrixMatchState | null>(null);
   const scheduledRef = useRef<Set<string>>(new Set());
   const eventIdRef = useRef(0);
@@ -74,6 +79,10 @@ export function useTrixGame(config: TrixRulesConfig) {
   const pushEvents = useCallback((evs: TrixEvent[]) => {
     if (evs.length === 0) return;
     setEvents((prev) => [...prev, ...evs.map((event) => ({ id: eventIdRef.current++, event }))]);
+    for (const e of evs) {
+      if (e.type === 'contractChosen') setPlayedCards([]); // new deal → fresh trick history
+      else if (e.type === 'trickEnd') setPlayedCards((prev) => [...prev, e.cards]);
+    }
     const de = [...evs].reverse().find((e) => e.type === 'dealEnd');
     if (de && de.type === 'dealEnd') setPendingDeal(de);
   }, []);
@@ -84,6 +93,7 @@ export function useTrixGame(config: TrixRulesConfig) {
     (seed: string = `trix-local-${Date.now()}-${Math.random().toString(36).slice(2)}`) => {
       scheduledRef.current.clear();
       setEvents([]);
+      setPlayedCards([]);
       setPendingDeal(null);
       const m = newMatch(config, seed);
       setMatch(m);
@@ -197,6 +207,7 @@ export function useTrixGame(config: TrixRulesConfig) {
     view,
     events,
     clearEvent,
+    playedCards,
     startMatch,
     pendingDeal,
     continueDeal,

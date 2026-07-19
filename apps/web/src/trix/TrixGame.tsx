@@ -32,6 +32,15 @@ export interface TrixController {
   humanExpose: (card: Card) => void;
   humanPass: () => void;
   humanPlay: (card: Card) => void;
+  /** Event stream that drives GameTable's sounds/haptics/trick-freeze; empty = silent. */
+  events: { id: number; event: { type: string } }[];
+  clearEvent: (id: number) => void;
+  /** Completed tricks this deal (for the trick-freeze pause + last-trick review). */
+  playedCards: { seat: Seat; card: unknown }[][];
+  /** Online-only extras; undefined for local play. */
+  presence?: Record<Seat, 'connected' | 'reconnecting' | 'bot'>;
+  turnDeadline?: { seat: Seat; deadline: number | null } | null;
+  roomCode?: string | null;
 }
 
 /**
@@ -59,6 +68,20 @@ export function TrixGame({
 }) {
   const { view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } = controller;
   const [selected, setSelected] = useState<Contract[]>([]);
+
+  // Map Trix's event names onto the ones GameTable's sound/haptic/freeze effects
+  // recognize: 'played'/'trickEnd' already match; 'dealEnd'->'roundEnd' and
+  // 'matchOver'->'gameOver' (synthesizing the losingTeam the gameOver sting needs).
+  const tableEvents = controller.events.map(({ id, event }) => {
+    const e = event as { type: string; [k: string]: unknown };
+    if (e.type === 'trickEnd') return { id, event: { ...e, points: (e.points as number) ?? 0 } };
+    if (e.type === 'dealEnd') return { id, event: { type: 'roundEnd' } };
+    if (e.type === 'matchOver') {
+      const r = (e.result as { winnerTeam?: 0 | 1 }) ?? {};
+      return { id, event: { type: 'gameOver', losingTeam: r.winnerTeam === 0 ? 1 : 0 } };
+    }
+    return { id, event: e };
+  });
 
   // Entering a fresh contract choice: under Complex, pre-select every remaining
   // penalty (trick) contract so the natural one-tap action plays them combined,
@@ -266,13 +289,16 @@ export function TrixGame({
 
   return (
     <GameTable
-      view={trixToSeatView(view)}
+      view={trixToSeatView(view, controller.playedCards)}
       names={names}
-      events={[]}
-      clearEvent={() => {}}
+      events={tableEvents}
+      clearEvent={controller.clearEvent}
       passesApplied
       passProgress={[false, false, false, false]}
       settings={settings}
+      presence={controller.presence}
+      turnDeadline={controller.turnDeadline ?? undefined}
+      roomCode={controller.roomCode ?? undefined}
       onCommitPass={() => {}}
       onPlayCard={humanPlay}
       onAdvanceRound={continueDeal}

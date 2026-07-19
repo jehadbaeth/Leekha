@@ -756,6 +756,18 @@ export function GameTable({
                 👁 {spectators.count}
               </button>
             )}
+            {/* A game that replaces the HUD strip (Trix's hudOverride) loses the
+                in-HUD "Last trick" button, so surface it here in the control
+                cluster instead. Leekha keeps its in-HUD one (no hudOverride). */}
+            {hudOverride && lastCompletedTrick && (
+              <button
+                className="flex items-center justify-center w-9 h-9 bg-emerald-900/80 border border-emerald-700 rounded-full shadow-lg active:scale-95"
+                onClick={() => setShowLastTrick(true)}
+                aria-label={t('Last trick', 'اللفة الأخيرة')}
+              >
+                🃏
+              </button>
+            )}
           </div>
           {codeCopied && (
             <span className="bg-black/75 text-white text-[10px] rounded-full px-2 py-0.5">{t('Copied!', 'تم النسخ!')}</span>

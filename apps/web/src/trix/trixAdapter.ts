@@ -9,7 +9,7 @@ import { isDiamond, isQueen, isKingOfHearts, type Contract, type Seat, type Trix
 // switched off, and the phase is pinned to 'playing' so the table stays in its
 // in-game layout; Trix's own phase drives which seam overrides are supplied.
 
-export function trixToSeatView(tv: TrixSeatView): SeatView {
+export function trixToSeatView(tv: TrixSeatView, playedCards: { seat: Seat; card: unknown }[][] = []): SeatView {
   // GameTable reads "whose turn" as (currentTrick.leader + plays.length) % 4.
   // In a trick contract the real trick already yields the right seat; in every
   // other Trix phase (layout/selecting/exposing) there is no trick, so encode
@@ -27,10 +27,15 @@ export function trixToSeatView(tv: TrixSeatView): SeatView {
     hand: tv.hand as unknown as LeekhaCard[],
     phase: 'playing',
     dealer: tv.kingdomOwner,
-    roundIndex: tv.kingdomIndex,
+    // GameTable keys its deal flourish + per-round UI reset on roundIndex. Use a
+    // per-DEAL signal (kingdom + contracts already spent this kingdom), not the
+    // raw kingdomIndex, which only changes once every ~5 deals.
+    roundIndex: tv.kingdomIndex * 10 + tv.contractsSpent.length,
     trickNumber: Math.max(1, tv.trickNumber),
     currentTrick,
-    playedCards: [],
+    // Completed tricks this deal, so GameTable's trick-freeze pause and
+    // "last trick" review work (both read view.playedCards).
+    playedCards: playedCards.map((trick) => trick.map((p) => ({ seat: p.seat, card: p.card as unknown as LeekhaCard, forced: false }))),
     eatenPoints: [0, 0, 0, 0],
     eatenCards: [[], [], [], []],
     scores: tv.scores,

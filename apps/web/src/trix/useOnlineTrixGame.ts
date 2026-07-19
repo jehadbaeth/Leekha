@@ -182,8 +182,6 @@ export function useOnlineTrixGame() {
     status,
     roomState,
     mySeat,
-    presence,
-    turnDeadline,
     lastError,
     createRoom,
     joinRoom,
@@ -201,5 +199,15 @@ export function useOnlineTrixGame() {
     humanExpose,
     humanPass,
     humanPlay,
+    // event stream is filled in Batch A-online (trix.played/trix.trickEnd); empty for now
+    events: [] as { id: number; event: { type: string } }[],
+    clearEvent: (_id: number) => {},
+    playedCards: [] as { seat: Seat; card: unknown }[][],
+    // online-only extras forwarded to GameTable. turnDeadline.seat is null during
+    // the selecting phase (no acting card seat); GameTable's ring wants a real
+    // seat, so drop those to null.
+    presence,
+    turnDeadline: turnDeadline && turnDeadline.seat !== null ? { seat: turnDeadline.seat, deadline: turnDeadline.deadline } : null,
+    roomCode: roomState?.roomCode ?? null,
   };
 }
