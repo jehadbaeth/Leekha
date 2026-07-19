@@ -62,6 +62,11 @@ export const TrixClientMessages = [TrixChooseContractMsg, TrixExposeMsg, TrixPas
 
 // ---- Server -> client (Trix snapshots / turn / deal end / over) ----
 
+// Granular per-play events so the online client can reproduce the trick-
+// completion pause, the play/trick sounds, and the "last trick" review — the
+// whole-view snapshots alone arrive with the trick already collected.
+export const TrixPlayedMsg = z.object({ type: z.literal('trix.played'), seq: z.number().int().nonnegative(), roomCode: z.string(), seat: SeatSchema, card: CardSchema });
+export const TrixTrickEndMsg = z.object({ type: z.literal('trix.trickEnd'), seq: z.number().int().nonnegative(), roomCode: z.string(), winner: SeatSchema, cards: z.array(TrixTrickPlaySchema) });
 export const TrixSnapshotMsg = z.object({ type: z.literal('trix.snapshot'), seq: z.number().int().nonnegative(), roomCode: z.string(), view: TrixSeatViewSchema });
 export const TrixPublicSnapshotMsg = z.object({ type: z.literal('trix.publicSnapshot'), seq: z.number().int().nonnegative(), roomCode: z.string(), view: TrixSeatViewSchema });
 export const TrixTurnMsg = z.object({ type: z.literal('trix.turn'), seq: z.number().int().nonnegative(), roomCode: z.string(), seat: SeatSchema.nullable(), deadline: z.number().int().nullable() });
@@ -82,4 +87,4 @@ export const TrixOverMsg = z.object({
   winnerTeam: z.union([z.literal(0), z.literal(1)]).optional(),
 });
 
-export const TrixServerMessages = [TrixSnapshotMsg, TrixPublicSnapshotMsg, TrixTurnMsg, TrixDealEndMsg, TrixOverMsg] as const;
+export const TrixServerMessages = [TrixSnapshotMsg, TrixPublicSnapshotMsg, TrixTurnMsg, TrixDealEndMsg, TrixOverMsg, TrixPlayedMsg, TrixTrickEndMsg] as const;

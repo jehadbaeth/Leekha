@@ -254,6 +254,18 @@ export class TrixRoom extends RoomBase<TrixRulesConfig> {
 
     this.sendAllSnapshots();
 
+    // Granular per-play events so clients get the trick-completion pause, play/
+    // trick sounds, and last-trick review (the snapshot alone already has the
+    // trick collected). Sent after the snapshot so the client freezes the
+    // just-completed trick over the fresh board.
+    for (const e of result.events) {
+      if (e.type === 'played') {
+        this.emit(null, { type: 'trix.played', seq: this.nextSeq(), roomCode: this.code, seat: e.seat, card: e.card });
+      } else if (e.type === 'trickEnd') {
+        this.emit(null, { type: 'trix.trickEnd', seq: this.nextSeq(), roomCode: this.code, winner: e.winner, cards: e.cards });
+      }
+    }
+
     if (over && over.type === 'matchOver') {
       this.emit(null, {
         type: 'trix.over',

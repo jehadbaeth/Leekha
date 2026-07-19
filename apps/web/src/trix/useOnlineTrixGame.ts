@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Card, Contract, Seat, TrixRulesConfig, TrixSeatView } from '@leekha/trix';
+import type { Card, Contract, Seat, TrickPlay, TrixRulesConfig, TrixSeatView } from '@leekha/trix';
 import type { ServerMessage } from '@leekha/protocol';
 import { GameSocket, type ConnectionStatus } from '../net/socket';
 import { clearSession, loadSession, saveSession, type StoredSession } from '../net/session';
@@ -32,6 +32,17 @@ export function useOnlineTrixGame() {
   const [presence, setPresence] = useState<Record<Seat, PresenceStatus>>({ 0: 'connected', 1: 'connected', 2: 'connected', 3: 'connected' });
   const [lastError, setLastError] = useState<string | null>(null);
   const roomStateRef = useRef<RoomState | null>(null);
+  // Event stream (from trix.played/trix.trickEnd) + completed tricks this deal,
+  // feeding GameTable's sounds/haptics/trick-freeze + last-trick review, exactly
+  // like the local hook. Reset per deal, keyed on (kingdom, contracts spent).
+  const [events, setEvents] = useState<{ id: number; event: { type: string } }[]>([]);
+  const [playedCards, setPlayedCards] = useState<TrickPlay[][]>([]);
+  const eventIdRef = useRef(0);
+  const lastDealKeyRef = useRef<string>('');
+  const clearEvent = useCallback((id: number) => setEvents((prev) => prev.filter((e) => e.id !== id)), []);
+  const pushEvent = useCallback((event: { type: string; [k: string]: unknown }) => {
+    setEvents((prev) => [...prev, { id: eventIdRef.current++, event }]);
+  }, []);
 
   useEffect(() => {
     const socket = socketRef.current!;
@@ -55,6 +66,15 @@ export function useOnlineTrixGame() {
           // The deal-recap pause holds because the server sends no snapshot
           // during its advance delay (see TrixRoom.applyResult).
           setPendingDeal(null);
+          // New deal (kingdom or contracts-spent changed) → fresh trick history,
+          // so "last trick" never shows a prior deal's trick. Resetting here (on
+          // the next deal's first snapshot) rather than at dealEnd keeps the last
+          // trick reviewable through the recap.
+          const dealKey = `${msg.view.kingdomIndex}:${msg.view.contractsSpent.length}`;
+          if (dealKey !== lastDealKeyRef.current) {
+            lastDealKeyRef.current = dealKey;
+            setPlayedCards([]);
+          }
           break;
         }
         case 'trix.publicSnapshot': {
@@ -66,8 +86,22 @@ export function useOnlineTrixGame() {
           setTurnDeadline({ seat: msg.seat, deadline: msg.deadline });
           break;
         }
+        case 'trix.played': {
+          pushEvent({ type: 'played', seat: msg.seat, card: msg.card });
+          break;
+        }
+        case 'trix.trickEnd': {
+          pushEvent({ type: 'trickEnd', winner: msg.winner, cards: msg.cards, points: 0 });
+          setPlayedCards((prev) => [...prev, msg.cards]);
+          break;
+        }
         case 'trix.dealEnd': {
           setPendingDeal({ dealScores: msg.dealScores, totals: msg.totals });
+          pushEvent({ type: 'roundEnd' });
+          break;
+        }
+        case 'trix.over': {
+          pushEvent({ type: 'gameOver', losingTeam: msg.winnerTeam === 0 ? 1 : 0 });
           break;
         }
         case 'presence': {
@@ -199,10 +233,9 @@ export function useOnlineTrixGame() {
     humanExpose,
     humanPass,
     humanPlay,
-    // event stream is filled in Batch A-online (trix.played/trix.trickEnd); empty for now
-    events: [] as { id: number; event: { type: string } }[],
-    clearEvent: (_id: number) => {},
-    playedCards: [] as { seat: Seat; card: unknown }[][],
+    events,
+    clearEvent,
+    playedCards,
     // online-only extras forwarded to GameTable. turnDeadline.seat is null during
     // the selecting phase (no acting card seat); GameTable's ring wants a real
     // seat, so drop those to null.
