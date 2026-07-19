@@ -20,6 +20,8 @@ export interface SessionRow {
 
 export interface MatchRecord {
   id: string;
+  /** Which game this match was. Absent means 'leekha' (keeps pre-Trix records/fixtures valid). Lets the admin panel / history split by game. */
+  gameType?: 'leekha' | 'trix';
   roomCode: string;
   config: unknown;
   seed: string;
@@ -63,6 +65,7 @@ export function openDb(path: string) {
     CREATE TABLE IF NOT EXISTS matches (
       id TEXT PRIMARY KEY,
       room_code TEXT NOT NULL,
+      game_type TEXT NOT NULL DEFAULT 'leekha',
       config TEXT NOT NULL,
       seed TEXT NOT NULL,
       move_log TEXT NOT NULL,
@@ -112,9 +115,16 @@ export function openDb(path: string) {
     CREATE INDEX IF NOT EXISTS idx_terrors_created ON telemetry_errors(created_at);
   `);
 
+  // Migration: pre-Trix databases have a `matches` table with no game_type column.
+  // ADD COLUMN with a default backfills existing rows as 'leekha' (they all are).
+  const hasGameType = (db.prepare(`PRAGMA table_info(matches)`).all() as { name: string }[]).some(
+    (c) => c.name === 'game_type',
+  );
+  if (!hasGameType) db.exec(`ALTER TABLE matches ADD COLUMN game_type TEXT NOT NULL DEFAULT 'leekha'`);
+
   const insertMatch = db.prepare(
-    `INSERT INTO matches (id, room_code, config, seed, move_log, final_scores, result, started_at, ended_at)
-     VALUES (@id, @roomCode, @config, @seed, @moveLog, @finalScores, @result, @startedAt, @endedAt)`,
+    `INSERT INTO matches (id, room_code, game_type, config, seed, move_log, final_scores, result, started_at, ended_at)
+     VALUES (@id, @roomCode, @gameType, @config, @seed, @moveLog, @finalScores, @result, @startedAt, @endedAt)`,
   );
   const insertPlayer = db.prepare(
     `INSERT INTO match_players (match_id, seat, user_id, display_name, was_bot)
@@ -129,6 +139,7 @@ export function openDb(path: string) {
         insertMatch.run({
           id: r.id,
           roomCode: r.roomCode,
+          gameType: r.gameType ?? 'leekha',
           config: JSON.stringify(r.config),
           seed: r.seed,
           moveLog: JSON.stringify(r.moveLog),
