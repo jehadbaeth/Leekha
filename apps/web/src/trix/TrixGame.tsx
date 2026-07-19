@@ -47,12 +47,15 @@ export function TrixGame({
   settings,
   onExit,
   names = SEAT_NAMES,
+  recapAutoAdvances = false,
 }: {
   controller: TrixController;
   config: TrixRulesConfig;
   settings: Settings;
   onExit: () => void;
   names?: Record<Seat, string>;
+  /** Online: the server auto-advances after the deal recap, so show a "starting shortly" note instead of a dead Continue button. */
+  recapAutoAdvances?: boolean;
 }) {
   const { view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } = controller;
   const [selected, setSelected] = useState<Contract[]>([]);
@@ -128,7 +131,45 @@ export function TrixGame({
     </div>
   );
 
-  // --- Bottom slot: contract picker (selecting) / doubling (exposing) ---
+  // --- Centre slot: the Fan-Tan board (layout) or the doubling window
+  // (exposing). Putting the doubling panel in the centre — not the bottom slot —
+  // is deliberate: the bottom slot replaces the hand fan, and during doubling
+  // the player must SEE their hand to judge which honors to expose. The centre
+  // is empty during exposing (no trick yet), so the panel lives there and the
+  // hand stays on screen. ---
+  let center: React.ReactNode = undefined;
+  if (view.phase === 'layout') {
+    center = <TrixLayoutCenter view={view} onPass={humanPass} />;
+  } else if (view.phase === 'exposing') {
+    center = (
+      <div className="flex flex-col items-center gap-2 px-4 text-center">
+        <div className="text-emerald-100 text-sm font-semibold">Doubling window</div>
+        {view.turn === me ? (
+          <>
+            <div className="text-emerald-300 text-[11px] max-w-[16rem]">
+              Expose an honor to double its value (your hand is below). Or skip.
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {view.exposable.map((c) => (
+                <button key={cardKey(c)} onClick={() => humanExpose(c)} className="rounded-lg px-4 py-2 text-sm font-semibold bg-amber-400 text-emerald-950 shadow">
+                  Double {cardLabel(c)}
+                </button>
+              ))}
+              {view.canPass && (
+                <button onClick={humanPass} className="rounded-lg px-4 py-2 text-sm font-semibold bg-emerald-800 text-emerald-50 shadow">
+                  {view.exposable.length > 0 ? 'Skip' : 'Done'}
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-emerald-200 text-sm">Waiting for {names[view.turn ?? view.kingdomOwner]}…</div>
+        )}
+      </div>
+    );
+  }
+
+  // --- Bottom slot: contract picker (selecting only; it has no hand to hide) ---
   let bottom: React.ReactNode = undefined;
   if (view.phase === 'selecting') {
     bottom = (
@@ -162,28 +203,6 @@ export function TrixGame({
           </>
         ) : (
           <div className="text-emerald-200 text-sm">Waiting for {names[view.kingdomOwner]} to choose a contract…</div>
-        )}
-      </div>
-    );
-  } else if (view.phase === 'exposing') {
-    bottom = (
-      <div className="flex flex-col items-center gap-2 px-4 py-4">
-        <div className="text-emerald-100 text-sm font-semibold">Doubling window</div>
-        {view.turn === me ? (
-          <div className="flex flex-wrap gap-2 justify-center">
-            {view.exposable.map((c) => (
-              <button key={cardKey(c)} onClick={() => humanExpose(c)} className="rounded-lg px-4 py-2 text-sm font-semibold bg-amber-400 text-emerald-950 shadow">
-                Double {cardLabel(c)}
-              </button>
-            ))}
-            {view.canPass && (
-              <button onClick={humanPass} className="rounded-lg px-4 py-2 text-sm font-semibold bg-emerald-800 text-emerald-50 shadow">
-                {view.exposable.length > 0 ? 'Skip' : 'Done'}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="text-emerald-200 text-sm">Waiting for {names[view.turn ?? view.kingdomOwner]}…</div>
         )}
       </div>
     );
@@ -233,9 +252,13 @@ export function TrixGame({
               </span>
             ))}
           </div>
-          <button className="rounded-lg bg-amber-400 text-emerald-950 font-semibold text-sm px-4 py-1.5" onClick={continueDeal}>
-            Continue
-          </button>
+          {recapAutoAdvances ? (
+            <div className="text-emerald-300 text-xs">Next deal starting shortly…</div>
+          ) : (
+            <button className="rounded-lg bg-amber-400 text-emerald-950 font-semibold text-sm px-4 py-1.5" onClick={continueDeal}>
+              Continue
+            </button>
+          )}
         </div>
       </div>
     );
@@ -256,7 +279,7 @@ export function TrixGame({
       onRematch={() => startMatch()}
       onHome={onExit}
       hudOverride={hud}
-      centerOverride={view.phase === 'layout' ? <TrixLayoutCenter view={view} onPass={humanPass} /> : undefined}
+      centerOverride={center}
       bottomOverride={bottom}
       overlayOverride={overlay}
       seatSubline={(seat) => trixSeatTally(view, seat)}

@@ -525,7 +525,7 @@ export function GameTable({
           `justify-between` on the full row width is what pushes them out. */}
       <div
         dir="ltr"
-        className="flex-1 @[900px]:flex-none flex items-center justify-between px-2 @[900px]:px-10 @[900px]:py-4 mx-auto w-full @[900px]:max-w-[min(760px,78cqw)]"
+        className="flex-1 min-h-0 @[900px]:flex-none flex items-center justify-between px-2 @[900px]:px-10 @[900px]:py-4 mx-auto w-full @[900px]:max-w-[min(760px,78cqw)]"
       >
         <Avatar
           name={names[leftSeat]}
@@ -543,13 +543,18 @@ export function GameTable({
         />
 
         <div
-          className="flex-1 flex flex-col items-center justify-center gap-1 relative"
+          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 relative"
           style={{ minHeight: trickCircleForContainer(tableW) + 20, marginInline: Math.round(avatarGapForContainer(avatarSize) * 0.85) }}
         >
           {/* Continuous diameter, not the old @[480px]/@[900px] tiers: those
               froze at a fixed size past 900px container width, which is what
-              left a big empty-looking disc on a wide desktop shell. */}
-          {centerOverride ?? (
+              left a big empty-looking disc on a wide desktop shell. A game with
+              a centre override (Trix's board/doubling panel) gets a
+              height-bounded, self-scrolling box so tall content can never grow
+              the fixed-height table into a page scroll. */}
+          {centerOverride ? (
+            <div className="w-full max-h-full min-h-0 overflow-y-auto flex items-center justify-center">{centerOverride}</div>
+          ) : (
           <div className="relative" style={{ width: trickCircleForContainer(tableW), height: trickCircleForContainer(tableW) }}>
             {/* The bounded playing surface: without it the trick's cards just
                 float on the same flat felt as the rest of the table, so any
@@ -851,7 +856,9 @@ export function GameTable({
       {/* Game-specific bottom region (Trix contract-select / deal-recap) takes
           over the hand/passing slot when supplied; otherwise Leekha's hand fan
           and passing panel render exactly as before. */}
-      {!spectator && bottomOverride}
+      {!spectator && bottomOverride && (
+        <div className="shrink-0 min-h-0 max-h-[42%] overflow-y-auto w-full">{bottomOverride}</div>
+      )}
       {!spectator && !bottomOverride && view.phase !== 'passing' && (
         // pb-3: the outermost cards rotate around their bottom-center, which
         // dips their lower corners up to ~10px below the layout box; the

@@ -1,27 +1,30 @@
 import type { Rank, Suit, SuitLayout, TrixSeatView } from '@leekha/trix';
 import { SUIT_ORDER, SUIT_SYMBOL, rankLabel, suitColorClass, SEAT_NAMES } from './trixLabels';
 
-// The Fan-Tan layout, rendered into the shared GameTable's centre slot (where
-// Leekha shows its trick circle). The player's hand and its tap-to-play come
-// from GameTable's own hand fan; this only shows the four suit runs and the
-// Pass control for when there is no legal play.
+// The Fan-Tan (Trex layout) tableau, rendered into the shared GameTable's centre
+// slot. Each suit is ONE continuous low->high run with the jack as the anchor:
+// cards build down toward 2 on the left and up toward the ace on the right, the
+// way the physical game lays out. The player's hand + tap-to-play come from
+// GameTable's own hand fan; this only shows the board and the Pass control.
 
-function runsFor(s: SuitLayout): { up: Rank[]; down: Rank[] } {
-  const up: Rank[] = [];
-  const down: Rank[] = [];
-  if (s.up !== null) {
-    up.push(11 as Rank);
-    for (let r = 12; r <= s.up; r++) up.push(r as Rank);
-  }
+/** The full placed run for a suit, low (down toward 2) to high (up toward A), jack in the middle. */
+function sequenceFor(s: SuitLayout): Rank[] {
+  if (s.up === null) return []; // suit not opened yet (no jack down)
+  const seq: Rank[] = [];
   if (s.down !== null && s.down < 11) {
-    for (let r = 10; r >= s.down; r--) down.push(r as Rank);
+    for (let r = s.down; r <= 10; r++) seq.push(r as Rank); // 2..10 side, ascending
   }
-  return { up, down };
+  for (let r = 11; r <= s.up; r++) seq.push(r as Rank); // J, Q, K, A side
+  return seq;
 }
 
-function Chip({ rank, suit }: { rank: Rank; suit: Suit }) {
+function Chip({ rank, suit, anchor }: { rank: Rank; suit: Suit; anchor?: boolean }) {
   return (
-    <div className={`w-6 h-8 rounded bg-white border border-black/10 flex flex-col items-center justify-center leading-none ${suitColorClass(suit)}`}>
+    <div
+      className={`shrink-0 w-6 h-8 rounded bg-white border flex flex-col items-center justify-center leading-none ${
+        anchor ? 'border-amber-400 ring-1 ring-amber-300' : 'border-black/10'
+      } ${suitColorClass(suit)}`}
+    >
       <span className="text-[11px] font-bold">{rankLabel(rank)}</span>
       <span className="text-[9px]">{SUIT_SYMBOL[suit]}</span>
     </div>
@@ -33,7 +36,7 @@ const PLACE = ['1st', '2nd', '3rd', '4th'];
 export function TrixLayoutCenter({ view, onPass }: { view: TrixSeatView; onPass: () => void }) {
   const isMyTurn = view.turn === view.seat;
   return (
-    <div className="w-full flex flex-col items-center gap-2 px-2">
+    <div className="w-full max-w-sm flex flex-col items-stretch gap-1.5 px-2 max-h-full overflow-y-auto">
       {view.finished.length > 0 && (
         <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-200 flex-wrap">
           {view.finished.map((seat, i) => (
@@ -43,32 +46,36 @@ export function TrixLayoutCenter({ view, onPass }: { view: TrixSeatView; onPass:
           ))}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+      <div className="flex flex-col gap-1">
         {SUIT_ORDER.map((suit) => {
-          const { up, down } = runsFor(view.layout[suit]);
+          const seq = sequenceFor(view.layout[suit]);
           return (
-            <div key={suit} className="bg-emerald-950/40 rounded-lg p-1.5 flex flex-col items-center gap-1">
-              <div className={`text-xs font-bold ${suitColorClass(suit)} bg-white rounded px-1`}>{SUIT_SYMBOL[suit]}</div>
-              <div className="flex gap-0.5 flex-wrap justify-center min-h-[2rem]">
-                {up.length === 0 ? (
-                  <span className="text-emerald-400/60 text-[10px] self-center">—</span>
+            <div key={suit} className="flex items-center gap-1.5">
+              <div className={`shrink-0 w-6 text-center text-sm font-bold rounded bg-white ${suitColorClass(suit)}`}>
+                {SUIT_SYMBOL[suit]}
+              </div>
+              <div className="flex-1 min-w-0 overflow-x-auto">
+                {seq.length === 0 ? (
+                  <span className="text-emerald-400/60 text-[10px] leading-8">
+                    not opened — the {SUIT_SYMBOL[suit]} jack opens it
+                  </span>
                 ) : (
-                  up.map((r) => <Chip key={`u${r}`} rank={r} suit={suit} />)
+                  <div className="flex gap-0.5 w-max">
+                    {seq.map((r) => (
+                      <Chip key={r} rank={r} suit={suit} anchor={r === 11} />
+                    ))}
+                  </div>
                 )}
               </div>
-              {down.length > 0 && (
-                <div className="flex gap-0.5 flex-wrap justify-center border-t border-emerald-800 pt-1">
-                  {down.map((r) => (
-                    <Chip key={`d${r}`} rank={r} suit={suit} />
-                  ))}
-                </div>
-              )}
             </div>
           );
         })}
       </div>
       {isMyTurn && view.canPass && (
-        <button onClick={onPass} className="text-xs font-semibold bg-amber-400 text-emerald-950 rounded-full px-4 py-1.5 shadow active:scale-95">
+        <button
+          onClick={onPass}
+          className="self-center mt-0.5 text-xs font-semibold bg-amber-400 text-emerald-950 rounded-full px-4 py-1.5 shadow active:scale-95"
+        >
           Pass (no legal card)
         </button>
       )}
