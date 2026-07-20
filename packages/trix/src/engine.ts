@@ -81,11 +81,22 @@ function validateChoice(state: TrixMatchState, contracts: Contract[]): void {
   const legal = legalContracts(state);
   for (const c of contracts) if (!legal.includes(c)) throw new IllegalTrixAction('spent', `Contract ${c} already played`);
   if (new Set(contracts).size !== contracts.length) throw new IllegalTrixAction('dup', 'Duplicate contract');
-  if (contracts.length > 1) {
-    if (!state.config.complex) throw new IllegalTrixAction('not-complex', 'Combining contracts needs Complex');
-    if (!contracts.every((c) => TRICK_CONTRACTS.includes(c)))
-      throw new IllegalTrixAction('bad-combo', 'Only trick contracts can be combined');
+
+  if (state.config.complex) {
+    // Complex is strict: a deal is EITHER Trix (the layout) OR "Complex" — ALL
+    // remaining penalty contracts played together. No individual penalties and
+    // no partial combinations (e.g. Queens + King of Hearts only).
+    const remainingPenalties = legal.filter((c) => TRICK_CONTRACTS.includes(c));
+    const isTrix = contracts.length === 1 && contracts[0] === 'trix';
+    const isAllPenalties =
+      contracts.length === remainingPenalties.length && remainingPenalties.every((c) => contracts.includes(c));
+    if (!isTrix && !isAllPenalties)
+      throw new IllegalTrixAction('complex-combo', 'In Complex, play all penalties together or Trix');
+    return;
   }
+
+  // Simple Trix: exactly one contract per deal, no combining.
+  if (contracts.length > 1) throw new IllegalTrixAction('not-complex', 'Combining contracts needs Complex');
 }
 
 export function chooseContract(state: TrixMatchState, seat: Seat, contracts: Contract[]): Applied {

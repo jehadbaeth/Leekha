@@ -75,7 +75,6 @@ export function TrixGame({
   recapAutoAdvances?: boolean;
 }) {
   const { view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } = controller;
-  const [selected, setSelected] = useState<Contract[]>([]);
   const [passFlash, setPassFlash] = useState(false);
   const passedThisTurnRef = useRef(false);
 
@@ -111,18 +110,6 @@ export function TrixGame({
     }
     return { id, event: e };
   });
-
-  // Entering a fresh contract choice: under Complex, pre-select every remaining
-  // penalty (trick) contract so the natural one-tap action plays them combined,
-  // which is what "Complex" means. The player can still deselect to split them.
-  useEffect(() => {
-    if (config.complex && view?.phase === 'selecting' && view.choosableContracts) {
-      setSelected(view.choosableContracts.filter((c) => TRICK_CONTRACTS.includes(c)));
-    } else {
-      setSelected([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view?.phase, view?.kingdomIndex]);
 
   if (!view) {
     return (
@@ -238,33 +225,41 @@ export function TrixGame({
   // --- Bottom slot: contract picker (selecting only; it has no hand to hide) ---
   let bottom: React.ReactNode = undefined;
   if (view.phase === 'selecting') {
+    const choosable = view.choosableContracts ?? [];
+    const penalties = choosable.filter((c) => TRICK_CONTRACTS.includes(c));
     bottom = (
       <div className="flex flex-col items-center gap-2 px-4 py-4">
         {ownerIsHuman ? (
           <>
             <div className="text-emerald-100 text-sm font-semibold">{t('Choose a contract', 'اختر مشروعاً')}</div>
-            <div className="flex flex-wrap gap-2 justify-center max-w-xs">
-              {(view.choosableContracts ?? []).map((c) => {
-                const isSelected = selected.includes(c);
-                return (
+            {config.complex ? (
+              // Strict Complex: only two choices ever — "Complex" (all remaining
+              // penalties in one deal) or Trix. No individual/partial picks.
+              <div className="flex flex-wrap gap-2 justify-center">
+                {penalties.length > 0 && (
+                  <button onClick={() => humanChooseContract(penalties)} className="rounded-lg px-5 py-2 text-sm font-bold bg-amber-400 text-emerald-950 shadow">
+                    {t('Complex', 'كومبلكس')}
+                  </button>
+                )}
+                {choosable.includes('trix') && (
+                  <button onClick={() => humanChooseContract(['trix'])} className="rounded-lg px-5 py-2 text-sm font-bold bg-emerald-700 text-emerald-50 shadow">
+                    {contractName('trix', L)}
+                  </button>
+                )}
+              </div>
+            ) : (
+              // Simple Trix: one contract per deal.
+              <div className="flex flex-wrap gap-2 justify-center max-w-xs">
+                {choosable.map((c) => (
                   <button
                     key={c}
-                    onClick={() => {
-                      if (!config.complex || c === 'trix') humanChooseContract([c]);
-                      else setSelected((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
-                    }}
-                    className={`rounded-lg px-4 py-2 text-sm font-semibold shadow ${isSelected ? 'bg-amber-400 text-emerald-950' : 'bg-emerald-800 text-emerald-50'}`}
+                    onClick={() => humanChooseContract([c])}
+                    className="rounded-lg px-4 py-2 text-sm font-semibold shadow bg-emerald-800 text-emerald-50"
                   >
                     {contractName(c, L)}
                   </button>
-                );
-              })}
-            </div>
-            {config.complex && selected.length > 0 && (
-              <button onClick={() => humanChooseContract(selected)} className="rounded-lg px-5 py-2 text-sm font-bold bg-amber-400 text-emerald-950 shadow">
-                {selected.length > 1 ? t('Play combined: ', 'العب مجتمعاً: ') : t('Play ', 'العب ')}
-                {selected.map((c) => contractName(c, L)).join(' + ')}
-              </button>
+                ))}
+              </div>
             )}
           </>
         ) : (

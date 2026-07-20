@@ -55,11 +55,12 @@ function playRandomMatch(config: TrixRulesConfig, seed: string, rng: () => numbe
 
     if (state.phase === 'selecting') {
       const choosable = view.choosableContracts!;
-      // Occasionally combine trick contracts when Complex is on.
+      // Complex is strict: a deal is either ALL remaining penalties together or
+      // Trix — never a single penalty or a partial combo.
       let choice: Contract[];
-      const trickOnes = choosable.filter((c) => c !== 'trix');
-      if (config.complex && trickOnes.length >= 2 && rng() < 0.3) {
-        choice = trickOnes.slice(0, 2);
+      if (config.complex) {
+        const penalties = choosable.filter((c) => c !== 'trix');
+        choice = penalties.length > 0 && (rng() < 0.7 || !choosable.includes('trix')) ? penalties : ['trix'];
       } else {
         choice = [pick(choosable, rng)];
       }
@@ -119,8 +120,9 @@ describe('trix engine — full match invariants', () => {
           for (const c of checks) expect(c.sum).toBe(c.expected);
           // A finished match nets to zero across seats (five contracts sum to zero, x4 kingdoms).
           expect(state.scores.reduce((a, b) => a + b, 0)).toBe(0);
-          // 20 deals in simple, fewer in complex (combined deals).
-          expect(checks.length).toBeGreaterThanOrEqual(complex ? 12 : 20);
+          // Simple: 5 deals/kingdom × 4 = 20. Strict Complex: exactly 2 deals per
+          // kingdom (all penalties together + Trix) × 4 = 8.
+          expect(checks.length).toBe(complex ? 8 : 20);
         }
       });
     }
