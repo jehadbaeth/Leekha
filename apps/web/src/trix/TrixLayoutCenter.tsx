@@ -10,8 +10,8 @@ import { SUIT_ORDER, SUIT_SYMBOL, suitColorClass, SEAT_NAMES } from './trixLabel
 // gap marker for the implied run. This keeps every column at most five cards tall
 // so the towers can never grow off-screen or cover the avatars.
 
-const CARD_W = 40;
-const OVERLAP = 17; // vertical peek of each buried card
+const CARD_W = 34; // small enough that four columns + gaps fit even a ~320px phone
+const OVERLAP = 15; // vertical peek of each buried card
 
 interface Column {
   highs: Rank[]; // A..J, top to bottom (Jack last); [] if not opened
@@ -57,7 +57,7 @@ export function TrixLayoutCenter({
         </div>
       )}
       {/* dir=ltr keeps the suit columns in a stable order regardless of UI language. */}
-      <div dir="ltr" className="flex items-start justify-center gap-2">
+      <div dir="ltr" className="flex items-start justify-center gap-1">
         {SUIT_ORDER.map((suit) => {
           const { highs, low, gap } = columnFor(view.layout[suit]);
           const bury = { marginTop: -(cardH - OVERLAP) }; // overlap the card above, leaving a rank strip

@@ -569,8 +569,13 @@ export function GameTable({
         </div>
 
         <div
-          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 relative"
-          style={{ minHeight: trickCircleForContainer(tableW) + 20, marginInline: Math.round(avatarGapForContainer(avatarSize) * 0.85) }}
+          className="flex-1 min-h-0 min-w-0 flex flex-col items-center justify-center gap-1 relative"
+          style={{
+            minHeight: trickCircleForContainer(tableW) + 20,
+            // A game override (Trix's board) wants all the width it can get, so
+            // don't squeeze it with the avatar gap; the trick circle keeps it.
+            marginInline: centerOverride ? 2 : Math.round(avatarGapForContainer(avatarSize) * 0.85),
+          }}
         >
           {/* Continuous diameter, not the old @[480px]/@[900px] tiers: those
               froze at a fixed size past 900px container width, which is what
@@ -579,7 +584,7 @@ export function GameTable({
               height-bounded, self-scrolling box so tall content can never grow
               the fixed-height table into a page scroll. */}
           {centerOverride ? (
-            <div className="w-full max-h-full min-h-0 overflow-y-auto flex items-center justify-center">{centerOverride}</div>
+            <div className="w-full max-h-full min-h-0 min-w-0 overflow-auto flex items-center justify-center">{centerOverride}</div>
           ) : (
           <div className="relative" style={{ width: trickCircleForContainer(tableW), height: trickCircleForContainer(tableW) }}>
             {/* The bounded playing surface: without it the trick's cards just

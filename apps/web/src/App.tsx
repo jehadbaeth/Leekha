@@ -43,6 +43,7 @@ export default function App() {
   // Leekha's entire flow stays behind the 'leekha' choice, byte-for-byte.
   const [gameChoice, setGameChoice] = useState<GameChoice | null>(null);
   const [landingAuth, setLandingAuth] = useState(false);
+  const [landingSettings, setLandingSettings] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [user, setUser] = useState<AuthedUser | null>(null);
   const game = useGame(settings.botDifficulty);
@@ -185,7 +186,11 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
         <div className="game-shell-inner relative h-[100dvh] w-full text-white">
-          {landingAuth ? (
+          {landingSettings ? (
+            // Settings live at the landing so they apply to EVERY game (Leekha
+            // and Trix), not just Leekha's own menu.
+            <SettingsScreen settings={settings} onUpdate={updateSettings} onBack={() => setLandingSettings(false)} />
+          ) : landingAuth ? (
             <AuthScreen
               settings={settings}
               onBack={() => setLandingAuth(false)}
@@ -202,6 +207,7 @@ export default function App() {
               onAuth={() => setLandingAuth(true)}
               onLogout={() => void apiLogout().finally(() => setUser(null))}
               onChoose={setGameChoice}
+              onSettings={() => setLandingSettings(true)}
             />
           )}
         </div>

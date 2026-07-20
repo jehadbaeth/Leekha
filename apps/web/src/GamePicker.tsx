@@ -21,6 +21,7 @@ export function GamePicker({
   onAuth,
   onLogout,
   onChoose,
+  onSettings,
 }: {
   settings: Settings;
   onUpdateSettings: (patch: Partial<Settings>) => void;
@@ -28,6 +29,7 @@ export function GamePicker({
   onAuth: () => void;
   onLogout: () => void;
   onChoose: (c: GameChoice) => void;
+  onSettings: () => void;
 }) {
   const L = settings.language;
   const t = (en: string, ar: string) => pick(L, en, ar);
@@ -116,12 +118,18 @@ export function GamePicker({
             </button>
           )}
         </div>
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-2">
           <button
             className="text-xs px-3 py-1.5 rounded-full border border-emerald-300 text-emerald-100"
             onClick={() => onUpdateSettings({ language: L === 'en' ? 'ar' : 'en' })}
           >
             {L === 'en' ? 'العربية' : 'English'}
+          </button>
+          <button
+            className="text-xs px-3 py-1.5 rounded-full border border-emerald-300 text-emerald-100"
+            onClick={onSettings}
+          >
+            {t('⚙ Settings', '⚙ الإعدادات')}
           </button>
         </div>
       </div>
