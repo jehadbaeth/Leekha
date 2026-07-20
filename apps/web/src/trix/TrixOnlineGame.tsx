@@ -105,6 +105,7 @@ export function TrixOnlineGame({
         onLeave={leave}
         onConfigure={() => {}}
         onToggleSpectatorVoice={online.setSpectatorVoice}
+        onTogglePublic={online.setPublic}
         voice={voice}
       />
     </>

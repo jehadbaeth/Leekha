@@ -342,6 +342,10 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
                 room.configure(msg.config);
               }
               if (msg.allowSpectatorVoice !== undefined) room.setAllowSpectatorVoice(msg.allowSpectatorVoice);
+              if (msg.isPublic !== undefined) {
+                room.isPublic = msg.isPublic;
+                room.broadcastRoomState();
+              }
             }
             break;
           }

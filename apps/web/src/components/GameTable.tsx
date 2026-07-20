@@ -670,38 +670,34 @@ export function GameTable({
           short (address-bar-reduced) phone heights. */}
       {onEmote && (
         <div dir="ltr" className="relative z-20 flex justify-end px-2 pb-1 -mt-3 pointer-events-none">
-          <div className="relative pointer-events-auto">
-            {showEmotePicker && (
-              // w-max: an absolutely positioned box shrink-wraps to its
-              // containing block -- here the 44px button wrapper -- which
-              // would squash the grid to one column without it. The row is
-              // pinned dir="ltr" (button bottom-right in every language),
-              // so end-0 here resolves to right:0 and the panel grows
-              // leftward, staying on screen.
-              <div className="absolute bottom-full end-0 mb-2 w-max grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg">
-                {EMOTES.map((e) => (
-                  <button
-                    key={e.id}
-                    className="text-xl w-14 h-14 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
-                    title={t(e.en, e.ar)}
-                    onClick={() => {
-                      onEmote(e.id);
-                      setShowEmotePicker(false);
-                    }}
-                  >
-                    {e.glyph}
-                  </button>
-                ))}
-              </div>
-            )}
-            <button
-              className="w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
-              onClick={() => setShowEmotePicker((v) => !v)}
-              aria-label={t('Emotes', 'الرموز التعبيرية')}
-            >
-              😊
-            </button>
-          </div>
+          {showEmotePicker && (
+            // Centered on the row (screen), not right-aligned under the button:
+            // a right-aligned picker opened straight up over the east-seat
+            // avatar (see UI audit). Centered + compact, it opens over the empty
+            // middle and clears the edge-seat avatars at every phone width.
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[calc(100vw-1.5rem)] grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg pointer-events-auto">
+              {EMOTES.map((e) => (
+                <button
+                  key={e.id}
+                  className="text-xl w-11 h-11 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
+                  title={t(e.en, e.ar)}
+                  onClick={() => {
+                    onEmote(e.id);
+                    setShowEmotePicker(false);
+                  }}
+                >
+                  {e.glyph}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            className="pointer-events-auto w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
+            onClick={() => setShowEmotePicker((v) => !v)}
+            aria-label={t('Emotes', 'الرموز التعبيرية')}
+          >
+            😊
+          </button>
         </div>
       )}
 
@@ -899,11 +895,11 @@ export function GameTable({
           the emote button), and the arc lifts the CENTER up from the
           baseline, so no card ever pokes below the tray. Order is the same
           sortHand() order as PassingPanel in every language. */}
-      {/* Your own exposed cards (doubled honors / revealed 2s), shown just above
-          your hand so you and everyone else can see them. */}
-      {seatExposed?.[mySeat] && seatExposed[mySeat]!.length > 0 && (
-        <div className="flex justify-center pb-0.5">{exposedFor(mySeat)}</div>
-      )}
+      {/* Your OWN exposed cards (doubled honors / revealed 2s) are deliberately
+          NOT shown as a separate strip here: they are already sitting in your
+          hand fan just below, so a centered row under the HUD only wasted space
+          (see UI feedback). Other seats' exposed cards still render by their
+          avatars, which is where the useful "who holds what" info lives. */}
       {/* Game-specific bottom region (Trix contract-select / deal-recap) takes
           over the hand/passing slot when supplied; otherwise Leekha's hand fan
           and passing panel render exactly as before. */}

@@ -34,11 +34,13 @@ export function VoiceControls({
     : null;
 
   return (
-    // The whole cluster is pointer-events-none so the empty band beside the
-    // pill (and beside the open panel) never intercepts taps meant for the HUD
-    // controls underneath it; only the pill and the panel themselves take
-    // pointer events. See the UI overlap audit.
-    <div dir="ltr" className="absolute top-2 end-2 z-30 flex flex-col items-end gap-1 pointer-events-none">
+    // No forced dir: the cluster uses logical `end`, so it mirrors to the side
+    // OPPOSITE the Home button (which is logical `start`) in both LTR and RTL —
+    // in Arabic Home sits top-right, so this sits top-left, no collision.
+    // pointer-events-none on the wrapper so the empty band beside the pill/panel
+    // never intercepts taps meant for the HUD controls underneath; only the pill
+    // and the panel themselves take pointer events. See the UI overlap audit.
+    <div className="absolute top-2 end-2 z-30 flex flex-col items-end gap-1 pointer-events-none">
       <div className="flex flex-col items-end gap-1">
         {/* Collapsed pill */}
         <button

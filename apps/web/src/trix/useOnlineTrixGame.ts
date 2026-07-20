@@ -243,6 +243,9 @@ export function useOnlineTrixGame() {
   const setSpectatorVoice = useCallback((allow: boolean) => {
     socketRef.current!.send({ type: 'room.configure', allowSpectatorVoice: allow });
   }, []);
+  const setPublic = useCallback((isPublic: boolean) => {
+    socketRef.current!.send({ type: 'room.configure', isPublic });
+  }, []);
   const startGame = useCallback(() => {
     socketRef.current!.send({ type: 'room.start' });
   }, []);
@@ -297,6 +300,7 @@ export function useOnlineTrixGame() {
     removeBot,
     setReady,
     setSpectatorVoice,
+    setPublic,
     startGame,
     leaveRoom,
     refreshPublicRooms,

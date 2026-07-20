@@ -101,6 +101,7 @@ export class Room extends RoomBase<RulesConfig> {
       code: this.code,
       hostName: this.seats[this.hostSeat].name ?? 'Host',
       seatsFilled: this.seats.filter((s) => s.name !== null || s.isBot).length,
+      gameType: 'leekha',
       targetScore: this.config.targetScore,
     };
   }
@@ -116,6 +117,7 @@ export class Room extends RoomBase<RulesConfig> {
       hostSeat: this.hostSeat,
       phase: this.phase,
       allowSpectatorVoice: this.allowSpectatorVoice,
+      isPublic: this.isPublic,
     };
   }
 

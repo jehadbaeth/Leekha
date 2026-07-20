@@ -52,6 +52,7 @@ export function Lobby({
   onLeave,
   onConfigure,
   onToggleSpectatorVoice,
+  onTogglePublic,
   voice,
 }: {
   roomState: RoomState | null;
@@ -65,6 +66,7 @@ export function Lobby({
   onLeave: () => void;
   onConfigure: (config: RulesConfig) => void;
   onToggleSpectatorVoice?: (allow: boolean) => void;
+  onTogglePublic?: (isPublic: boolean) => void;
   voice?: VoiceController;
 }) {
   const [pickerSeat, setPickerSeat] = useState<Seat | null>(null);
@@ -112,6 +114,20 @@ export function Lobby({
             {t('Other apps', 'تطبيقات أخرى')}
           </button>
         </div>
+        {isHost && onTogglePublic && (
+          <label className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-200">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-emerald-500"
+              checked={roomState.isPublic ?? false}
+              onChange={(e) => onTogglePublic(e.target.checked)}
+            />
+            {t('List publicly (anyone can find and join)', 'إدراج عام (يمكن لأي شخص العثور والانضمام)')}
+          </label>
+        )}
+        {!isHost && (roomState.isPublic ?? false) && (
+          <p className="mt-2 text-xs text-emerald-400">{t('Public room', 'غرفة عامة')}</p>
+        )}
       </div>
 
       {/* 4 seat mini table, team colors: seats 0/2 vs 1/3 */}

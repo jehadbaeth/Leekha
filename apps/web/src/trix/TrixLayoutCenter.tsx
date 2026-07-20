@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { Card, Rank, Seat, Suit, SuitLayout, TrixSeatView } from '@leekha/trix';
 import { pick } from '../settings';
 import { CardFace } from '../components/CardFace';
@@ -10,8 +11,21 @@ import { SUIT_ORDER, SUIT_SYMBOL, suitColorClass, SEAT_NAMES } from './trixLabel
 // gap marker for the implied run. This keeps every column at most five cards tall
 // so the towers can never grow off-screen or cover the avatars.
 
-const CARD_W = 34; // small enough that four columns + gaps fit even a ~320px phone
-const OVERLAP = 15; // vertical peek of each buried card
+// The board is four suit columns. Rather than a fixed tiny card (which left the
+// tableau marooned in a sea of empty felt), the card width scales to fill the
+// available width: four columns + gaps span most of the center, so the board —
+// the important thing in Trex — is actually prominent. Clamped so it neither
+// overflows a ~320px phone nor grows absurd on a wide shell.
+const COLS = 4;
+const COL_GAP = 4; // gap-1 between columns
+const MIN_CARD_W = 34;
+const MAX_CARD_W = 60;
+function cardWidthFor(containerW: number): number {
+  if (!containerW) return MIN_CARD_W;
+  const usable = containerW - 16 - (COLS - 1) * COL_GAP; // px-2 padding + inter-column gaps
+  return Math.max(MIN_CARD_W, Math.min(MAX_CARD_W, Math.floor(usable / COLS)));
+}
+const OVERLAP_RATIO = 0.44; // vertical peek of each buried card, as a fraction of card width
 
 interface Column {
   highs: Rank[]; // A..J, top to bottom (Jack last); [] if not opened
@@ -43,10 +57,22 @@ export function TrixLayoutCenter({
 }) {
   const t = (en: string, ar: string) => pick(language, en, ar);
   const PLACE = language === 'ar' ? PLACE_AR : PLACE_EN;
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [containerW, setContainerW] = useState(0);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setContainerW(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const CARD_W = cardWidthFor(containerW);
   const cardH = Math.round(CARD_W * 1.4);
+  const OVERLAP = Math.round(CARD_W * OVERLAP_RATIO);
 
   return (
-    <div className="w-full flex flex-col items-center gap-2 px-2 max-h-full overflow-y-auto">
+    <div ref={rootRef} className="w-full flex flex-col items-center gap-2 px-2 max-h-full overflow-y-auto">
       {view.finished.length > 0 && (
         <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-200 flex-wrap">
           {view.finished.map((seat, i) => (

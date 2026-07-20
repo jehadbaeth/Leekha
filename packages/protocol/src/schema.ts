@@ -76,6 +76,8 @@ export const RoomConfigureMsg = z.object({
   config: RulesConfigSchema.optional(),
   trixConfig: TrixRulesConfigSchema.optional(),
   allowSpectatorVoice: z.boolean().optional(),
+  /** Host toggling whether the room is listed publicly. Works for either game. */
+  isPublic: z.boolean().optional(),
 });
 export const RoomReadyMsg = z.object({ type: z.literal('room.ready'), ready: z.boolean() });
 export const RoomStartMsg = z.object({ type: z.literal('room.start') });
@@ -114,7 +116,10 @@ export const PublicRoomSchema = z.object({
   code: z.string().length(6),
   hostName: z.string(),
   seatsFilled: z.number().int().min(0).max(4),
-  targetScore: z.number().int().positive(),
+  /** Absent means 'leekha'. Lets the home list badge each room and route Join to the right game. */
+  gameType: GameTypeSchema.optional(),
+  /** Leekha only; Trix rooms omit it (they have no single target score). */
+  targetScore: z.number().int().positive().optional(),
 });
 export type PublicRoom = z.infer<typeof PublicRoomSchema>;
 
@@ -148,6 +153,8 @@ export const RoomStateMsg = z.object({
   phase: z.enum(['lobby', 'game']),
   /** Whether seatless spectators may join the voice lobby. Absent = treat as true. */
   allowSpectatorVoice: z.boolean().optional(),
+  /** Whether this room is listed on the public rooms list. Lets the lobby show/toggle it. */
+  isPublic: z.boolean().optional(),
 });
 
 export const GameSnapshotMsg = z.object({ type: z.literal('game.snapshot'), seq: z.number().int().nonnegative(), roomCode: z.string(), view: SeatViewSchema });

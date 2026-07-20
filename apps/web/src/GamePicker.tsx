@@ -6,7 +6,7 @@ import type { AuthedUser } from './net/api';
 
 export type GameChoice =
   | { game: 'leekha' }
-  | { game: 'trix'; config: TrixRulesConfig; online?: boolean };
+  | { game: 'trix'; config: TrixRulesConfig; online?: boolean; joinCode?: string };
 
 /**
  * The landing screen: your identity/account (global across games) plus the game

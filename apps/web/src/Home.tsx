@@ -13,6 +13,7 @@ export function Home({
   onJoinRoom,
   onHowToPlay,
   onSettings,
+  onChangeGame,
   joinError,
   initialJoinCode,
   user,
@@ -26,9 +27,11 @@ export function Home({
   onUpdateSettings: (patch: Partial<Settings>) => void;
   onPlayVsBots: () => void;
   onCreateRoom: (name: string, isPublic: boolean) => void;
-  onJoinRoom: (name: string, code: string) => void;
+  onJoinRoom: (name: string, code: string, gameType?: 'leekha' | 'trix') => void;
   onHowToPlay: () => void;
   onSettings: () => void;
+  /** Return to the game picker (choose Leekha vs Trix). */
+  onChangeGame: () => void;
   joinError?: string | null;
   /** Pre-fills the join code field when a player opens a shared room link (?join=CODE). */
   initialJoinCode?: string;
@@ -78,6 +81,12 @@ export function Home({
 
   return (
     <div className="min-h-full flex flex-col items-center justify-center px-6 py-8 gap-6 bg-felt-950">
+      <button
+        onClick={onChangeGame}
+        className="absolute top-3 start-3 z-10 inline-flex items-center gap-1 rounded-full border border-emerald-600/60 bg-emerald-900/50 px-3 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-800/70 active:scale-95"
+      >
+        <span className="mirror-rtl">‹</span> {t('Games', 'الألعاب')}
+      </button>
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight text-white">{t('Leekha', 'ليخة')}</h1>
         <p className="text-emerald-200 mt-1 text-sm">{t('The Idlib variant · ليخة', 'نسخة إدلب · Leekha')}</p>
@@ -146,15 +155,26 @@ export function Home({
             <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
               {publicRooms.map((room) => (
                 <div key={room.code} className="flex items-center justify-between gap-2 bg-emerald-900/60 rounded-lg px-3 py-1.5">
-                  <span className="text-sm text-white truncate">
-                    {t(`${room.hostName}'s room`, `غرفة ${room.hostName}`)}{' '}
-                    <span className="text-emerald-300">({room.seatsFilled}/4 · {room.targetScore})</span>
+                  <span className="text-sm text-white truncate flex items-center gap-1.5 min-w-0">
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        room.gameType === 'trix' ? 'bg-sky-500/25 text-sky-200' : 'bg-amber-400/25 text-amber-200'
+                      }`}
+                    >
+                      {room.gameType === 'trix' ? t('Trix', 'تريكس') : t('Leekha', 'ليخة')}
+                    </span>
+                    <span className="truncate">
+                      {t(`${room.hostName}'s room`, `غرفة ${room.hostName}`)}{' '}
+                      <span className="text-emerald-300">
+                        ({room.seatsFilled}/4{room.gameType !== 'trix' && room.targetScore ? ` · ${room.targetScore}` : ''})
+                      </span>
+                    </span>
                   </span>
                   <button
                     className="shrink-0 rounded-lg bg-amber-400 text-emerald-950 text-xs font-semibold px-3 py-1"
                     onClick={() => {
                       commitName();
-                      onJoinRoom(name.trim(), room.code);
+                      onJoinRoom(name.trim(), room.code, room.gameType ?? 'leekha');
                     }}
                   >
                     {t('Join', 'انضمام')}

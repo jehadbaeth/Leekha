@@ -11,6 +11,7 @@ import { AdminScreen } from './AdminScreen';
 import { GamePicker, type GameChoice } from './GamePicker';
 import { TrixLocalGame } from './trix/TrixGame';
 import { TrixOnlineGame } from './trix/TrixOnlineGame';
+import { defaultTrixConfig } from '@leekha/trix';
 import { GameTable } from './components/GameTable';
 import { VoiceControls } from './components/VoiceControls';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
@@ -154,7 +155,14 @@ export default function App() {
     if (code) setScreen('lobby');
   }
 
-  async function handleJoinRoom(name: string, code: string) {
+  async function handleJoinRoom(name: string, code: string, gameType: 'leekha' | 'trix' = 'leekha') {
+    // A public room carries its game type, so route the join to the right game:
+    // a Trix room switches into the Trix online flow (which joins by code),
+    // rather than being (incorrectly) joined through the Leekha socket.
+    if (gameType === 'trix') {
+      setGameChoice({ game: 'trix', config: defaultTrixConfig, online: true, joinCode: code });
+      return;
+    }
     setMode('online');
     const ok = await online.joinRoom(name, code);
     if (ok) setScreen('lobby');
@@ -229,7 +237,7 @@ export default function App() {
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
         <div className="game-shell-inner relative h-[100dvh] w-full text-white">
           {gameChoice.online ? (
-            <TrixOnlineGame config={gameChoice.config} settings={settings} onExit={() => setGameChoice(null)} />
+            <TrixOnlineGame config={gameChoice.config} settings={settings} joinCode={gameChoice.joinCode} onExit={() => setGameChoice(null)} />
           ) : (
             <TrixLocalGame config={gameChoice.config} settings={settings} onExit={() => setGameChoice(null)} />
           )}
@@ -261,6 +269,11 @@ export default function App() {
           onJoinRoom={handleJoinRoom}
           onHowToPlay={() => setScreen('howto')}
           onSettings={() => setScreen('settings')}
+          onChangeGame={() => {
+            online.leaveRoom();
+            setMode('local');
+            setGameChoice(null);
+          }}
           joinError={online.lastError}
           initialJoinCode={initialJoinCodeFromUrl()}
           publicRooms={online.publicRooms}
@@ -305,6 +318,7 @@ export default function App() {
           onStart={online.startGame}
           onConfigure={online.configure}
           onToggleSpectatorVoice={online.setSpectatorVoice}
+          onTogglePublic={online.setPublic}
           voice={voice}
           onLeave={() => {
             online.leaveRoom();

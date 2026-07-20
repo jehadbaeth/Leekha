@@ -78,7 +78,7 @@ export class TrixRoom extends RoomBase<TrixRulesConfig> {
       code: this.code,
       hostName: this.seats[this.hostSeat].name ?? 'Host',
       seatsFilled: this.seats.filter((s) => s.name !== null || s.isBot).length,
-      targetScore: 0, // not applicable to Trix; the list is Leekha-centric
+      gameType: 'trix', // Trix rooms omit targetScore (no single target); the home list badges by gameType.
     };
   }
 
@@ -93,6 +93,7 @@ export class TrixRoom extends RoomBase<TrixRulesConfig> {
       hostSeat: this.hostSeat,
       phase: this.phase,
       allowSpectatorVoice: this.allowSpectatorVoice,
+      isPublic: this.isPublic,
     };
   }
 
