@@ -259,7 +259,7 @@ export class TrixRoom extends RoomBase<TrixRulesConfig> {
     // trick collected). Sent after the snapshot so the client freezes the
     // just-completed trick over the fresh board.
     for (const e of result.events) {
-      if (e.type === 'played') {
+      if (e.type === 'played' || e.type === 'layoutPlayed') {
         this.emit(null, { type: 'trix.played', seq: this.nextSeq(), roomCode: this.code, seat: e.seat, card: e.card });
       } else if (e.type === 'trickEnd') {
         this.emit(null, { type: 'trix.trickEnd', seq: this.nextSeq(), roomCode: this.code, winner: e.winner, cards: e.cards });

@@ -97,8 +97,10 @@ export interface DealState {
    * doubled; the 2s are display-only.
    */
   exposed: { seat: Seat; card: Card }[];
-  /** The four 2s and the seat each was DEALT (deal start), for the "reveal 2s after the first trick" rule's one-team-holds-all-four exception. */
+  /** The four 2s and the seat each was DEALT (deal start), for the Trex "reveal 2s after the first round" rule's one-team-holds-all-four exception. */
   startingTwos: { seat: Seat; card: Card }[];
+  /** Trex (layout) only: how many layout turns (plays + passes) have happened, so the 2s are revealed once the first full round (4 turns) completes. */
+  layoutActions: number;
   /** Exposing window (doubling): seats that have finished their expose-or-decline turn. Empty outside the 'exposing' phase. */
   exposePassed: Seat[];
   trickNumber: number; // 1..13

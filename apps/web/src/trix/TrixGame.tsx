@@ -102,6 +102,8 @@ export function TrixGame({
   // 'matchOver'->'gameOver' (synthesizing the losingTeam the gameOver sting needs).
   const tableEvents = controller.events.map(({ id, event }) => {
     const e = event as { type: string; [k: string]: unknown };
+    // A layout placement should click like any card play (the Trex board was silent).
+    if (e.type === 'layoutPlayed') return { id, event: { type: 'played' } };
     if (e.type === 'trickEnd') return { id, event: { ...e, points: (e.points as number) ?? 0 } };
     if (e.type === 'dealEnd') return { id, event: { type: 'roundEnd' } };
     if (e.type === 'matchOver') {

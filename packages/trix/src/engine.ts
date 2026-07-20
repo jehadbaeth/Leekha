@@ -69,12 +69,26 @@ function freshDeal(seed: string, kingdomIndex: number, dealIndex: number, owner:
     heartsBroken: false,
     exposed: [],
     startingTwos,
+    layoutActions: 0,
     exposePassed: [],
     trickNumber: 1,
     layout: emptyLayout(),
     finished: [],
     dealScores: [0, 0, 0, 0],
   };
+}
+
+/**
+ * Trex 2s rule: once the first full round of the layout has passed (every seat
+ * has taken one turn), each 2 still in hand is revealed to the table — UNLESS one
+ * partnership was dealt all four 2s. Returns the exposed entries to add, or [].
+ * Display-only; the layout doesn't score 2s.
+ */
+function revealTwosForLayout(deal: DealState, config: TrixRulesConfig): { seat: Seat; card: Card }[] {
+  const oneTeamHoldsAll =
+    config.partnership && deal.startingTwos.every((x) => teamOf(x.seat) === teamOf(deal.startingTwos[0].seat));
+  if (oneTeamHoldsAll) return [];
+  return SEATS.flatMap((s) => deal.hands[s].filter((c) => c.rank === 2).map((card) => ({ seat: s, card })));
 }
 
 export function newMatch(config: TrixRulesConfig, seed: string): TrixMatchState {
@@ -269,18 +283,6 @@ function playTrick(state: TrixMatchState, seat: Seat, card: Card): Applied {
     trickNumber: deal.trickNumber + 1,
   };
 
-  // 2s rule: once the first trick is complete (everyone has played once), every
-  // 2 still in hand is revealed to the whole table — UNLESS one partnership was
-  // dealt all four 2s (then nothing is exposed). Display-only; not scored.
-  if (deal.trickNumber === 1) {
-    const oneTeamHoldsAll =
-      state.config.partnership && deal.startingTwos.every((x) => teamOf(x.seat) === teamOf(deal.startingTwos[0].seat));
-    if (!oneTeamHoldsAll) {
-      const revealed = SEATS.flatMap((s) => hands[s].filter((c) => c.rank === 2).map((card) => ({ seat: s, card })));
-      afterTrick.exposed = [...afterTrick.exposed, ...revealed];
-    }
-  }
-
   if (deal.trickNumber >= 13) {
     return endDeal({ ...state, deal: afterTrick, moveLog: [...state.moveLog, { type: 'play', seat, card }] }, events);
   }
@@ -301,7 +303,10 @@ function playLayout(state: TrixMatchState, seat: Seat, card: Card): Applied {
     finished = [...finished, seat];
     events.push({ type: 'finished', seat, place: finished.length });
   }
-  const nextDeal: DealState = { ...deal, hands, layout, finished, turn: nextSeat(seat) };
+  const layoutActions = deal.layoutActions + 1;
+  const nextDeal: DealState = { ...deal, hands, layout, finished, turn: nextSeat(seat), layoutActions };
+  // Reveal the 2s once the first full round of the layout completes.
+  if (layoutActions === 4) nextDeal.exposed = [...nextDeal.exposed, ...revealTwosForLayout(nextDeal, state.config)];
   const moveLog = [...state.moveLog, { type: 'layoutPlay' as const, seat, card }];
 
   if (finished.length >= 4 || nextDeal.hands.every((h) => h.length === 0)) {
@@ -315,7 +320,9 @@ function passLayout(state: TrixMatchState, seat: Seat): Applied {
   if (deal.turn !== seat) throw new IllegalTrixAction('not-your-turn', 'Not your turn');
   if (layoutLegalPlays(deal.hands[seat], deal.layout).length > 0)
     throw new IllegalTrixAction('must-play', 'You have a legal play and must make it');
-  const nextDeal: DealState = { ...deal, turn: nextSeat(seat) };
+  const layoutActions = deal.layoutActions + 1;
+  const nextDeal: DealState = { ...deal, turn: nextSeat(seat), layoutActions };
+  if (layoutActions === 4) nextDeal.exposed = [...nextDeal.exposed, ...revealTwosForLayout(nextDeal, state.config)];
   return advanceLayoutTurn(
     { ...state, deal: nextDeal, moveLog: [...state.moveLog, { type: 'pass', seat }] },
     [{ type: 'passed', seat }],

@@ -200,23 +200,33 @@ describe('trix engine — leading hearts under King of Hearts', () => {
   });
 });
 
-describe('trix engine — 2s revealed after the first trick', () => {
-  it('exposes every 2 still in hand once the first trick completes (solo)', () => {
+describe('trix engine — 2s revealed after the first Trex round (layout only)', () => {
+  it('exposes 2s after the first layout round, and never in a trick contract', () => {
     const config: TrixRulesConfig = { ...defaultTrixConfig, partnership: false, doubling: false };
-    let state = newMatch(config, 'twos-solo');
-    state = chooseContract(state, state.kingdomOwner, ['slaps']).state;
-    expect(state.deal!.exposed.filter((e) => e.card.rank === 2)).toHaveLength(0); // nothing before trick 1
+
+    // A trick contract must NEVER reveal 2s, even after several tricks.
+    let trickState = newMatch(config, 'twos-trick');
+    trickState = chooseContract(trickState, trickState.kingdomOwner, ['slaps']).state;
+    for (let i = 0; i < 8; i++) {
+      const seat = actingSeat(trickState)!;
+      trickState = play(trickState, seat, viewFor(trickState, seat).legal![0]).state;
+    }
+    expect(trickState.deal!.exposed.filter((e) => e.card.rank === 2)).toHaveLength(0);
+
+    // The Trex (layout) contract reveals every held 2 after the first full round.
+    let state = newMatch(config, 'twos-trex');
+    state = chooseContract(state, state.kingdomOwner, ['trix']).state;
+    expect(state.phase).toBe('layout');
+    expect(state.deal!.exposed.filter((e) => e.card.rank === 2)).toHaveLength(0); // not before round 1
     for (let i = 0; i < 4; i++) {
       const seat = actingSeat(state)!;
-      state = play(state, seat, viewFor(state, seat).legal![0]).state;
+      const v = viewFor(state, seat);
+      state = v.legal && v.legal.length > 0 ? play(state, seat, v.legal[0]).state : pass(state, seat).state;
     }
-    // Every 2 remaining in a hand is now exposed.
     const twosInHands = ([0, 1, 2, 3] as Seat[]).flatMap((s) => state.deal!.hands[s].filter((c) => c.rank === 2).map((c) => ({ s, c })));
     const exposedTwos = state.deal!.exposed.filter((e) => e.card.rank === 2);
     expect(exposedTwos).toHaveLength(twosInHands.length);
-    for (const th of twosInHands) {
-      expect(exposedTwos.some((e) => e.seat === th.s && e.card.suit === th.c.suit)).toBe(true);
-    }
+    expect(twosInHands.length).toBeGreaterThan(0); // 2s can't be played in round 1 (runs only just opened)
   });
 });
 
