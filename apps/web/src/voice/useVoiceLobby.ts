@@ -78,6 +78,7 @@ export function useVoiceLobby(socket: GameSocket | null, ctx: VoiceContext): Voi
   const selfRef = useRef<string | null>(null);
   const mutedRef = useRef(false);
   const joinIntentRef = useRef(false); // the user WANTS voice on (survives a reconnect blip)
+  const rejoinTriesRef = useRef(0); // bounded retries for a transient not-in-room during reconnect
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number | null>(null);
   const socketRef = useRef<GameSocket | null>(socket);
@@ -360,6 +361,7 @@ export function useVoiceLobby(socket: GameSocket | null, ctx: VoiceContext): Voi
       switch (msg.type) {
         case 'voice.roster': {
           selfRef.current = msg.self;
+          rejoinTriesRef.current = 0; // a roster means we're in; reset the reconnect retry budget
           setSelf(msg.self);
           setParticipants(msg.participants);
           for (const p of msg.participants) ensurePeer(p.voiceId);
@@ -395,20 +397,31 @@ export function useVoiceLobby(socket: GameSocket | null, ctx: VoiceContext): Voi
           break;
         }
         case 'error': {
-          if (VOICE_ERROR_CODES.has(msg.code)) {
-            setError(msg.code as VoiceError);
-            joinIntentRef.current = false;
-            teardownMesh();
-            stopLocal();
-            setJoined(false);
-            setConnecting(false);
+          if (!VOICE_ERROR_CODES.has(msg.code)) break;
+          const code = msg.code as VoiceError;
+          // not-in-room during an active join is almost always transient: on a
+          // socket reconnect the server hasn't re-bound our room yet (the game
+          // hook's auth replay is still in flight). Retry a bounded number of
+          // times rather than treating it as a fatal kick from voice.
+          if (code === 'not-in-room' && joinIntentRef.current && rejoinTriesRef.current < 5) {
+            rejoinTriesRef.current += 1;
+            window.setTimeout(() => {
+              if (joinIntentRef.current && ctxRef.current.roomCode) send({ type: 'voice.join' });
+            }, 800);
+            break;
           }
+          setError(code);
+          joinIntentRef.current = false;
+          teardownMesh();
+          stopLocal();
+          setJoined(false);
+          setConnecting(false);
           break;
         }
       }
     });
     return off;
-  }, [socket, ensurePeer, closePeer, handleSignal, teardownMesh, stopLocal]);
+  }, [socket, ensurePeer, closePeer, handleSignal, teardownMesh, stopLocal, send]);
 
   // ---- reconnect: rebuild the mesh after a socket blip ----
 
