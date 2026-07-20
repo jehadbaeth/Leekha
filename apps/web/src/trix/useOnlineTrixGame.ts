@@ -240,6 +240,9 @@ export function useOnlineTrixGame() {
   const setReady = useCallback((ready: boolean) => {
     socketRef.current!.send({ type: 'room.ready', ready });
   }, []);
+  const setSpectatorVoice = useCallback((allow: boolean) => {
+    socketRef.current!.send({ type: 'room.configure', allowSpectatorVoice: allow });
+  }, []);
   const startGame = useCallback(() => {
     socketRef.current!.send({ type: 'room.start' });
   }, []);
@@ -282,6 +285,7 @@ export function useOnlineTrixGame() {
   for (const slot of roomState?.seats ?? []) countries[slot.seat] = slot.country ?? null;
 
   return {
+    socket: socketRef.current,
     status,
     roomState,
     mySeat,
@@ -292,6 +296,7 @@ export function useOnlineTrixGame() {
     addBot,
     removeBot,
     setReady,
+    setSpectatorVoice,
     startGame,
     leaveRoom,
     refreshPublicRooms,

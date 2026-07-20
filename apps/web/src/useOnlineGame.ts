@@ -377,6 +377,9 @@ export function useOnlineGame() {
   const configure = useCallback((config: RulesConfig) => {
     socketRef.current!.send({ type: 'room.configure', config });
   }, []);
+  const setSpectatorVoice = useCallback((allow: boolean) => {
+    socketRef.current!.send({ type: 'room.configure', allowSpectatorVoice: allow });
+  }, []);
   const setReady = useCallback((ready: boolean) => {
     socketRef.current!.send({ type: 'room.ready', ready });
   }, []);
@@ -408,6 +411,7 @@ export function useOnlineGame() {
   }, []);
 
   return {
+    socket: socketRef.current,
     status,
     roomState,
     view,
@@ -432,6 +436,7 @@ export function useOnlineGame() {
     removeBot,
     configure,
     setReady,
+    setSpectatorVoice,
     startGame,
     leaveRoom,
     pass,

@@ -12,9 +12,11 @@ import { GamePicker, type GameChoice } from './GamePicker';
 import { TrixLocalGame } from './trix/TrixGame';
 import { TrixOnlineGame } from './trix/TrixOnlineGame';
 import { GameTable } from './components/GameTable';
+import { VoiceControls } from './components/VoiceControls';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
 import { useOnlineGame } from './useOnlineGame';
+import { useVoiceLobby } from './voice/useVoiceLobby';
 import { loadSession } from './net/session';
 import { fetchMe, logout as apiLogout, type AuthedUser } from './net/api';
 import { useInstallPrompt } from './useInstallPrompt';
@@ -48,6 +50,13 @@ export default function App() {
   const [user, setUser] = useState<AuthedUser | null>(null);
   const game = useGame(settings.botDifficulty);
   const online = useOnlineGame();
+  const voice = useVoiceLobby(online.socket, {
+    roomCode: mode === 'online' ? online.roomState?.roomCode ?? null : null,
+    seated: online.mySeat !== null,
+    allowSpectatorVoice: online.roomState?.allowSpectatorVoice ?? true,
+    connectionStatus: online.status,
+    autoJoin: settings.voiceAutoJoin,
+  });
   const install = useInstallPrompt();
 
   useEffect(() => {
@@ -232,6 +241,9 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
       <div className="game-shell-inner relative h-[100dvh] w-full text-white">
+        {mode === 'online' && online.roomState && (screen === 'lobby' || screen === 'game') && (
+          <VoiceControls controller={voice} language={settings.language} />
+        )}
         {screen === 'home' && (
         <Home
           settings={settings}
@@ -288,6 +300,7 @@ export default function App() {
           onReady={online.setReady}
           onStart={online.startGame}
           onConfigure={online.configure}
+          onToggleSpectatorVoice={online.setSpectatorVoice}
           onLeave={() => {
             online.leaveRoom();
             setMode('local');

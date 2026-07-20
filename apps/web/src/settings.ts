@@ -11,6 +11,8 @@ export interface Settings {
   fourColorDeck: boolean;
   /** How long a finished trick stays frozen on screen before clearing, in ms (see the freeze effect in GameTable.tsx). */
   trickPauseMs: number;
+  /** Automatically join the room's voice lobby on entering an online room (still asks for the mic once). */
+  voiceAutoJoin: boolean;
   /**
    * Local vs-bots difficulty. Hard runs the sampled-world search bot in a Web
    * Worker (useGame.ts). Insane ("Oracle") sees every hand and plays the
@@ -34,6 +36,7 @@ export const defaultSettings: Settings = {
   reducedMotion: false,
   fourColorDeck: false,
   trickPauseMs: 900,
+  voiceAutoJoin: false,
   botDifficulty: 'hard',
 };
 

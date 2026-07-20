@@ -5,6 +5,8 @@ import { Lobby } from '../Lobby';
 import { TrixGame } from './TrixGame';
 import { useOnlineTrixGame } from './useOnlineTrixGame';
 import { SEAT_NAMES } from './trixLabels';
+import { VoiceControls } from '../components/VoiceControls';
+import { useVoiceLobby } from '../voice/useVoiceLobby';
 
 const ALL_SEATS: Seat[] = [0, 1, 2, 3];
 
@@ -44,6 +46,14 @@ export function TrixOnlineGame({
 
   const { roomState, view } = online;
 
+  const voice = useVoiceLobby(online.socket, {
+    roomCode: roomState?.roomCode ?? null,
+    seated: online.mySeat !== null,
+    allowSpectatorVoice: roomState?.allowSpectatorVoice ?? true,
+    connectionStatus: online.status,
+    autoJoin: settings.voiceAutoJoin,
+  });
+
   // Real roster names for the board (fall back to the local placeholder set).
   const names: Record<Seat, string> = { ...SEAT_NAMES };
   if (roomState) {
@@ -63,7 +73,12 @@ export function TrixOnlineGame({
     const spectator = online.mySeat === null;
     const claimableSeats = spectator ? ALL_SEATS.filter((s) => online.presence[s] === 'bot') : [];
     const controller = { ...online, spectator, claimableSeats, onClaimSeat: online.claimSeat };
-    return <TrixGame controller={controller} config={config} settings={settings} onExit={leave} names={names} recapAutoAdvances />;
+    return (
+      <>
+        <TrixGame controller={controller} config={config} settings={settings} onExit={leave} names={names} recapAutoAdvances />
+        <VoiceControls controller={voice} language={settings.language} />
+      </>
+    );
   }
 
   if (!roomState) {
@@ -77,18 +92,22 @@ export function TrixOnlineGame({
   }
 
   return (
-    <Lobby
-      roomState={roomState}
-      roomCode={roomState.roomCode}
-      mySeat={online.mySeat}
-      language={settings.language}
-      onAddBot={(seat) => online.addBot(seat)}
-      onRemoveBot={online.removeBot}
-      onReady={online.setReady}
-      onStart={online.startGame}
-      onLeave={leave}
-      onConfigure={() => {}}
-    />
+    <>
+      <Lobby
+        roomState={roomState}
+        roomCode={roomState.roomCode}
+        mySeat={online.mySeat}
+        language={settings.language}
+        onAddBot={(seat) => online.addBot(seat)}
+        onRemoveBot={online.removeBot}
+        onReady={online.setReady}
+        onStart={online.startGame}
+        onLeave={leave}
+        onConfigure={() => {}}
+        onToggleSpectatorVoice={online.setSpectatorVoice}
+      />
+      <VoiceControls controller={voice} language={settings.language} />
+    </>
   );
 }
 

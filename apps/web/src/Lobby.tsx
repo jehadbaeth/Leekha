@@ -50,6 +50,7 @@ export function Lobby({
   onStart,
   onLeave,
   onConfigure,
+  onToggleSpectatorVoice,
 }: {
   roomState: RoomState | null;
   roomCode: string | null;
@@ -61,6 +62,7 @@ export function Lobby({
   onStart: () => void;
   onLeave: () => void;
   onConfigure: (config: RulesConfig) => void;
+  onToggleSpectatorVoice?: (allow: boolean) => void;
 }) {
   const [pickerSeat, setPickerSeat] = useState<Seat | null>(null);
   const t = (en: string, ar: string) => pick(language, en, ar);
@@ -240,6 +242,30 @@ export function Lobby({
         </p>
       </div>
       )}
+
+      {/* Voice lobby: always-on peer-to-peer voice. The host decides whether
+          seatless spectators may talk; players always may. */}
+      <div className="w-full max-w-xs rounded-xl border border-emerald-700 bg-emerald-950/40 p-3 flex flex-col gap-1.5">
+        <p className="text-[10px] uppercase tracking-wide text-emerald-300">{t('Voice lobby', 'غرفة الصوت')}</p>
+        <label className="flex items-center justify-between gap-2 text-xs text-emerald-100">
+          {t('Let spectators talk', 'السماح للمتفرجين بالتحدث')}
+          {isHost && onToggleSpectatorVoice ? (
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-emerald-500"
+              checked={roomState.allowSpectatorVoice ?? true}
+              onChange={(e) => onToggleSpectatorVoice(e.target.checked)}
+            />
+          ) : (
+            <span className="font-semibold">
+              {(roomState.allowSpectatorVoice ?? true) ? t('On', 'مفعّل') : t('Off', 'مغلق')}
+            </span>
+          )}
+        </label>
+        <p className="text-[10px] text-emerald-400">
+          {t('Open the mic from the 🎧 button on the table.', 'افتح الميكروفون من زر 🎧 على الطاولة.')}
+        </p>
+      </div>
 
       {mySlot && !mySlot.isBot && (
         <button

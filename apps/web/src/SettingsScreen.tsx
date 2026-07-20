@@ -81,6 +81,12 @@ export function SettingsScreen({
           value={settings.reducedMotion}
           onChange={(v) => onUpdate({ reducedMotion: v })}
         />
+        <Toggle
+          label={t('Auto-join voice', 'الانضمام التلقائي للصوت')}
+          hint={t('Open the mic automatically when you enter an online room.', 'افتح الميكروفون تلقائياً عند دخول غرفة عبر الإنترنت.')}
+          value={settings.voiceAutoJoin}
+          onChange={(v) => onUpdate({ voiceAutoJoin: v })}
+        />
 
         <div className="py-2.5 border-b border-emerald-800">
           <span className="block text-sm text-white">{t('Bot difficulty', 'مستوى الروبوتات')}</span>
