@@ -1,5 +1,15 @@
 # SPEC-VOICE: in-game voice lobbies
 
+> **Status: implemented and deployed** (mesh + STUN MVP through phase 3). Two
+> deviations from the plan below, both deliberate:
+> - Speaking indicators live in the VoiceControls roster panel, not on the seat
+>   avatars. The who-is-talking info is all there; avatar dots are a later polish.
+> - **Testing gotcha:** `getUserMedia` only exists on a secure origin, so the
+>   voice button is hidden on `http://<lan-ip>`. Test over the HTTPS Funnel URL
+>   (or localhost), never the raw LAN IP, or it looks like the feature is missing.
+> Managed TURN (phase 4) is still pending; STUN-only connects most pairs.
+
+
 Always-on voice chat attached to a room. Players and (optionally) spectators
 join a shared audio channel with a Join/Leave toggle and a mute toggle. Open
 mic, not push-to-talk. Voice is a sidecar: it never touches game state, the
