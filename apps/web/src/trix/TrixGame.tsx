@@ -220,14 +220,12 @@ export function TrixGame({
         )}
       </div>
     );
-  }
-
-  // --- Bottom slot: contract picker (selecting only; it has no hand to hide) ---
-  let bottom: React.ReactNode = undefined;
-  if (view.phase === 'selecting') {
+  } else if (view.phase === 'selecting') {
+    // Contract picker also lives in the centre (not the bottom slot) so the hand
+    // is dealt and VISIBLE below while you choose — you pick based on your cards.
     const choosable = view.choosableContracts ?? [];
     const penalties = choosable.filter((c) => TRICK_CONTRACTS.includes(c));
-    bottom = (
+    center = (
       <div className="flex flex-col items-center gap-2 px-4 py-4">
         {ownerIsHuman ? (
           <>
@@ -268,6 +266,10 @@ export function TrixGame({
       </div>
     );
   }
+
+  // The bottom slot (which replaces the hand fan) is unused by Trix now — every
+  // Trix panel lives in the centre so the hand stays visible.
+  const bottom: React.ReactNode = undefined;
 
   // --- Overlay: deal recap (paused) or match over ---
   let overlay: React.ReactNode = undefined;

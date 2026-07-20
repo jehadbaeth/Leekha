@@ -49,6 +49,34 @@ function sortHand(h: Card[]): Card[] {
 
 // --- New match ---
 
+/**
+ * A freshly dealt deal for the SELECTING phase, before any contract is chosen.
+ * Cards are dealt now (not at chooseContract) so the kingdom owner — and the
+ * bots — decide their contract while looking at their actual hand, as in the
+ * real game. contracts is empty until chooseContract sets it. The seed is
+ * contract-independent (each deal within a kingdom is its own fresh shuffle).
+ */
+function freshDeal(seed: string, kingdomIndex: number, dealIndex: number, owner: Seat): DealState {
+  const hands = dealHands(`${seed}:k${kingdomIndex}:d${dealIndex}`).map(sortHand) as [Card[], Card[], Card[], Card[]];
+  const startingTwos = SEATS.flatMap((s) => hands[s].filter((c) => c.rank === 2).map((card) => ({ seat: s, card })));
+  return {
+    contracts: [],
+    hands,
+    turn: owner,
+    currentTrick: { leader: owner, plays: [] },
+    captured: [[], [], [], []],
+    tricksWon: [0, 0, 0, 0],
+    heartsBroken: false,
+    exposed: [],
+    startingTwos,
+    exposePassed: [],
+    trickNumber: 1,
+    layout: emptyLayout(),
+    finished: [],
+    dealScores: [0, 0, 0, 0],
+  };
+}
+
 export function newMatch(config: TrixRulesConfig, seed: string): TrixMatchState {
   // A deterministic probe deal decides who holds 7 of hearts and thus owns
   // kingdom 0. Contract deals are fresh and independent of this probe.
@@ -63,7 +91,8 @@ export function newMatch(config: TrixRulesConfig, seed: string): TrixMatchState 
     kingdomIndex: 0,
     contractsSpent: [],
     scores: [0, 0, 0, 0],
-    deal: null,
+    // Hands are dealt up front so the owner sees them before picking a contract.
+    deal: freshDeal(seed, 0, 0, owner),
     moveLog: [],
   };
 }
@@ -101,30 +130,14 @@ function validateChoice(state: TrixMatchState, contracts: Contract[]): void {
 
 export function chooseContract(state: TrixMatchState, seat: Seat, contracts: Contract[]): Applied {
   if (seat !== state.kingdomOwner) throw new IllegalTrixAction('not-owner', 'Only the kingdom owner chooses');
+  if (!state.deal) throw new IllegalTrixAction('bad-phase', 'No hand dealt to choose against');
   validateChoice(state, contracts);
 
   const isLayout = contracts.length === 1 && contracts[0] === 'trix';
-  const dealSeed = `${state.seed}:k${state.kingdomIndex}:${[...contracts].sort().join('+')}`;
-  const hands = dealHands(dealSeed).map(sortHand) as [Card[], Card[], Card[], Card[]];
-
-  const startingTwos = SEATS.flatMap((s) => hands[s].filter((c) => c.rank === 2).map((card) => ({ seat: s, card })));
-
-  const deal: DealState = {
-    contracts,
-    hands,
-    turn: state.kingdomOwner,
-    currentTrick: { leader: state.kingdomOwner, plays: [] },
-    captured: [[], [], [], []],
-    tricksWon: [0, 0, 0, 0],
-    heartsBroken: false,
-    exposed: [],
-    startingTwos,
-    exposePassed: [],
-    trickNumber: 1,
-    layout: emptyLayout(),
-    finished: [],
-    dealScores: [0, 0, 0, 0],
-  };
+  // The hand was already dealt when the selecting phase began; the chosen
+  // contract just labels this same deal.
+  const hands = state.deal.hands;
+  const deal: DealState = { ...state.deal, contracts };
 
   const events: TrixEvent[] = [{ type: 'contractChosen', contracts }];
 
@@ -336,8 +349,16 @@ function endDeal(state: TrixMatchState, events: TrixEvent[]): Applied {
   // Kingdom finished when the owner has spent all five contracts.
   const kingdomDone = ALL_CONTRACTS.every((c) => contractsSpent.includes(c));
   if (!kingdomDone) {
+    // Next deal, same kingdom: deal fresh hands now so the owner sees them
+    // before choosing the next contract.
     return {
-      state: { ...state, phase: 'selecting', deal: null, contractsSpent, scores },
+      state: {
+        ...state,
+        phase: 'selecting',
+        deal: freshDeal(state.seed, state.kingdomIndex, contractsSpent.length, state.kingdomOwner),
+        contractsSpent,
+        scores,
+      },
       events: evs,
     };
   }
@@ -349,13 +370,15 @@ function endDeal(state: TrixMatchState, events: TrixEvent[]): Applied {
       events: [...evs, { type: 'matchOver', result }],
     };
   }
+  const nextKingdomIndex = state.kingdomIndex + 1;
+  const nextOwner = nextSeat(state.kingdomOwner);
   return {
     state: {
       ...state,
       phase: 'selecting',
-      deal: null,
-      kingdomIndex: state.kingdomIndex + 1,
-      kingdomOwner: nextSeat(state.kingdomOwner),
+      deal: freshDeal(state.seed, nextKingdomIndex, 0, nextOwner),
+      kingdomIndex: nextKingdomIndex,
+      kingdomOwner: nextOwner,
       contractsSpent: [],
       scores,
     },
