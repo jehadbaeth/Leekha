@@ -38,6 +38,13 @@ export class RoomManager {
         this.io.to(`room:${room.code}`).emit('msg', msg);
         return;
       }
+      if (typeof target === 'object') {
+        // Directed delivery to one socket (voice signaling relay). The room
+        // method that builds `target` has already checked that this socket is a
+        // current voice member, so no membership re-check is needed here.
+        this.io.to(target.socket).emit('msg', msg);
+        return;
+      }
       if (target === 'observers') {
         // A seat AFK-flipped to bot control keeps its original occupant's stale
         // socketId (see room.ts's flipToBot) - excluding it here would silently

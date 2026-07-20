@@ -92,6 +92,7 @@ export class TrixRoom extends RoomBase<TrixRulesConfig> {
       trixConfig: this.config,
       hostSeat: this.hostSeat,
       phase: this.phase,
+      allowSpectatorVoice: this.allowSpectatorVoice,
     };
   }
 

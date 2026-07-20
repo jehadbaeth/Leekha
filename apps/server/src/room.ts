@@ -115,6 +115,7 @@ export class Room extends RoomBase<RulesConfig> {
       config: this.config,
       hostSeat: this.hostSeat,
       phase: this.phase,
+      allowSpectatorVoice: this.allowSpectatorVoice,
     };
   }
 

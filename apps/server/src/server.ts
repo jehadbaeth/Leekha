@@ -254,6 +254,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
               msg.gameType === 'trix'
                 ? manager.createTrix(msg.trixConfig ?? defaultTrixConfig, msg.isPublic ?? false)
                 : manager.create(msg.config, msg.isPublic ?? false);
+            if (msg.allowSpectatorVoice !== undefined) room.allowSpectatorVoice = msg.allowSpectatorVoice;
             const token = room.sit(0, state.name ?? 'Host', socket.id, state.country, state.userId);
             tokenIndex.set(token, { roomCode: room.code, seat: 0 });
             state.roomCode = room.code;
@@ -340,6 +341,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
               } else if (msg.config) {
                 room.configure(msg.config);
               }
+              if (msg.allowSpectatorVoice !== undefined) room.setAllowSpectatorVoice(msg.allowSpectatorVoice);
             }
             break;
           }
@@ -364,6 +366,7 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
 
           case 'room.leave': {
             const seat = mySeat();
+            currentRoom()?.voiceLeave(socket.id);
             if (seat !== null) currentRoom()?.leave(seat);
             currentRoom()?.removeSpectator(socket.id);
             if (state.roomCode) socket.leave(`room:${state.roomCode}`);
@@ -437,6 +440,37 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
               // (emotes are not persisted or validated beyond the client's own id list).
               io.to(`room:${room.code}`).emit('msg', { type: 'emote', seat, id: msg.id });
             }
+            break;
+          }
+
+          case 'voice.join': {
+            const room = currentRoom();
+            if (!room) {
+              sendError('not-in-room', 'Join a room before opening voice.');
+              break;
+            }
+            const seat = mySeat();
+            const name =
+              seat !== null ? room.seats[seat].name ?? state.name ?? 'Player' : state.name ?? 'Spectator';
+            const res = room.voiceJoin(socket.id, seat, name);
+            if ('error' in res) sendError(res.error, res.error === 'voice-full' ? 'The voice lobby is full.' : 'Spectator voice is off.');
+            break;
+          }
+
+          case 'voice.leave': {
+            currentRoom()?.voiceLeave(socket.id);
+            break;
+          }
+
+          case 'voice.signal': {
+            // Relayed only between two current voice members (room enforces it);
+            // no seat check, since spectators are legitimate voice peers.
+            currentRoom()?.voiceRelay(socket.id, msg.to, msg.signal);
+            break;
+          }
+
+          case 'voice.state': {
+            currentRoom()?.voiceSetMuted(socket.id, msg.muted);
             break;
           }
         }

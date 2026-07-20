@@ -8,6 +8,7 @@ import {
   TrixClientMessages,
   TrixServerMessages,
 } from './trix.js';
+import { VoiceClientMessages, VoiceServerMessages } from './voice.js';
 
 export const RulesConfigSchema = z.object({
   targetScore: z.number().int().positive(),
@@ -62,6 +63,8 @@ export const RoomCreateMsg = z.object({
   trixConfig: TrixRulesConfigSchema.optional(),
   /** Lists the room on the home screen's public rooms list while it's still joinable (lobby, seats open). Defaults to false: a room is code/link-only unless the host opts in. */
   isPublic: z.boolean().optional(),
+  /** Whether seatless spectators may join the room's voice lobby. Room-level (like isPublic), not an engine setting. Defaults to true. */
+  allowSpectatorVoice: z.boolean().optional(),
 });
 export const RoomJoinMsg = z.object({ type: z.literal('room.join'), code: z.string().length(6) });
 export const RoomListMsg = z.object({ type: z.literal('room.list') });
@@ -72,6 +75,7 @@ export const RoomConfigureMsg = z.object({
   type: z.literal('room.configure'),
   config: RulesConfigSchema.optional(),
   trixConfig: TrixRulesConfigSchema.optional(),
+  allowSpectatorVoice: z.boolean().optional(),
 });
 export const RoomReadyMsg = z.object({ type: z.literal('room.ready'), ready: z.boolean() });
 export const RoomStartMsg = z.object({ type: z.literal('room.start') });
@@ -100,6 +104,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   EmoteMsg,
   RoomRematchMsg,
   ...TrixClientMessages,
+  ...VoiceClientMessages,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -141,6 +146,8 @@ export const RoomStateMsg = z.object({
   // Lets a joiner who received no seatToken (an observer, see RoomSitMsg) tell
   // "match already running, I'm watching the roster" apart from "founding lobby".
   phase: z.enum(['lobby', 'game']),
+  /** Whether seatless spectators may join the voice lobby. Absent = treat as true. */
+  allowSpectatorVoice: z.boolean().optional(),
 });
 
 export const GameSnapshotMsg = z.object({ type: z.literal('game.snapshot'), seq: z.number().int().nonnegative(), roomCode: z.string(), view: SeatViewSchema });
@@ -198,6 +205,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   GameRematchVotesMsg,
   RoomSpectatorsMsg,
   ...TrixServerMessages,
+  ...VoiceServerMessages,
 ]);
 
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

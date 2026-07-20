@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import { IllegalAction, type Seat } from '@leekha/engine';
-import type { ServerMessage, PublicRoom } from '@leekha/protocol';
+import type { ServerMessage, PublicRoom, VoiceParticipant, VoiceSignal } from '@leekha/protocol';
 import type { BotLevel, RoomPhase, SeatSlot } from './types.js';
 import type { MatchRecord } from './db.js';
 import type { RoomSnapshot } from './persistence.js';
@@ -31,7 +31,9 @@ export function emptySeat(seat: Seat): SeatSlot {
 
 // 'observers' targets every connected socket in the room that isn't currently
 // seated (see RoomManager.makeEmit's io.except(seatedSocketIds) implementation).
-export type EmitTarget = Seat | null | 'observers';
+// `{ socket }` targets exactly one socket by id, used for the directed voice
+// signaling relay (offer/answer/ICE go to one peer, never broadcast).
+export type EmitTarget = Seat | null | 'observers' | { socket: string };
 export type Emit = (target: EmitTarget, msg: ServerMessage) => void;
 
 /**
@@ -55,6 +57,8 @@ export abstract class RoomBase<TConfig> {
   phase: RoomPhase = 'lobby';
   /** Whether this room is listed on the home screen's public rooms list (see RoomManager.listPublic) while still in the lobby with an open seat. */
   isPublic: boolean;
+  /** Whether seatless spectators may join the voice lobby. Seated players always may. Host-toggleable. */
+  allowSpectatorVoice = true;
   protected rematchVotes = new Set<Seat>();
   private seq = 0;
   protected emit: Emit;
@@ -64,6 +68,14 @@ export abstract class RoomBase<TConfig> {
   private disconnectTimers = new Map<Seat, ReturnType<typeof setTimeout>>();
   /** Seatless watchers currently connected: socketId -> country (null when unresolvable). Never persisted — sockets don't survive a restart. */
   private spectators = new Map<string, string | null>();
+  /**
+   * Voice lobby participants: socketId (== voiceId) -> {seat, name, muted}.
+   * Peer-to-peer mesh, so this is a signaling roster only; no audio touches the
+   * server (SPEC-VOICE.md). Capped so a phone's uplink can't be asked to fan out
+   * to too many peers. Never persisted (sockets don't survive a restart).
+   */
+  private voice = new Map<string, { seat: Seat | null; name: string; muted: boolean }>();
+  private static readonly MAX_VOICE = 8;
   lastActivity = Date.now();
 
   constructor(code: string, config: TConfig, emit: Emit, isPublic = false) {
@@ -166,6 +178,82 @@ export abstract class RoomBase<TConfig> {
   removeSpectator(socketId: string): void {
     if (!this.spectators.delete(socketId)) return;
     this.emit(null, this.spectatorsMessage());
+  }
+
+  // ---- voice lobby ----
+
+  private voiceRoster(): VoiceParticipant[] {
+    return [...this.voice.entries()].map(([voiceId, v]) => ({ voiceId, seat: v.seat, name: v.name, muted: v.muted }));
+  }
+
+  /**
+   * Add a socket to the voice mesh. On success, sends the joiner a voice.roster
+   * (everyone ALREADY in voice, so it knows whom to call, plus its own voiceId)
+   * and broadcasts voice.joined to the room. A seatless spectator is refused
+   * when the host has voice off for spectators; anyone is refused once the mesh
+   * is at capacity.
+   */
+  voiceJoin(socketId: string, seat: Seat | null, name: string): { ok: true } | { error: 'voice-disabled' | 'voice-full' } {
+    this.touch();
+    if (seat === null && !this.allowSpectatorVoice) return { error: 'voice-disabled' };
+    if (!this.voice.has(socketId) && this.voice.size >= RoomBase.MAX_VOICE) return { error: 'voice-full' };
+    // Snapshot the roster BEFORE adding self, so the joiner receives only the
+    // peers it needs to open connections to (never itself).
+    const others = this.voiceRoster();
+    const already = this.voice.has(socketId);
+    this.voice.set(socketId, { seat, name, muted: false });
+    this.emit(
+      { socket: socketId },
+      { type: 'voice.roster', seq: this.nextSeq(), roomCode: this.code, self: socketId, participants: others },
+    );
+    if (!already) {
+      this.emit(null, {
+        type: 'voice.joined',
+        seq: this.nextSeq(),
+        roomCode: this.code,
+        participant: { voiceId: socketId, seat, name, muted: false },
+      });
+    }
+    return { ok: true };
+  }
+
+  voiceLeave(socketId: string): void {
+    if (!this.voice.delete(socketId)) return;
+    this.emit(null, { type: 'voice.left', seq: this.nextSeq(), roomCode: this.code, voiceId: socketId });
+  }
+
+  voiceSetMuted(socketId: string, muted: boolean): void {
+    const v = this.voice.get(socketId);
+    if (!v || v.muted === muted) return;
+    v.muted = muted;
+    this.emit(null, { type: 'voice.state', seq: this.nextSeq(), roomCode: this.code, voiceId: socketId, muted });
+  }
+
+  /**
+   * Relay one signaling message from a voice member to a single other voice
+   * member. Both ends must currently be in this room's voice set: this is the
+   * guard that stops the relay being abused to push arbitrary payloads at any
+   * socket. No-op (and returns false) otherwise.
+   */
+  voiceRelay(fromSocketId: string, toVoiceId: string, signal: VoiceSignal): boolean {
+    if (!this.voice.has(fromSocketId) || !this.voice.has(toVoiceId)) return false;
+    this.emit(
+      { socket: toVoiceId },
+      { type: 'voice.signal', seq: this.nextSeq(), roomCode: this.code, from: fromSocketId, signal },
+    );
+    return true;
+  }
+
+  /** Host toggle. Turning spectator voice off also drops any spectators currently in the mesh. */
+  setAllowSpectatorVoice(allow: boolean): void {
+    this.touch();
+    this.allowSpectatorVoice = allow;
+    if (!allow) {
+      for (const [socketId, v] of [...this.voice.entries()]) {
+        if (v.seat === null) this.voiceLeave(socketId);
+      }
+    }
+    this.broadcastRoomState();
   }
 
   /** An empty chair, or if none, any bot-occupied seat a human can take over (SPEC.md 11: no seat may ever refuse a human for having a bot in it). */
@@ -331,6 +419,7 @@ export abstract class RoomBase<TConfig> {
 
   disconnectSocket(socketId: string): void {
     this.removeSpectator(socketId);
+    this.voiceLeave(socketId);
     const slot = this.seats.find((s) => s.socketId === socketId);
     if (!slot || slot.isBot) return;
     slot.connected = false;
