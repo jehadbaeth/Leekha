@@ -5,6 +5,7 @@ import { pick, type Settings } from './settings';
 import { useRoomShare } from './roomShare';
 import { Flag } from './components/Flag';
 import { PillButton } from './components/buttons';
+import type { VoiceController } from './voice/useVoiceLobby';
 
 type RoomState = Extract<ServerMessage, { type: 'room.state' }>;
 type BotLevel = 'easy' | 'medium' | 'hard' | 'insane';
@@ -51,6 +52,7 @@ export function Lobby({
   onLeave,
   onConfigure,
   onToggleSpectatorVoice,
+  voice,
 }: {
   roomState: RoomState | null;
   roomCode: string | null;
@@ -63,6 +65,7 @@ export function Lobby({
   onLeave: () => void;
   onConfigure: (config: RulesConfig) => void;
   onToggleSpectatorVoice?: (allow: boolean) => void;
+  voice?: VoiceController;
 }) {
   const [pickerSeat, setPickerSeat] = useState<Seat | null>(null);
   const t = (en: string, ar: string) => pick(language, en, ar);
@@ -243,10 +246,19 @@ export function Lobby({
       </div>
       )}
 
-      {/* Voice lobby: always-on peer-to-peer voice. The host decides whether
-          seatless spectators may talk; players always may. */}
-      <div className="w-full max-w-xs rounded-xl border border-emerald-700 bg-emerald-950/40 p-3 flex flex-col gap-1.5">
-        <p className="text-[10px] uppercase tracking-wide text-emerald-300">{t('Voice lobby', 'غرفة الصوت')}</p>
+      {/* Voice lobby: always-on peer-to-peer voice. Controls are inline here (no
+          floating popover in the lobby, so nothing covers the room code); the
+          floating pill only appears once the game is on. The host decides
+          whether seatless spectators may talk; players always may. */}
+      <div className="w-full max-w-xs rounded-xl border border-emerald-700 bg-emerald-950/40 p-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] uppercase tracking-wide text-emerald-300">{t('Voice lobby', 'غرفة الصوت')}</p>
+          {voice && voice.joined && (
+            <span className="text-[10px] text-emerald-400">
+              {voice.participants.length + 1} {t('in voice', 'في الصوت')}
+            </span>
+          )}
+        </div>
         <label className="flex items-center justify-between gap-2 text-xs text-emerald-100">
           {t('Let spectators talk', 'السماح للمتفرجين بالتحدث')}
           {isHost && onToggleSpectatorVoice ? (
@@ -262,9 +274,41 @@ export function Lobby({
             </span>
           )}
         </label>
-        <p className="text-[10px] text-emerald-400">
-          {t('Open the mic from the 🎧 button on the table.', 'افتح الميكروفون من زر 🎧 على الطاولة.')}
-        </p>
+        {voice && voice.supported ? (
+          !voice.joined ? (
+            <button
+              onClick={voice.join}
+              disabled={voice.connecting}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500 active:scale-95 disabled:opacity-60"
+            >
+              {voice.connecting ? t('Connecting…', 'جارٍ الاتصال…') : t('🎙 Join voice', '🎙 انضم للصوت')}
+            </button>
+          ) : (
+            <div className="flex gap-1.5">
+              <button
+                onClick={voice.toggleMute}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-sm font-semibold active:scale-95 ${voice.muted ? 'bg-amber-600/90 text-white' : 'bg-emerald-700 text-emerald-50'}`}
+              >
+                {voice.muted ? t('Unmute', 'إلغاء الكتم') : t('Mute', 'كتم')}
+              </button>
+              <button
+                onClick={voice.leave}
+                className="flex-1 rounded-lg bg-rose-800/80 px-2 py-1.5 text-sm font-semibold text-rose-100 active:scale-95"
+              >
+                {t('Leave voice', 'مغادرة الصوت')}
+              </button>
+            </div>
+          )
+        ) : (
+          <p className="text-[10px] text-emerald-400">
+            {t('Voice needs a secure (https) connection.', 'يحتاج الصوت إلى اتصال آمن (https).')}
+          </p>
+        )}
+        {voice && voice.error && (
+          <p className="text-[10px] text-rose-300">
+            {voice.error === 'permission' ? t('Mic permission denied.', 'تم رفض إذن الميكروفون.') : t('Could not start voice.', 'تعذّر بدء الصوت.')}
+          </p>
+        )}
       </div>
 
       {mySlot && !mySlot.isBot && (

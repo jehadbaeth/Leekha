@@ -238,10 +238,14 @@ export default function App() {
     );
   }
 
+  // The install banner is fixed to the bottom of the viewport. Never show it
+  // over the game board (it would cover the hand/emote on short screens); on
+  // menu screens, reserve bottom space so footer controls clear it.
+  const bannerVisible = install.canInstall && screen !== 'game';
   return (
-    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
+    <div className={`min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto ${bannerVisible ? 'pb-16' : ''}`}>
       <div className="game-shell-inner relative h-[100dvh] w-full text-white">
-        {mode === 'online' && online.roomState && (screen === 'lobby' || screen === 'game') && (
+        {mode === 'online' && online.roomState && screen === 'game' && (
           <VoiceControls controller={voice} language={settings.language} />
         )}
         {screen === 'home' && (
@@ -301,6 +305,7 @@ export default function App() {
           onStart={online.startGame}
           onConfigure={online.configure}
           onToggleSpectatorVoice={online.setSpectatorVoice}
+          voice={voice}
           onLeave={() => {
             online.leaveRoom();
             setMode('local');
@@ -366,7 +371,7 @@ export default function App() {
         />
       )}
 
-      {install.canInstall && (
+      {bannerVisible && (
         <InstallBanner
           rtl={settings.language === 'ar'}
           onInstall={install.promptInstall}

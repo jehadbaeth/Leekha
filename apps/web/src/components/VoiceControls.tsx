@@ -34,12 +34,16 @@ export function VoiceControls({
     : null;
 
   return (
+    // The whole cluster is pointer-events-none so the empty band beside the
+    // pill (and beside the open panel) never intercepts taps meant for the HUD
+    // controls underneath it; only the pill and the panel themselves take
+    // pointer events. See the UI overlap audit.
     <div dir="ltr" className="absolute top-2 end-2 z-30 flex flex-col items-end gap-1 pointer-events-none">
-      <div className="pointer-events-auto flex flex-col items-end gap-1">
+      <div className="flex flex-col items-end gap-1">
         {/* Collapsed pill */}
         <button
           onClick={() => setOpen((o) => !o)}
-          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-medium shadow-lg active:scale-95 transition ${
+          className={`pointer-events-auto flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-medium shadow-lg active:scale-95 transition ${
             v.joined
               ? 'border-emerald-500/70 bg-emerald-800/85 text-emerald-50'
               : 'border-emerald-700/60 bg-emerald-950/80 text-emerald-200'
@@ -53,7 +57,7 @@ export function VoiceControls({
         </button>
 
         {open && (
-          <div className="w-52 rounded-xl border border-emerald-700 bg-emerald-950/95 p-2 shadow-xl">
+          <div className="pointer-events-auto w-52 max-w-[calc(100vw-1rem)] rounded-xl border border-emerald-700 bg-emerald-950/95 p-2 shadow-xl">
             <div className="px-1 pb-1.5 text-[11px] uppercase tracking-wide text-emerald-400">
               {t('Voice lobby', 'غرفة الصوت')}
             </div>
