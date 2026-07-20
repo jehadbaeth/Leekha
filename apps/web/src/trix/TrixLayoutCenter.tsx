@@ -32,20 +32,17 @@ const PLACE_AR = ['الأول', 'الثاني', 'الثالث', 'الرابع'];
 
 export function TrixLayoutCenter({
   view,
-  onPass,
   language = 'en',
   names = SEAT_NAMES,
   fourColor = false,
 }: {
   view: TrixSeatView;
-  onPass: () => void;
   language?: 'en' | 'ar';
   names?: Record<Seat, string>;
   fourColor?: boolean;
 }) {
   const t = (en: string, ar: string) => pick(language, en, ar);
   const PLACE = language === 'ar' ? PLACE_AR : PLACE_EN;
-  const isMyTurn = view.turn === view.seat;
   const cardH = Math.round(CARD_W * 1.4);
 
   return (
@@ -108,14 +105,6 @@ export function TrixLayoutCenter({
           );
         })}
       </div>
-      {isMyTurn && view.canPass && (
-        <button
-          onClick={onPass}
-          className="self-center text-xs font-semibold bg-amber-400 text-emerald-950 rounded-full px-4 py-1.5 shadow active:scale-95"
-        >
-          {t('Pass (no legal card)', 'مرّر (لا ورقة صالحة)')}
-        </button>
-      )}
     </div>
   );
 }

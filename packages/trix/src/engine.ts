@@ -96,6 +96,8 @@ export function chooseContract(state: TrixMatchState, seat: Seat, contracts: Con
   const dealSeed = `${state.seed}:k${state.kingdomIndex}:${[...contracts].sort().join('+')}`;
   const hands = dealHands(dealSeed).map(sortHand) as [Card[], Card[], Card[], Card[]];
 
+  const startingTwos = SEATS.flatMap((s) => hands[s].filter((c) => c.rank === 2).map((card) => ({ seat: s, card })));
+
   const deal: DealState = {
     contracts,
     hands,
@@ -105,6 +107,7 @@ export function chooseContract(state: TrixMatchState, seat: Seat, contracts: Con
     tricksWon: [0, 0, 0, 0],
     heartsBroken: false,
     exposed: [],
+    startingTwos,
     exposePassed: [],
     trickNumber: 1,
     layout: emptyLayout(),
@@ -241,6 +244,18 @@ function playTrick(state: TrixMatchState, seat: Seat, card: Card): Applied {
     turn: winner,
     trickNumber: deal.trickNumber + 1,
   };
+
+  // 2s rule: once the first trick is complete (everyone has played once), every
+  // 2 still in hand is revealed to the whole table — UNLESS one partnership was
+  // dealt all four 2s (then nothing is exposed). Display-only; not scored.
+  if (deal.trickNumber === 1) {
+    const oneTeamHoldsAll =
+      state.config.partnership && deal.startingTwos.every((x) => teamOf(x.seat) === teamOf(deal.startingTwos[0].seat));
+    if (!oneTeamHoldsAll) {
+      const revealed = SEATS.flatMap((s) => hands[s].filter((c) => c.rank === 2).map((card) => ({ seat: s, card })));
+      afterTrick.exposed = [...afterTrick.exposed, ...revealed];
+    }
+  }
 
   if (deal.trickNumber >= 13) {
     return endDeal({ ...state, deal: afterTrick, moveLog: [...state.moveLog, { type: 'play', seat, card }] }, events);

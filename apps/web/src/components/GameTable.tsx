@@ -82,6 +82,8 @@ export function GameTable({
   bottomOverride,
   overlayOverride,
   seatSubline,
+  suppressCaptureSounds,
+  seatExposed,
 }: {
   view: SeatView;
   names: Record<Seat, string>;
@@ -125,6 +127,8 @@ export function GameTable({
   bottomOverride?: ReactNode; // replaces the hand tray / passing panel region
   overlayOverride?: ReactNode; // replaces the round-summary / match-end overlay
   seatSubline?: (seat: Seat) => number; // replaces each avatar's round-score line (e.g. Trix tally)
+  suppressCaptureSounds?: boolean; // skip the Leekha capture/round/game sound stings (a game with its own or no sounds)
+  seatExposed?: Partial<Record<Seat, Card[]>>; // small face-up cards shown in front of a seat, visible to all (Trix doubled honors + revealed 2s)
 }) {
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
   const mySeat = view.seat;
@@ -308,21 +312,25 @@ export function GameTable({
         if (settings.sound) playCardSound();
         if (settings.haptics) vibrate(8);
       } else if (isEventType(type, 'trickEnd')) {
+        // The trick-capture ("eating") sting and the round/game stings are
+        // Leekha-tuned (a special sound for Q♠/K♣/10♦). A game can opt out of
+        // them via suppressCaptureSounds while still getting the card-play click
+        // and the trick-freeze pause.
         const ev = item.event as unknown as { cards: { card: Card }[] };
         const big = ev.cards?.some((p) => isBigCard(p.card)) ?? false;
-        if (settings.sound) trickEndSound(big);
+        if (settings.sound && !suppressCaptureSounds) trickEndSound(big);
         if (settings.haptics) vibrate(big ? [20, 40, 20] : 15);
       } else if (isEventType(type, 'roundEnd')) {
-        if (settings.sound) roundEndSound();
+        if (settings.sound && !suppressCaptureSounds) roundEndSound();
         if (settings.haptics) vibrate([15, 30, 15, 30]);
       } else if (isEventType(type, 'gameOver')) {
         const ev = item.event as unknown as { losingTeam: 0 | 1 };
         const won = ev.losingTeam !== teamOf(mySeat);
-        if (settings.sound) gameOverSound(won);
+        if (settings.sound && !suppressCaptureSounds) gameOverSound(won);
         if (settings.haptics) vibrate(won ? [30, 50, 30, 50, 30] : [60]);
       }
     }
-  }, [events, settings.sound, settings.haptics, mySeat]);
+  }, [events, settings.sound, settings.haptics, mySeat, suppressCaptureSounds]);
 
   // Freeze the completed trick on screen briefly, highlighting the winner.
   useEffect(() => {
@@ -433,6 +441,20 @@ export function GameTable({
 
   const lastCompletedTrick = view.playedCards[view.playedCards.length - 1] ?? null;
 
+  // Small face-up cards shown in front of a seat, visible to everyone (Trix
+  // doubled honors and revealed 2s). Rendered next to each avatar / the hand.
+  const exposedFor = (seat: Seat) => {
+    const cards = seatExposed?.[seat];
+    if (!cards || cards.length === 0) return null;
+    return (
+      <div className="flex gap-0.5 justify-center flex-wrap max-w-[7rem]">
+        {cards.map((c, i) => (
+          <CardFace key={`${c.suit}${c.rank}-${i}`} card={c} width={22} fourColor={settings.fourColorDeck} />
+        ))}
+      </div>
+    );
+  };
+
   const myPassedMemo = view.youPassed;
   const forcedDumpActive = isMyTurn ? isForcedDumpSituation(view.hand, view.currentTrick, view.config) : false;
   const undercutCard = frozenTrick ? null : undercutMarkerCard(view.currentTrick, view.config);
@@ -487,7 +509,7 @@ export function GameTable({
       {/* Top: partner. paddingBottom scales with avatarSize (not a fixed px/tier)
           so the gap to the trick circle grows continuously with the table
           instead of freezing at one distance past some breakpoint. */}
-      <div className="flex justify-center pt-3 @[900px]:pt-4" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize)) }}>
+      <div className="flex flex-col items-center pt-3 @[900px]:pt-4 gap-0.5" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize)) }}>
         <Avatar
           name={names[topSeat]}
           score={view.scores[topSeat]}
@@ -503,6 +525,7 @@ export function GameTable({
           emoteDirection="down"
           size={avatarSize}
         />
+        {exposedFor(topSeat)}
       </div>
 
       {/* Middle: left - trick area - right. dir="ltr" pins the seating
@@ -527,20 +550,23 @@ export function GameTable({
         dir="ltr"
         className="flex-1 min-h-0 @[900px]:flex-none flex items-center justify-between px-2 @[900px]:px-10 @[900px]:py-4 mx-auto w-full @[900px]:max-w-[min(760px,78cqw)]"
       >
-        <Avatar
-          name={names[leftSeat]}
-          score={view.scores[leftSeat]}
-          roundScore={seatSubline ? seatSubline(leftSeat) : view.eatenPoints[leftSeat]}
-          isTurn={turn === leftSeat}
-          isDealer={dealer === leftSeat}
-          danger={dangerFor(leftSeat)}
-          team={teamOf(leftSeat)}
-          presence={presence?.[leftSeat]}
-          country={countries ? (countries[leftSeat] ?? null) : undefined}
-          deadline={deadlineFor(leftSeat)}
-          emote={visibleEmotes[leftSeat]}
-          size={avatarSize}
-        />
+        <div className="flex flex-col items-center gap-0.5">
+          <Avatar
+            name={names[leftSeat]}
+            score={view.scores[leftSeat]}
+            roundScore={seatSubline ? seatSubline(leftSeat) : view.eatenPoints[leftSeat]}
+            isTurn={turn === leftSeat}
+            isDealer={dealer === leftSeat}
+            danger={dangerFor(leftSeat)}
+            team={teamOf(leftSeat)}
+            presence={presence?.[leftSeat]}
+            country={countries ? (countries[leftSeat] ?? null) : undefined}
+            deadline={deadlineFor(leftSeat)}
+            emote={visibleEmotes[leftSeat]}
+            size={avatarSize}
+          />
+          {exposedFor(leftSeat)}
+        </div>
 
         <div
           className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 relative"
@@ -609,20 +635,23 @@ export function GameTable({
           )}
         </div>
 
-        <Avatar
-          name={names[rightSeat]}
-          score={view.scores[rightSeat]}
-          roundScore={seatSubline ? seatSubline(rightSeat) : view.eatenPoints[rightSeat]}
-          isTurn={turn === rightSeat}
-          isDealer={dealer === rightSeat}
-          danger={dangerFor(rightSeat)}
-          team={teamOf(rightSeat)}
-          presence={presence?.[rightSeat]}
-          country={countries ? (countries[rightSeat] ?? null) : undefined}
-          deadline={deadlineFor(rightSeat)}
-          emote={visibleEmotes[rightSeat]}
-          size={avatarSize}
-        />
+        <div className="flex flex-col items-center gap-0.5">
+          <Avatar
+            name={names[rightSeat]}
+            score={view.scores[rightSeat]}
+            roundScore={seatSubline ? seatSubline(rightSeat) : view.eatenPoints[rightSeat]}
+            isTurn={turn === rightSeat}
+            isDealer={dealer === rightSeat}
+            danger={dangerFor(rightSeat)}
+            team={teamOf(rightSeat)}
+            presence={presence?.[rightSeat]}
+            country={countries ? (countries[rightSeat] ?? null) : undefined}
+            deadline={deadlineFor(rightSeat)}
+            emote={visibleEmotes[rightSeat]}
+            size={avatarSize}
+          />
+          {exposedFor(rightSeat)}
+        </div>
       </div>
 
       {/* Emote button: right aligned, directly ABOVE the passed-cards memo
@@ -865,6 +894,11 @@ export function GameTable({
           the emote button), and the arc lifts the CENTER up from the
           baseline, so no card ever pokes below the tray. Order is the same
           sortHand() order as PassingPanel in every language. */}
+      {/* Your own exposed cards (doubled honors / revealed 2s), shown just above
+          your hand so you and everyone else can see them. */}
+      {seatExposed?.[mySeat] && seatExposed[mySeat]!.length > 0 && (
+        <div className="flex justify-center pb-0.5">{exposedFor(mySeat)}</div>
+      )}
       {/* Game-specific bottom region (Trix contract-select / deal-recap) takes
           over the hand/passing slot when supplied; otherwise Leekha's hand fan
           and passing panel render exactly as before. */}

@@ -198,6 +198,26 @@ describe('trix engine — leading hearts under King of Hearts', () => {
   });
 });
 
+describe('trix engine — 2s revealed after the first trick', () => {
+  it('exposes every 2 still in hand once the first trick completes (solo)', () => {
+    const config: TrixRulesConfig = { ...defaultTrixConfig, partnership: false, doubling: false };
+    let state = newMatch(config, 'twos-solo');
+    state = chooseContract(state, state.kingdomOwner, ['slaps']).state;
+    expect(state.deal!.exposed.filter((e) => e.card.rank === 2)).toHaveLength(0); // nothing before trick 1
+    for (let i = 0; i < 4; i++) {
+      const seat = actingSeat(state)!;
+      state = play(state, seat, viewFor(state, seat).legal![0]).state;
+    }
+    // Every 2 remaining in a hand is now exposed.
+    const twosInHands = ([0, 1, 2, 3] as Seat[]).flatMap((s) => state.deal!.hands[s].filter((c) => c.rank === 2).map((c) => ({ s, c })));
+    const exposedTwos = state.deal!.exposed.filter((e) => e.card.rank === 2);
+    expect(exposedTwos).toHaveLength(twosInHands.length);
+    for (const th of twosInHands) {
+      expect(exposedTwos.some((e) => e.seat === th.s && e.card.suit === th.c.suit)).toBe(true);
+    }
+  });
+});
+
 describe('trix engine — doubling window reaches every honor holder', () => {
   const isQueen = (c: Card): boolean => c.rank === 12;
 

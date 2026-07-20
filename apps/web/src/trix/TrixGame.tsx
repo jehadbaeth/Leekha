@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ALL_CONTRACTS,
   TRICK_CONTRACTS,
@@ -76,6 +76,27 @@ export function TrixGame({
 }) {
   const { view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } = controller;
   const [selected, setSelected] = useState<Contract[]>([]);
+  const [passFlash, setPassFlash] = useState(false);
+  const passedThisTurnRef = useRef(false);
+
+  // Layout (Fan-Tan): if it is your turn and you hold no legal card, you don't
+  // have to tap Pass — pass automatically and flash a brief note. Guarded so it
+  // fires once per turn; resets when the turn moves on. humanPass swallows a
+  // stale/duplicate pass, so an extra call while the state settles is harmless.
+  useEffect(() => {
+    const mustPass =
+      view?.phase === 'layout' && view.turn === view.seat && (!view.legal || view.legal.length === 0) && view.canPass;
+    if (!mustPass) {
+      passedThisTurnRef.current = false;
+      return;
+    }
+    if (passedThisTurnRef.current) return;
+    passedThisTurnRef.current = true;
+    setPassFlash(true);
+    window.setTimeout(() => setPassFlash(false), 1200);
+    humanPass();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view?.phase, view?.turn, view?.seat, view?.legal, view?.canPass]);
 
   // Map Trix's event names onto the ones GameTable's sound/haptic/freeze effects
   // recognize: 'played'/'trickEnd' already match; 'dealEnd'->'roundEnd' and
@@ -118,7 +139,14 @@ export function TrixGame({
   const teamScores: [number, number] | null = config.partnership
     ? [view.scores[0] + view.scores[2], view.scores[1] + view.scores[3]]
     : null;
-  const contractText = view.contracts.map((c) => contractName(c, L)).join(' + ') || '—';
+  // A combined (complex) deal is just called "Complex", not a list of contracts.
+  const contractText =
+    view.contracts.length > 1 ? t('Complex', 'كومبلكس') : view.contracts.map((c) => contractName(c, L)).join(' + ') || '—';
+
+  // Cards shown face-up in front of each seat, visible to all: doubled honors
+  // (from the exposing window) and the revealed 2s. view.exposed carries both.
+  const seatExposed: Partial<Record<Seat, Card[]>> = {};
+  for (const e of view.exposed) (seatExposed[e.seat] ??= []).push(e.card as Card);
 
   // --- HUD: kingdom + contract + progress, in the shared HUD strip slot ---
   const hud = (
@@ -177,7 +205,7 @@ export function TrixGame({
   // hand stays on screen. ---
   let center: React.ReactNode = undefined;
   if (view.phase === 'layout') {
-    center = <TrixLayoutCenter view={view} onPass={humanPass} language={L} names={names} fourColor={settings.fourColorDeck} />;
+    center = <TrixLayoutCenter view={view} language={L} names={names} fourColor={settings.fourColorDeck} />;
   } else if (view.phase === 'exposing') {
     center = (
       <div className="flex flex-col items-center gap-2 px-4 text-center">
@@ -303,7 +331,15 @@ export function TrixGame({
   }
 
   return (
-    <GameTable
+    <>
+      {passFlash && (
+        <div className="absolute inset-x-0 bottom-40 z-50 flex justify-center pointer-events-none">
+          <div className="bg-black/75 text-white text-xs rounded-full px-3 py-1.5 shadow-lg">
+            {t('No legal card — passed', 'لا ورقة صالحة — تم التمرير')}
+          </div>
+        </div>
+      )}
+      <GameTable
       view={trixToSeatView(view, controller.playedCards)}
       names={names}
       events={tableEvents}
@@ -332,7 +368,10 @@ export function TrixGame({
       bottomOverride={bottom}
       overlayOverride={overlay}
       seatSubline={(seat) => trixSeatTally(view, seat)}
-    />
+      seatExposed={seatExposed}
+      suppressCaptureSounds
+      />
+    </>
   );
 }
 

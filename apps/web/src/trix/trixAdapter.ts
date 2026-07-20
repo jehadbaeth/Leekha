@@ -38,7 +38,11 @@ export function trixToSeatView(tv: TrixSeatView, playedCards: { seat: Seat; card
     playedCards: playedCards.map((trick) => trick.map((p) => ({ seat: p.seat, card: p.card as unknown as LeekhaCard, forced: false }))),
     eatenPoints: [0, 0, 0, 0],
     eatenCards: [[], [], [], []],
-    scores: tv.scores,
+    // In partnership, each avatar shows the TEAM's cumulative score (both
+    // partners share it), not the individual's — that's the score that matters.
+    scores: tv.config.partnership
+      ? ([0, 1, 2, 3].map((s) => tv.scores[(s % 2) as 0 | 1] + tv.scores[((s % 2) + 2) as 2 | 3]) as [number, number, number, number])
+      : tv.scores,
     youPassed: null,
     youReceived: null,
     legal: (tv.legal as unknown as LeekhaCard[] | null) ?? null,

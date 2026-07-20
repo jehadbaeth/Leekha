@@ -90,8 +90,15 @@ export interface DealState {
   tricksWon: [number, number, number, number];
   /** Whether a heart has been broken (for the "can't lead hearts" rule in King of Hearts). */
   heartsBroken: boolean;
-  /** Cards exposed/doubled before the first lead, with the exposer. */
+  /**
+   * Cards shown face-up to everyone, with the seat that holds them: doubled
+   * honors from the exposing window AND the 2s auto-revealed after the first
+   * trick (see the 2s rule in the engine). Only K♥/queens here are scored as
+   * doubled; the 2s are display-only.
+   */
   exposed: { seat: Seat; card: Card }[];
+  /** The four 2s and the seat each was DEALT (deal start), for the "reveal 2s after the first trick" rule's one-team-holds-all-four exception. */
+  startingTwos: { seat: Seat; card: Card }[];
   /** Exposing window (doubling): seats that have finished their expose-or-decline turn. Empty outside the 'exposing' phase. */
   exposePassed: Seat[];
   trickNumber: number; // 1..13
