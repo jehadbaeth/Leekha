@@ -165,12 +165,13 @@ export default function App() {
   // Entering the Leekha flow from the main menu: start a local match, or create
   // / join the online room, per the card the player tapped. Mirrors
   // TrixOnlineGame's enter-once ref; the server-follow effect above flips the
-  // screen to lobby/game once room state arrives. Resets on return to the menu.
+  // screen to lobby/game once room state arrives. The ref is reset only in
+  // exitToMenu -- NOT here -- because on mount this effect runs with gameChoice
+  // still null (before the resume effect's setGameChoice has re-rendered) and
+  // resetting it there would clobber the resume guard, making a killed-tab
+  // reconnect spin up a fresh room instead of resyncing.
   useEffect(() => {
-    if (!gameChoice || gameChoice.game !== 'leekha') {
-      enteredLeekha.current = false;
-      return;
-    }
+    if (!gameChoice || gameChoice.game !== 'leekha') return;
     if (enteredLeekha.current) return;
     enteredLeekha.current = true;
     if (!gameChoice.online) {
@@ -193,6 +194,7 @@ export default function App() {
     setDrawerOpen(false);
     setScreen('home');
     setGameChoice(null);
+    enteredLeekha.current = false; // allow the next Leekha entry to create/join again
   }
 
   // In-game "How to play" / return: go back to the running screen, not a home
