@@ -85,6 +85,11 @@ export function Lobby({
   const isHost = mySeat !== null && mySeat === roomState.hostSeat;
   const canStart = roomState.seats.every((s) => (s.occupied || s.isBot) && (s.isBot || s.ready));
   const mySlot = mySeat !== null ? roomState.seats[mySeat] : null;
+  // Ready progress across the human players (bots are always ready), so a
+  // player can see their click registered and how many others are still pending.
+  const humanSeats = roomState.seats.filter((s) => s.occupied && !s.isBot);
+  const readyHumans = humanSeats.filter((s) => s.ready).length;
+  const waitingHumans = humanSeats.length - readyHumans;
 
   return (
     <div className="min-h-full flex flex-col items-center gap-4 bg-felt-950 px-5 py-6 overflow-y-auto">
@@ -328,14 +333,32 @@ export function Lobby({
       </div>
 
       {mySlot && !mySlot.isBot && (
-        <button
-          className={`rounded-lg px-5 py-2 font-semibold ${
-            mySlot.ready ? 'bg-emerald-800 text-emerald-100' : 'bg-amber-400 text-emerald-950'
-          }`}
-          onClick={() => onReady(!mySlot.ready)}
-        >
-          {mySlot.ready ? t('✓ Ready', '✓ جاهز') : t('I am ready', 'أنا جاهز')}
-        </button>
+        <div className="flex flex-col items-center gap-1.5">
+          <button
+            className={`rounded-lg px-6 py-2.5 font-semibold transition active:scale-95 ${
+              mySlot.ready
+                ? 'bg-emerald-500 text-emerald-950 ring-2 ring-emerald-300 ring-offset-2 ring-offset-felt-950'
+                : 'bg-amber-400 text-emerald-950 shadow-lg'
+            }`}
+            onClick={() => onReady(!mySlot.ready)}
+          >
+            {mySlot.ready ? t('✓ Ready', '✓ جاهز') : t('I am ready', 'أنا جاهز')}
+          </button>
+          {mySlot.ready ? (
+            <span className="text-xs text-emerald-300">{t('Ready — tap to undo', 'جاهز — اضغط للتراجع')}</span>
+          ) : (
+            <span className="text-xs text-amber-200/80">{t('Tap when you’re ready', 'اضغط عندما تكون جاهزاً')}</span>
+          )}
+          {/* How many players still need to ready up, so nobody is left guessing
+              whether their own click landed or who the game is waiting on. */}
+          {humanSeats.length > 1 && (
+            <span className="text-xs text-emerald-400">
+              {waitingHumans === 0
+                ? t('Everyone is ready', 'الجميع جاهز')
+                : t(`${readyHumans}/${humanSeats.length} players ready`, `${readyHumans}/${humanSeats.length} لاعبين جاهزون`)}
+            </span>
+          )}
+        </div>
       )}
 
       {isHost && (
