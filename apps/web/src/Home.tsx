@@ -3,6 +3,7 @@ import { pick, type Settings } from './settings';
 import type { AuthedUser } from './net/api';
 import type { PublicRoom } from '@leekha/protocol';
 import { PillButton } from './components/buttons';
+import { PublicRoomsList } from './components/PublicRoomsList';
 import { randomFunName } from './names';
 
 export function Home({
@@ -48,16 +49,6 @@ export function Home({
   const [makePublic, setMakePublic] = useState(false);
   const L = settings.language;
   const t = (en: string, ar: string) => pick(L, en, ar);
-
-  // Poll rather than a one-shot refresh on mount: a room created on another
-  // device after this screen already loaded (the common case — you open
-  // Home, then a friend creates a public room) would otherwise never show up
-  // without an explicit tap of the Refresh button.
-  useEffect(() => {
-    onRefreshPublicRooms();
-    const id = setInterval(onRefreshPublicRooms, 4000);
-    return () => clearInterval(id);
-  }, [onRefreshPublicRooms]);
 
   // Pick up the fun name App seeds into settings after the async settings load,
   // but never stomp what the player is actively typing.
@@ -140,50 +131,15 @@ export function Home({
           {t('Public (listed below for anyone to join)', 'عامة (تظهر بالأسفل ليتمكن أي شخص من الانضمام)')}
         </label>
 
-        <div className="flex flex-col gap-2 bg-emerald-950/60 border border-emerald-700 rounded-xl p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wide text-emerald-200">{t('Public Rooms', 'الغرف العامة')}</span>
-            <button className="text-xs underline text-emerald-200" onClick={onRefreshPublicRooms}>
-              {t('Refresh', 'تحديث')}
-            </button>
-          </div>
-          {publicRooms.length === 0 ? (
-            <p className="text-xs text-emerald-300/80 py-1">
-              {t('No public rooms right now.', 'لا توجد غرف عامة حالياً.')}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-              {publicRooms.map((room) => (
-                <div key={room.code} className="flex items-center justify-between gap-2 bg-emerald-900/60 rounded-lg px-3 py-1.5">
-                  <span className="text-sm text-white truncate flex items-center gap-1.5 min-w-0">
-                    <span
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                        room.gameType === 'trix' ? 'bg-sky-500/25 text-sky-200' : 'bg-amber-400/25 text-amber-200'
-                      }`}
-                    >
-                      {room.gameType === 'trix' ? t('Trix', 'تريكس') : t('Leekha', 'ليخة')}
-                    </span>
-                    <span className="truncate">
-                      {t(`${room.hostName}'s room`, `غرفة ${room.hostName}`)}{' '}
-                      <span className="text-emerald-300">
-                        ({room.seatsFilled}/4{room.gameType !== 'trix' && room.targetScore ? ` · ${room.targetScore}` : ''})
-                      </span>
-                    </span>
-                  </span>
-                  <button
-                    className="shrink-0 rounded-lg bg-amber-400 text-emerald-950 text-xs font-semibold px-3 py-1"
-                    onClick={() => {
-                      commitName();
-                      onJoinRoom(name.trim(), room.code, room.gameType ?? 'leekha');
-                    }}
-                  >
-                    {t('Join', 'انضمام')}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <PublicRoomsList
+          rooms={publicRooms}
+          onRefresh={onRefreshPublicRooms}
+          language={L}
+          onJoin={(code, gameType) => {
+            commitName();
+            onJoinRoom(name.trim(), code, gameType);
+          }}
+        />
 
         {!showJoin ? (
           <button

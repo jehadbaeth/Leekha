@@ -3,6 +3,8 @@ import { defaultTrixConfig, type TrixRulesConfig } from '@leekha/trix';
 import { pick, type Settings } from './settings';
 import { randomFunName } from './names';
 import type { AuthedUser } from './net/api';
+import type { PublicRoom } from '@leekha/protocol';
+import { PublicRoomsList } from './components/PublicRoomsList';
 
 export type GameChoice =
   | { game: 'leekha' }
@@ -22,6 +24,9 @@ export function GamePicker({
   onLogout,
   onChoose,
   onSettings,
+  publicRooms,
+  onRefreshPublicRooms,
+  onJoinRoom,
 }: {
   settings: Settings;
   onUpdateSettings: (patch: Partial<Settings>) => void;
@@ -30,6 +35,10 @@ export function GamePicker({
   onLogout: () => void;
   onChoose: (c: GameChoice) => void;
   onSettings: () => void;
+  publicRooms: PublicRoom[];
+  onRefreshPublicRooms: () => void;
+  /** Join an open public room by code, routed to the right game (Leekha or Trix). */
+  onJoinRoom: (name: string, code: string, gameType?: 'leekha' | 'trix') => void;
 }) {
   const L = settings.language;
   const t = (en: string, ar: string) => pick(L, en, ar);
@@ -101,6 +110,17 @@ export function GamePicker({
           complex={true}
           onPlay={(config) => { commitName(); onChoose({ game: 'trix', config }); }}
           onPlayOnline={(config) => { commitName(); onChoose({ game: 'trix', config, online: true }); }}
+        />
+
+        {/* Every open public room across both games, joinable straight from the landing. */}
+        <PublicRoomsList
+          rooms={publicRooms}
+          onRefresh={onRefreshPublicRooms}
+          language={L}
+          onJoin={(code, gameType) => {
+            commitName();
+            onJoinRoom(name.trim(), code, gameType);
+          }}
         />
 
         {/* Global account + language. */}

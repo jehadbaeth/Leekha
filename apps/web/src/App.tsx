@@ -226,6 +226,9 @@ export default function App() {
               onLogout={() => void apiLogout().finally(() => setUser(null))}
               onChoose={setGameChoice}
               onSettings={() => setLandingSettings(true)}
+              publicRooms={online.publicRooms}
+              onRefreshPublicRooms={online.refreshPublicRooms}
+              onJoinRoom={handleJoinRoom}
             />
           )}
         </div>
