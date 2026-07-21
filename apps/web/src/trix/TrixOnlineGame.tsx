@@ -1,11 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Seat, TrixRulesConfig } from '@leekha/trix';
 import { pick, type Settings } from '../settings';
 import { Lobby } from '../Lobby';
 import { TrixGame } from './TrixGame';
 import { useOnlineTrixGame } from './useOnlineTrixGame';
 import { SEAT_NAMES } from './trixLabels';
-import { VoiceControls } from '../components/VoiceControls';
+import { RoomDrawer } from '../components/RoomDrawer';
 import { useVoiceLobby } from '../voice/useVoiceLobby';
 
 const ALL_SEATS: Seat[] = [0, 1, 2, 3];
@@ -29,6 +29,7 @@ export function TrixOnlineGame({
 }) {
   const online = useOnlineTrixGame();
   const entered = useRef(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (entered.current) return;
@@ -75,8 +76,33 @@ export function TrixOnlineGame({
     const controller = { ...online, spectator, claimableSeats, onClaimSeat: online.claimSeat };
     return (
       <>
-        <TrixGame controller={controller} config={config} settings={settings} onExit={leave} names={names} recapAutoAdvances />
-        <VoiceControls controller={voice} language={settings.language} />
+        <TrixGame
+          controller={controller}
+          config={config}
+          settings={settings}
+          onExit={leave}
+          names={names}
+          recapAutoAdvances
+          menuInDrawer
+          onOpenMenu={() => setDrawerOpen(true)}
+        />
+        <RoomDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          language={settings.language}
+          roomCode={roomState?.roomCode ?? null}
+          isHost={online.mySeat !== null && !!roomState && online.mySeat === roomState.hostSeat}
+          isPublic={roomState?.isPublic ?? false}
+          onTogglePublic={online.setPublic}
+          allowSpectatorVoice={roomState?.allowSpectatorVoice ?? true}
+          onToggleSpectatorVoice={online.setSpectatorVoice}
+          voice={voice}
+          spectatorCount={online.spectators?.count}
+          onLeave={() => {
+            setDrawerOpen(false);
+            leave();
+          }}
+        />
       </>
     );
   }

@@ -65,6 +65,8 @@ export function TrixGame({
   onExit,
   names = SEAT_NAMES,
   recapAutoAdvances = false,
+  menuInDrawer,
+  onOpenMenu,
 }: {
   controller: TrixController;
   config: TrixRulesConfig;
@@ -73,6 +75,9 @@ export function TrixGame({
   names?: Record<Seat, string>;
   /** Online: the server auto-advances after the deal recap, so show a "starting shortly" note instead of a dead Continue button. */
   recapAutoAdvances?: boolean;
+  /** Online: consolidate home/room/voice into the shared ☰ drawer (rendered by the caller). */
+  menuInDrawer?: boolean;
+  onOpenMenu?: () => void;
 }) {
   const { view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } = controller;
   const [passFlash, setPassFlash] = useState(false);
@@ -362,6 +367,8 @@ export function TrixGame({
       onAdvanceRound={continueDeal}
       onRematch={() => startMatch()}
       onHome={onExit}
+      menuInDrawer={menuInDrawer}
+      onOpenMenu={onOpenMenu}
       hudOverride={hud}
       centerOverride={center}
       bottomOverride={bottom}

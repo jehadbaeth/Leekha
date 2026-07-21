@@ -20,6 +20,7 @@ export function Avatar({
   country,
   size,
   rtl = false,
+  narrow = false,
 }: {
   name: string;
   score: number;
@@ -49,13 +50,19 @@ export function Avatar({
   size?: number;
   /** When true, the presence sublabels ("bot is playing"/"reconnecting") render in Arabic. */
   rtl?: boolean;
+  /** Side seats: tighten the name width to slim the column and widen the center. */
+  narrow?: boolean;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
   const circleStyle = size
     ? { width: size, height: size, fontSize: size * 0.3, borderWidth: Math.max(2, Math.round(size * 0.045)) }
     : undefined;
-  const nameMaxW = size ? size * 1.7 : undefined;
+  // `narrow` (side seats) caps the name width tighter so the avatar's column
+  // footprint shrinks, widening the central play area between the two side
+  // seats. The circle, timer ring, dealer/danger badges, flag and emote anchor
+  // are untouched — only the name's max width tightens (it truncates sooner).
+  const nameMaxW = size ? size * (narrow ? 1.05 : 1.7) : undefined;
   // GameTable centers left/right avatars against the trick circle via
   // `items-center` on their shared row, which centers each avatar's WHOLE
   // box (circle + name + score). Since the circle sits at the top of that

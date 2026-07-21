@@ -13,7 +13,7 @@ import { TrixLocalGame } from './trix/TrixGame';
 import { TrixOnlineGame } from './trix/TrixOnlineGame';
 import { defaultTrixConfig } from '@leekha/trix';
 import { GameTable } from './components/GameTable';
-import { VoiceControls } from './components/VoiceControls';
+import { RoomDrawer } from './components/RoomDrawer';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
 import { useOnlineGame } from './useOnlineGame';
@@ -59,6 +59,7 @@ export default function App() {
     autoJoin: settings.voiceAutoJoin,
   });
   const install = useInstallPrompt();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     // loadSettings fills a persisted fun handle (Mad Llama, Cosmic Otter) when
@@ -257,7 +258,26 @@ export default function App() {
     <div className={`min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto ${bannerVisible ? 'pb-16' : ''}`}>
       <div className="game-shell-inner relative h-[100dvh] w-full text-white">
         {mode === 'online' && online.roomState && screen === 'game' && (
-          <VoiceControls controller={voice} language={settings.language} />
+          <RoomDrawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            language={settings.language}
+            roomCode={online.roomState.roomCode}
+            isHost={online.mySeat !== null && online.mySeat === online.roomState.hostSeat}
+            isPublic={online.roomState.isPublic ?? false}
+            onTogglePublic={online.setPublic}
+            allowSpectatorVoice={online.roomState.allowSpectatorVoice ?? true}
+            onToggleSpectatorVoice={online.setSpectatorVoice}
+            voice={voice}
+            spectatorCount={online.spectators?.count}
+            onHowToPlay={() => setScreen('howto')}
+            onLeave={() => {
+              setDrawerOpen(false);
+              online.leaveRoom();
+              setMode('local');
+              setScreen('home');
+            }}
+          />
         )}
         {screen === 'home' && (
         <Home
@@ -369,6 +389,8 @@ export default function App() {
           claimableSeats={claimableSeats}
           onClaimSeat={online.claimSeat}
           roomCode={online.roomState?.roomCode ?? null}
+          menuInDrawer
+          onOpenMenu={() => setDrawerOpen(true)}
           settings={settings}
           onCommitPass={online.pass}
           onPlayCard={online.play}

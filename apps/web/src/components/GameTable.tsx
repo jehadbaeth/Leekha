@@ -84,6 +84,8 @@ export function GameTable({
   seatSubline,
   suppressCaptureSounds,
   seatExposed,
+  menuInDrawer,
+  onOpenMenu,
 }: {
   view: SeatView;
   names: Record<Seat, string>;
@@ -129,6 +131,8 @@ export function GameTable({
   seatSubline?: (seat: Seat) => number; // replaces each avatar's round-score line (e.g. Trix tally)
   suppressCaptureSounds?: boolean; // skip the Leekha capture/round/game sound stings (a game with its own or no sounds)
   seatExposed?: Partial<Record<Seat, Card[]>>; // small face-up cards shown in front of a seat, visible to all (Trix doubled honors + revealed 2s)
+  menuInDrawer?: boolean; // consolidate home/room/voice into a ☰ drawer (caller renders the drawer); frees the corners so the emote button moves clear of the side avatars
+  onOpenMenu?: () => void; // opens the caller's room drawer
 }) {
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
   const mySeat = view.seat;
@@ -555,6 +559,7 @@ export function GameTable({
           <Avatar
           rtl={settings.language === 'ar'}
             name={names[leftSeat]}
+            narrow
             score={view.scores[leftSeat]}
             roundScore={seatSubline ? seatSubline(leftSeat) : view.eatenPoints[leftSeat]}
             isTurn={turn === leftSeat}
@@ -646,6 +651,7 @@ export function GameTable({
           <Avatar
           rtl={settings.language === 'ar'}
             name={names[rightSeat]}
+            narrow
             score={view.scores[rightSeat]}
             roundScore={seatSubline ? seatSubline(rightSeat) : view.eatenPoints[rightSeat]}
             isTurn={turn === rightSeat}
@@ -671,38 +677,69 @@ export function GameTable({
           is right aligned, exactly the column the right-seat avatar's score
           sits in, so a larger negative margin rides up over that score on
           short (address-bar-reduced) phone heights. */}
-      {onEmote && (
-        <div dir="ltr" className="relative z-20 flex justify-end px-2 pb-1 -mt-3 pointer-events-none">
-          {showEmotePicker && (
-            // Centered on the row (screen), not right-aligned under the button:
-            // a right-aligned picker opened straight up over the east-seat
-            // avatar (see UI audit). Centered + compact, it opens over the empty
-            // middle and clears the edge-seat avatars at every phone width.
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[calc(100vw-1.5rem)] grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg pointer-events-auto">
-              {EMOTES.map((e) => (
-                <button
-                  key={e.id}
-                  className="text-xl w-11 h-11 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
-                  title={t(e.en, e.ar)}
-                  onClick={() => {
-                    onEmote(e.id);
-                    setShowEmotePicker(false);
-                  }}
-                >
-                  {e.glyph}
-                </button>
-              ))}
-            </div>
-          )}
-          <button
-            className="pointer-events-auto w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
-            onClick={() => setShowEmotePicker((v) => !v)}
-            aria-label={t('Emotes', 'الرموز التعبيرية')}
-          >
-            😊
-          </button>
-        </div>
-      )}
+      {onEmote &&
+        (menuInDrawer ? (
+          // With home/room/voice moved into the drawer, the top-END corner is
+          // free, so the emote button lives there — clear of the edge-seat
+          // avatars it used to ride over on short phones. The picker opens
+          // centered on screen (never over a side avatar).
+          <>
+            <button
+              className="absolute top-2 end-2 z-30 w-9 h-9 flex items-center justify-center text-xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
+              onClick={() => setShowEmotePicker((v) => !v)}
+              aria-label={t('Emotes', 'الرموز التعبيرية')}
+            >
+              😊
+            </button>
+            {showEmotePicker && (
+              <div
+                dir="ltr"
+                className="fixed z-40 top-14 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-1.5rem)] grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg"
+              >
+                {EMOTES.map((e) => (
+                  <button
+                    key={e.id}
+                    className="text-xl w-11 h-11 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
+                    title={t(e.en, e.ar)}
+                    onClick={() => {
+                      onEmote(e.id);
+                      setShowEmotePicker(false);
+                    }}
+                  >
+                    {e.glyph}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div dir="ltr" className="relative z-20 flex justify-end px-2 pb-1 -mt-3 pointer-events-none">
+            {showEmotePicker && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[calc(100vw-1.5rem)] grid grid-cols-4 gap-1 bg-emerald-950 border border-emerald-700 rounded-xl p-2 shadow-lg pointer-events-auto">
+                {EMOTES.map((e) => (
+                  <button
+                    key={e.id}
+                    className="text-xl w-11 h-11 flex items-center justify-center rounded-lg hover:bg-emerald-800 whitespace-nowrap"
+                    title={t(e.en, e.ar)}
+                    onClick={() => {
+                      onEmote(e.id);
+                      setShowEmotePicker(false);
+                    }}
+                  >
+                    {e.glyph}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              className="pointer-events-auto w-11 h-11 flex items-center justify-center text-2xl rounded-full bg-emerald-900/80 border border-emerald-700 shadow-lg active:scale-95"
+              onClick={() => setShowEmotePicker((v) => !v)}
+              aria-label={t('Emotes', 'الرموز التعبيرية')}
+            >
+              😊
+            </button>
+          </div>
+        ))}
 
       {/* Passed memo chip: sits above the HUD strip, not below it, so it never
           crowds the hand tray underneath and clips the tops of the fanned cards. */}
@@ -760,6 +797,18 @@ export function GameTable({
         // side -- top-left in English, top-right in Arabic.
         <div className="absolute top-2 start-2 z-20 flex flex-col items-start gap-1">
           <div className="flex items-center gap-1">
+            {menuInDrawer && onOpenMenu ? (
+              // Consolidated "curtain": one ☰ opens a drawer holding home,
+              // invite and voice/participants, so the play area isn't ringed
+              // with floating buttons that collide with the edge avatars.
+              <button
+                className="flex items-center justify-center w-9 h-9 bg-emerald-900/80 border border-emerald-700 rounded-full shadow-lg active:scale-95 text-lg"
+                onClick={onOpenMenu}
+                aria-label={t('Room menu', 'قائمة الغرفة')}
+              >
+                ☰
+              </button>
+            ) : (
             <button
               className="flex items-center justify-center w-9 h-9 bg-emerald-900/80 border border-emerald-700 rounded-full shadow-lg active:scale-95"
               onClick={() => {
@@ -771,7 +820,8 @@ export function GameTable({
             >
               🏠
             </button>
-            {roomCode && (
+            )}
+            {!menuInDrawer && roomCode && (
               <button
                 className="flex items-center gap-1 bg-emerald-900/80 border border-emerald-700 rounded-full px-3 py-2 text-xs font-mono font-semibold shadow-lg active:scale-95"
                 onClick={shareRoom}
@@ -780,7 +830,7 @@ export function GameTable({
                 🔗 {roomCode}
               </button>
             )}
-            {spectators && spectators.count > 0 && (
+            {!menuInDrawer && spectators && spectators.count > 0 && (
               <button
                 className="flex items-center gap-1 bg-emerald-900/80 border border-emerald-700 rounded-full px-2.5 py-2 text-xs font-semibold shadow-lg active:scale-95"
                 onClick={() => setShowSpectators((v) => !v)}

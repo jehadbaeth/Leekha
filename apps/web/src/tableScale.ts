@@ -15,7 +15,13 @@
 const CARD_ASPECT = 146 / 104; // height / width, matched to the old xl tier
 
 export function cardWidthForContainer(containerPx: number): number {
-  return Math.max(60, Math.min(164, containerPx * 0.125));
+  // Bumped from a 60px floor / 0.125 ratio: the hand is the most important,
+  // most-tapped thing, and on phones it was floored tiny while ~380px of felt
+  // sat empty above it. Bigger cards fill that reclaimed vertical space with a
+  // taller two-story fan (size stays stable across the deal; only overlap
+  // shrinks as cards deplete). Still clamped so it can't overflow a 320px phone
+  // or grow absurd on a desktop shell.
+  return Math.max(74, Math.min(168, containerPx * 0.17));
 }
 
 export function cardHeightForWidth(width: number): number {
