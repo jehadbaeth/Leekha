@@ -1101,7 +1101,11 @@ export function GameTable({
         <PassingPanel
           hand={view.hand}
           recipientName={passRecipient}
-          committed={view.youPassed !== null}
+          // The server withholds youPassed from the passer until ALL four pass,
+          // but it acks each pass immediately via game.passProgress -- so this
+          // seat's own committed bit is the signal that flips the panel to
+          // "waiting" right after Confirm, not the table-wide reveal.
+          committed={view.youPassed !== null || !!passProgress[mySeat]}
           passProgress={passProgress}
           fourColor={settings.fourColorDeck}
           language={settings.language}

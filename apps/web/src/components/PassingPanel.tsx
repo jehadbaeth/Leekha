@@ -25,6 +25,12 @@ export function PassingPanel({
 }) {
   const t = (en: string, ar: string) => pick(language, en, ar);
   const [selected, setSelected] = useState<Card[]>([]);
+  // Optimistic: flip to the "waiting" view the instant Confirm is tapped, before
+  // the server's pass ack round-trips, so the tap always registers visually.
+  // `committed` (server-backed) takes over once it arrives and keeps the panel
+  // in the waiting state across re-renders / a reconnect.
+  const [submitted, setSubmitted] = useState(false);
+  const waiting = committed || submitted;
   // Same measured-fan approach as GameTable's hand tray (see fanLayout):
   // the callback ref re-arms the measurement when the picker mounts.
   const [trayEl, setTrayEl] = useState<HTMLDivElement | null>(null);
@@ -39,7 +45,7 @@ export function PassingPanel({
   }, [trayEl]);
 
   function toggle(card: Card) {
-    if (committed) return;
+    if (waiting) return;
     setSelected((prev) => {
       const exists = prev.some((c) => cardKey(c) === cardKey(card));
       if (exists) return prev.filter((c) => cardKey(c) !== cardKey(card));
@@ -57,7 +63,7 @@ export function PassingPanel({
     // matching where the HUD strip actually landed once bigger cards made
     // this content taller, and the two started overlapping.
     <div className="flex flex-col items-center gap-2 w-full px-4 pb-2 pt-1">
-      {!committed ? (
+      {!waiting ? (
           <>
             {/* Confirm lives up here in the instruction chip, above the fan,
                 not below it: below the cards it was the one control that
@@ -74,8 +80,11 @@ export function PassingPanel({
               </div>
               <button
                 disabled={selected.length !== 3}
-                onClick={() => onConfirm(selected as [Card, Card, Card])}
-                className="rounded-lg px-5 py-1.5 bg-amber-400 disabled:opacity-30 text-emerald-950 font-semibold"
+                onClick={() => {
+                  setSubmitted(true);
+                  onConfirm(selected as [Card, Card, Card]);
+                }}
+                className="rounded-lg px-5 py-1.5 bg-amber-400 disabled:opacity-30 text-emerald-950 font-semibold active:scale-95 transition-transform"
               >
                 {t('Confirm', 'تأكيد')}
               </button>
