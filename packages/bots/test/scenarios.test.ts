@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Card, Seat, SeatView, defaultConfig, isLeekha } from '@leekha/engine';
+import { Card, Seat, SeatView, defaultConfig, isLeekha, rngFromSeed } from '@leekha/engine';
 import { choosePlay } from '../src/heuristic.js';
+import { chooseSearchPlay, perfectInfoBest } from '../src/search.js';
 import { buildTracker } from '../src/tracker.js';
 
 /**
@@ -118,6 +119,39 @@ describe('lead scenarios from real-game blunders', () => {
     });
     const card = choosePlay(v, opts);
     expect(card.suit).not.toBe('H');
+  });
+});
+
+describe('search/oracle tiers never voluntarily lead a Leekha', () => {
+  // A full, valid 52-card deal: seat 0 holds exactly one Leekha (10♦) plus 12
+  // harmless spot cards, so leading a non-Leekha is always possible. The search
+  // root must not pick 10♦ -- leading it wins its own trick under the undercut
+  // rule (measured: the leader's own team eats a led Leekha ~75-86% of the time).
+  const seat0Hand: Card[] = [
+    c('D', 10), c('D', 2), c('D', 3), c('D', 4),
+    c('S', 2), c('S', 3), c('S', 4),
+    c('H', 2), c('H', 3), c('H', 4), c('H', 5),
+    c('C', 2), c('C', 3),
+  ];
+  const deck: Card[] = (['S', 'H', 'D', 'C'] as Card['suit'][]).flatMap((s) =>
+    Array.from({ length: 13 }, (_, i) => c(s, i + 2)),
+  );
+  const rest = deck.filter((card) => !seat0Hand.some((h) => h.suit === card.suit && h.rank === card.rank));
+  const trueHands: Card[][] = [seat0Hand, rest.slice(0, 13), rest.slice(13, 26), rest.slice(26, 39)];
+  const leadView = view({ seat: 0, hand: seat0Hand });
+
+  it('chooseSearchPlay (hard) leads a non-Leekha', () => {
+    const card = chooseSearchPlay(leadView, { rng: rngFromSeed('lead-backstop-hard'), totalRollouts: 80 });
+    expect(isLeekha(card)).toBe(false);
+  });
+
+  it('perfectInfoBest (insane/oracle) leads a non-Leekha', () => {
+    const { best } = perfectInfoBest(leadView, trueHands, {
+      noise: 8,
+      rng: rngFromSeed('lead-backstop-oracle'),
+      endgameCounting: false,
+    });
+    expect(isLeekha(best)).toBe(false);
   });
 });
 

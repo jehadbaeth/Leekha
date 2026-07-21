@@ -21,6 +21,25 @@ function cardKey(c: Card): string {
   return `${c.suit}${c.rank}`;
 }
 
+/**
+ * Candidate moves the search is allowed to pick at the ROOT. When leading, drop
+ * Leekha cards unless one is the only legal play: under the undercut rule a led
+ * Leekha pins every follower below it, so it wins its own trick, and measurement
+ * shows the leader's own team eats a voluntarily-led Leekha ~75-86% of the time.
+ * The heuristic tier already refuses to lead one (heuristic.ts backstop); this
+ * gives the search root the same guard, since its rollout continuation is that
+ * same heuristic and it would otherwise fool itself into "dump now beats hold".
+ * The rollout continuation is untouched -- only which root moves get scored.
+ */
+function rootCandidates(view: SeatView, leadBackstop: boolean): Card[] {
+  const legal = view.legal!;
+  if (leadBackstop && view.currentTrick.plays.length === 0) {
+    const nonLeekha = legal.filter((c) => !isLeekha(c));
+    if (nonLeekha.length > 0) return nonLeekha;
+  }
+  return legal;
+}
+
 function handSizesFromView(view: SeatView): [number, number, number, number] {
   const played: [number, number, number, number] = [0, 0, 0, 0];
   for (const trick of view.playedCards) for (const p of trick) played[p.seat]++;
@@ -207,14 +226,16 @@ export function perfectInfoBest(
   view: SeatView,
   trueHands: Card[][],
   policyOpts: HeuristicOptions,
+  leadBackstop = true,
 ): { best: Card; scoreByCard: Map<string, number> } {
   const legal = view.legal;
   if (!legal || legal.length === 0) throw new Error('perfectInfoBest called when it is not this seat\'s turn');
 
+  const candidates = rootCandidates(view, leadBackstop);
   const scoreByCard = new Map<string, number>();
-  let best = legal[0];
+  let best = candidates[0];
   let bestScore = -Infinity;
-  for (const candidate of legal) {
+  for (const candidate of candidates) {
     const fullHands = trueHands.map((h) => h.slice());
     fullHands[view.seat] = view.hand;
     const { eatenPoints } = simulateRound(
@@ -241,6 +262,8 @@ export interface SearchOptions {
   rng: () => number;
   /** Total rollouts to spend across all candidate moves; divided evenly per candidate. */
   totalRollouts: number;
+  /** Refuse to voluntarily lead a Leekha at the root (see rootCandidates). Default on. */
+  leadBackstop?: boolean;
 }
 
 export function chooseSearchPlay(view: SeatView, opts: SearchOptions): Card {
@@ -248,7 +271,10 @@ export function chooseSearchPlay(view: SeatView, opts: SearchOptions): Card {
   if (!legal || legal.length === 0) throw new Error('chooseSearchPlay called when it is not this seat\'s turn');
   if (legal.length === 1) return legal[0];
 
-  const worldsPerCandidate = Math.max(4, Math.floor(opts.totalRollouts / legal.length));
+  const candidates = rootCandidates(view, opts.leadBackstop !== false);
+  if (candidates.length === 1) return candidates[0];
+
+  const worldsPerCandidate = Math.max(4, Math.floor(opts.totalRollouts / candidates.length));
   const worlds: Card[][][] = [];
   for (let i = 0; i < worldsPerCandidate; i++) worlds.push(sampleWorld(view, opts.rng));
 
@@ -257,9 +283,9 @@ export function chooseSearchPlay(view: SeatView, opts: SearchOptions): Card {
   // dominate the 320-rollout budget.
   const policyOpts: HeuristicOptions = { noise: 8, rng: opts.rng, endgameCounting: false };
 
-  let best = legal[0];
+  let best = candidates[0];
   let bestScore = -Infinity;
-  for (const candidate of legal) {
+  for (const candidate of candidates) {
     let total = 0;
     for (const hands of worlds) {
       const fullHands = hands.slice();
