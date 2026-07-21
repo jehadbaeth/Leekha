@@ -4,12 +4,12 @@ import { pick } from '../settings';
 import { CardFace } from '../components/CardFace';
 import { SUIT_ORDER, SUIT_SYMBOL, suitColorClass, SEAT_NAMES } from './trixLabels';
 
-// The Fan-Tan (Trex layout) tableau: FOUR VERTICAL COLUMNS, one per suit. The
-// HIGH side is shown in full (A / K / Q down to the Jack anchor at the top) since
-// it is at most four cards. The LOW side is a long run (up to nine cards) so it is
-// collapsed to just its FRONTIER — the single last-placed (lowest) card — with a
-// gap marker for the implied run. This keeps every column at most five cards tall
-// so the towers can never grow off-screen or cover the avatars.
+// The Fan-Tan (Trex layout) tableau: FOUR VERTICAL COLUMNS, one per suit.
+// Per the user's rule, each column shows only the cards that matter, not the
+// whole run: the HIGH honors that have been played (Q, then K, then A) stacked,
+// and the single LAST (lowest) card played on the low side. The opening Jack is
+// only shown while it is the sole card (so you can tell the column is open);
+// once anything is played on either side it's dropped. No gap "⋮" marker.
 
 // The board is four suit columns. Rather than a fixed tiny card (which left the
 // tableau marooned in a sea of empty felt), the card width scales to fill the
@@ -28,17 +28,18 @@ function cardWidthFor(containerW: number): number {
 const OVERLAP_RATIO = 0.44; // vertical peek of each buried card, as a fraction of card width
 
 interface Column {
-  highs: Rank[]; // A..J, top to bottom (Jack last); [] if not opened
-  low: Rank | null; // single frontier card below the jack, null if none/only-jack
-  gap: boolean; // true when cards are skipped between the jack and the low frontier
+  opened: boolean; // the jack has been laid (column is in play)
+  cards: Rank[]; // what to actually render, top to bottom: A/K/Q played, then the single lowest played card
 }
 
 function columnFor(s: SuitLayout): Column {
-  if (s.up === null) return { highs: [], low: null, gap: false };
+  if (s.up === null) return { opened: false, cards: [] };
   const highs: Rank[] = [];
-  for (let r = s.up; r >= 11; r--) highs.push(r as Rank); // A,K,Q,...,J
-  const low = s.down !== null && s.down < 11 ? (s.down as Rank) : null;
-  return { highs, low, gap: low !== null && low < 10 };
+  for (let r = s.up; r >= 12; r--) highs.push(r as Rank); // A, K, Q that are down (NOT the jack)
+  const low = s.down !== null && s.down < 11 ? (s.down as Rank) : null; // lowest played card, 2..10
+  // Only the jack so far: show it alone so the open column reads as open.
+  if (highs.length === 0 && low === null) return { opened: true, cards: [11 as Rank] };
+  return { opened: true, cards: low !== null ? [...highs, low] : highs };
 }
 
 const PLACE_EN = ['1st', '2nd', '3rd', '4th'];
@@ -85,14 +86,14 @@ export function TrixLayoutCenter({
       {/* dir=ltr keeps the suit columns in a stable order regardless of UI language. */}
       <div dir="ltr" className="flex items-start justify-center gap-1">
         {SUIT_ORDER.map((suit) => {
-          const { highs, low, gap } = columnFor(view.layout[suit]);
+          const { opened, cards } = columnFor(view.layout[suit]);
           const bury = { marginTop: -(cardH - OVERLAP) }; // overlap the card above, leaving a rank strip
           return (
             <div key={suit} className="flex flex-col items-center gap-1">
               <div className={`text-sm font-bold leading-none ${suitColorClass(suit)} bg-white rounded px-1`}>
                 {SUIT_SYMBOL[suit]}
               </div>
-              {highs.length === 0 ? (
+              {!opened ? (
                 <div
                   className="rounded-md border border-dashed border-emerald-600/60 flex items-center justify-center text-emerald-500/60 text-[9px] text-center px-0.5"
                   style={{ width: CARD_W, height: cardH }}
@@ -100,31 +101,14 @@ export function TrixLayoutCenter({
                   {t('play J', 'العب الولد')}
                 </div>
               ) : (
-                // A short flex column: high honors down to the jack overlap into a
-                // strip; the single low frontier card (if any) sits below, after a
-                // gap marker when ranks are skipped.
+                // The played honors (Q/K/A) stacked, then the single lowest card
+                // played — no gap marker, no full run, no jack once play has moved on.
                 <div className="flex flex-col items-center">
-                  {highs.map((r, i) => {
-                    const isJack = r === 11;
-                    return (
-                      <div key={r} className={`rounded ${isJack ? 'ring-2 ring-amber-400' : ''}`} style={i === 0 ? undefined : bury}>
-                        <CardFace card={{ suit, rank: r }} width={CARD_W} fourColor={fourColor} />
-                      </div>
-                    );
-                  })}
-                  {low !== null &&
-                    (gap ? (
-                      <>
-                        <div className="text-emerald-300/70 text-xs leading-none my-0.5">⋮</div>
-                        <div className="rounded">
-                          <CardFace card={{ suit, rank: low }} width={CARD_W} fourColor={fourColor} />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="rounded" style={bury}>
-                        <CardFace card={{ suit, rank: low }} width={CARD_W} fourColor={fourColor} />
-                      </div>
-                    ))}
+                  {cards.map((r, i) => (
+                    <div key={r} className="rounded" style={i === 0 ? undefined : bury}>
+                      <CardFace card={{ suit, rank: r }} width={CARD_W} fourColor={fourColor} />
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

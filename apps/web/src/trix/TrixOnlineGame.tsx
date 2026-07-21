@@ -74,6 +74,15 @@ export function TrixOnlineGame({
     const spectator = online.mySeat === null;
     const claimableSeats = spectator ? ALL_SEATS.filter((s) => online.presence[s] === 'bot') : [];
     const controller = { ...online, spectator, claimableSeats, onClaimSeat: online.claimSeat };
+    const scoreDigest = {
+      players: ALL_SEATS.map((s) => ({ name: names[s], score: view.scores[s] })),
+      teams: config.partnership
+        ? [
+            { label: `${names[0]} & ${names[2]}`, score: view.scores[0] + view.scores[2] },
+            { label: `${names[1]} & ${names[3]}`, score: view.scores[1] + view.scores[3] },
+          ]
+        : null,
+    };
     return (
       <>
         <TrixGame
@@ -98,6 +107,7 @@ export function TrixOnlineGame({
           onToggleSpectatorVoice={online.setSpectatorVoice}
           voice={voice}
           spectatorCount={online.spectators?.count}
+          scoreDigest={scoreDigest}
           onLeave={() => {
             setDrawerOpen(false);
             leave();

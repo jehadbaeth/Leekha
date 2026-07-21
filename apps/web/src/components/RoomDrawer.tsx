@@ -1,7 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { pick, type Settings } from '../settings';
 import { useRoomShare } from '../roomShare';
 import type { VoiceController } from '../voice/useVoiceLobby';
+
+export interface ScoreDigest {
+  /** Current standings, one row per seat. */
+  players: { name: string; score: number }[];
+  /** Partnership totals (teams 0,2 vs 1,3), or null in a solo game. */
+  teams?: { label: string; score: number }[] | null;
+}
 
 // A slide-out "curtain" that gathers the room's meta-controls — invite, voice
 // lobby + participants, and leave/home — behind a single ☰ button, so the play
@@ -20,6 +27,7 @@ export function RoomDrawer({
   onToggleSpectatorVoice,
   voice,
   spectatorCount,
+  scoreDigest,
   onLeave,
   onHowToPlay,
 }: {
@@ -34,12 +42,14 @@ export function RoomDrawer({
   onToggleSpectatorVoice?: (v: boolean) => void;
   voice?: VoiceController;
   spectatorCount?: number;
+  scoreDigest?: ScoreDigest | null;
   onLeave: () => void;
   onHowToPlay?: () => void;
 }) {
   const t = (en: string, ar: string) => pick(language, en, ar);
   const rtl = language === 'ar';
   const { copied, share, copyCode } = useRoomShare(roomCode, language);
+  const [showScores, setShowScores] = useState(false);
 
   // Close on Escape; lock nothing else (the scrim handles outside taps).
   useEffect(() => {
@@ -159,6 +169,11 @@ export function RoomDrawer({
 
           {/* Actions */}
           <section className="flex flex-col gap-2 mt-auto pt-2 border-t border-emerald-800">
+            {scoreDigest && (
+              <button onClick={() => setShowScores(true)} className="rounded-lg border border-emerald-700 text-emerald-100 text-sm font-medium px-3 py-2 hover:bg-emerald-900">
+                {t('Scores', 'النتائج')}
+              </button>
+            )}
             {onHowToPlay && (
               <button onClick={onHowToPlay} className="rounded-lg border border-emerald-700 text-emerald-100 text-sm font-medium px-3 py-2 hover:bg-emerald-900">
                 {t('How to play', 'طريقة اللعب')}
@@ -170,6 +185,44 @@ export function RoomDrawer({
           </section>
         </div>
       </aside>
+
+      {/* Scores digest: a translucent popup so the table stays visible behind it,
+          with an X in the corner to dismiss. */}
+      {showScores && scoreDigest && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setShowScores(false)}>
+          <div
+            className="relative w-full max-w-xs rounded-2xl border border-emerald-600/70 bg-emerald-950/80 backdrop-blur-sm p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowScores(false)}
+              className="absolute top-2 end-2 h-8 w-8 flex items-center justify-center rounded-full text-emerald-300 hover:bg-emerald-900/70 text-lg"
+              aria-label={t('Close', 'إغلاق')}
+            >
+              ✕
+            </button>
+            <h3 className="text-sm font-semibold text-emerald-100 mb-3">{t('Scores', 'النتائج')}</h3>
+            {scoreDigest.teams && scoreDigest.teams.length > 0 && (
+              <ul className="mb-3 flex flex-col gap-1.5">
+                {scoreDigest.teams.map((tm, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 rounded-lg bg-emerald-900/50 px-3 py-2 text-sm">
+                    <span className="truncate text-emerald-100">{tm.label}</span>
+                    <span className="tabular-nums font-bold text-amber-300">{tm.score}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <ul className="flex flex-col gap-1">
+              {scoreDigest.players.map((p, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 px-1 py-1 text-sm text-emerald-100">
+                  <span className="truncate">{p.name}</span>
+                  <span className="tabular-nums font-semibold text-emerald-200">{p.score}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </>
   );
 }

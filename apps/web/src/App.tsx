@@ -270,6 +270,17 @@ export default function App() {
             onToggleSpectatorVoice={online.setSpectatorVoice}
             voice={voice}
             spectatorCount={online.spectators?.count}
+            scoreDigest={
+              online.view
+                ? {
+                    players: ([0, 1, 2, 3] as Seat[]).map((s) => ({ name: onlineNames[s], score: online.view!.scores[s] })),
+                    teams: [
+                      { label: `${onlineNames[0]} & ${onlineNames[2]}`, score: online.view.scores[0] + online.view.scores[2] },
+                      { label: `${onlineNames[1]} & ${onlineNames[3]}`, score: online.view.scores[1] + online.view.scores[3] },
+                    ],
+                  }
+                : null
+            }
             onHowToPlay={() => setScreen('howto')}
             onLeave={() => {
               setDrawerOpen(false);
