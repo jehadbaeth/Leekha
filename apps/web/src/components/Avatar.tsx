@@ -21,6 +21,7 @@ export function Avatar({
   size,
   rtl = false,
   narrow = false,
+  flushTop = false,
 }: {
   name: string;
   score: number;
@@ -52,6 +53,8 @@ export function Avatar({
   rtl?: boolean;
   /** Side seats: tighten the name width to slim the column and widen the center. */
   narrow?: boolean;
+  /** Top seat: skip the tall label-mirror pad above the circle (only side seats need it, to align with the trick circle). Lets the partner sit near the top edge and frees vertical room for the play area below. */
+  flushTop?: boolean;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -73,7 +76,7 @@ export function Avatar({
   // also centers the circle -- without pulling the label out of normal
   // flow, which other call sites (the spectator's own seat avatar) rely on
   // for real layout spacing to whatever content follows.
-  const labelPad = size ? avatarLabelHeightForSize(size, isBot || reconnecting) : 34;
+  const labelPad = flushTop ? 0 : size ? avatarLabelHeightForSize(size, isBot || reconnecting) : 34;
   return (
     <div className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`} style={{ paddingTop: labelPad }}>
       {emote && (

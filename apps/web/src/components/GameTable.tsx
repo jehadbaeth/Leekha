@@ -181,32 +181,25 @@ export function GameTable({
     ro.observe(tableEl);
     return () => ro.disconnect();
   }, [tableEl]);
-  // Measured height of the center cell (the flex-1 area between the partner
-  // avatar and the info bar). The trick circle is sized to FIT this, so it can
-  // never bulge down onto the info bar the way a purely width-derived diameter
-  // did on shorter phones once the hand tray grew.
-  const [centerEl, setCenterEl] = useState<HTMLDivElement | null>(null);
-  const [centerH, setCenterH] = useState(0);
+  const avatarSize = avatarSizeForContainer(tableW);
+  // Measured height of the seats row. Used ONLY to bias the play area upward by
+  // a safe amount — the trick circle keeps its full width-derived size; this
+  // never shrinks it. The bias is clamped to the leftover slack so the circle
+  // stays clear of the partner above on short screens.
+  const [seatsRowEl, setSeatsRowEl] = useState<HTMLDivElement | null>(null);
+  const [seatsRowH, setSeatsRowH] = useState(0);
   useLayoutEffect(() => {
-    if (!centerEl) return;
-    const measure = () => setCenterH(centerEl.clientHeight);
+    if (!seatsRowEl) return;
+    const measure = () => setSeatsRowH(seatsRowEl.clientHeight);
     measure();
     const ro = new ResizeObserver(measure);
-    ro.observe(centerEl);
+    ro.observe(seatsRowEl);
     return () => ro.disconnect();
-  }, [centerEl]);
-  // Bias the play cluster (trick circle + side avatars) UP off the info bar by
-  // padding the bottom of the seats row; the diameter is then capped to fit the
-  // remaining height so it can never bulge onto the bar on a short phone.
-  const centerPadB = Math.round(tableW * 0.07);
-  const trickCircle = Math.max(
-    96,
-    Math.min(
-      trickCircleForContainer(tableW),
-      centerH > 0 ? Math.floor((centerH - centerPadB) * 0.82) : trickCircleForContainer(tableW),
-    ),
-  );
-  const avatarSize = avatarSizeForContainer(tableW);
+  }, [seatsRowEl]);
+  // Full disc plus its backdrop halo (~14% overhang each side). The upward bias
+  // can use at most the slack beyond this, minus a small gap kept above the disc.
+  const discFootprint = Math.round(trickCircleForContainer(tableW) * 1.28);
+  const raiseBias = Math.max(0, Math.min(Math.round(seatsRowH * 0.18), seatsRowH - discFootprint - 16));
   // Sticky per-round row assignment for the two-story hand: each card is
   // pinned to a row when the round's hand first appears and keeps that row
   // until the round ends, so playing a card never reshuffles which row the
@@ -538,8 +531,9 @@ export function GameTable({
       {/* Top: partner. paddingBottom scales with avatarSize (not a fixed px/tier)
           so the gap to the trick circle grows continuously with the table
           instead of freezing at one distance past some breakpoint. */}
-      <div className="flex flex-col items-center pt-2 @[900px]:pt-3 gap-0.5" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize) * 0.6) }}>
+      <div className="flex flex-col items-center pt-1 @[900px]:pt-2 gap-0.5" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize) * 0.5) }}>
         <Avatar
+          flushTop
           rtl={settings.language === 'ar'}
           name={names[topSeat]}
           score={view.scores[topSeat]}
@@ -577,10 +571,15 @@ export function GameTable({
           backwards from what a cramped phone screen needs -- there, plain
           `justify-between` on the full row width is what pushes them out. */}
       <div
-        ref={setCenterEl}
+        ref={setSeatsRowEl}
         dir="ltr"
         className="flex-1 min-h-0 @[900px]:flex-none flex items-center justify-between px-2 @[900px]:px-10 @[900px]:py-4 mx-auto w-full @[900px]:max-w-[min(760px,78cqw)]"
-        style={{ paddingBottom: centerPadB }}
+        // Bottom pad biases the row's centered content (circle + side avatars)
+        // UP toward the partner, so the play area sits in the upper half with the
+        // larger gap toward the info bar — "raised", per request — while the full
+        // trick circle and the bar/hand below keep their size and place. Clamped
+        // (raiseBias) so it never pushes the circle into the partner on a short phone.
+        style={{ paddingBottom: raiseBias }}
       >
         <div className="flex flex-col items-center gap-0.5">
           <Avatar
@@ -605,10 +604,7 @@ export function GameTable({
         <div
           className="flex-1 min-h-0 min-w-0 flex flex-col items-center justify-center gap-1 relative"
           style={{
-            // A small fixed floor, NOT the disc diameter: forcing the cell to be
-            // at least a full disc tall was what pushed the disc down onto the
-            // info bar when the hand grew and the flex space shrank below it.
-            minHeight: 88,
+            minHeight: trickCircleForContainer(tableW) + 20,
             // A game override (Trix's board) wants all the width it can get, so
             // don't squeeze it with the avatar gap; the trick circle keeps it.
             marginInline: centerOverride ? 2 : Math.round(avatarGapForContainer(avatarSize) * 0.85),
@@ -623,7 +619,7 @@ export function GameTable({
           {centerOverride ? (
             <div className="w-full max-h-full min-h-0 min-w-0 overflow-auto flex items-center justify-center">{centerOverride}</div>
           ) : (
-          <div className="relative" style={{ width: trickCircle, height: trickCircle }}>
+          <div className="relative" style={{ width: trickCircleForContainer(tableW), height: trickCircleForContainer(tableW) }}>
             {/* The bounded playing surface: without it the trick's cards just
                 float on the same flat felt as the rest of the table, so any
                 leftover space around them reads as empty void rather than
@@ -631,7 +627,7 @@ export function GameTable({
                 eye on a real play area. */}
             <div
               className="absolute inset-0 rounded-full bg-emerald-700/40 shadow-[inset_0_4px_20px_rgba(0,0,0,0.4)] pointer-events-none"
-              style={{ margin: -Math.round(trickCircle * 0.05) }}
+              style={{ margin: -Math.round(trickCircleForContainer(tableW) * 0.14) }}
             />
             {trickPlays.map((p) => {
               const pos = posFor(p.seat);
@@ -640,7 +636,7 @@ export function GameTable({
               return (
                 <div key={p.seat} className={`absolute ${pos} flex flex-col items-center gap-0.5`}>
                   <div className={`relative ${isWinner ? 'ring-2 ring-amber-300 rounded-md' : ''}`}>
-                    <CardFace card={p.card} width={trickCardWidthForCircle(trickCircle)} fourColor={settings.fourColorDeck} />
+                    <CardFace card={p.card} width={trickCardWidthForCircle(trickCircleForContainer(tableW))} fourColor={settings.fourColorDeck} />
                     {isUndercutMarker && (
                       <span className="absolute -top-2 -right-2 text-[8px] bg-sky-500 text-white rounded-full px-1 font-bold">
                         {t('play under', 'العب أقل')}
