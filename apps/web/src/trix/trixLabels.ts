@@ -31,6 +31,19 @@ export const CONTRACT_SHORT: Record<Contract, string> = {
   trix: 'Trix',
 };
 
+/** Arabic short chips. The card-symbol ones (K♥/♦/Q) read the same in any language; only the word-based two are translated. */
+const CONTRACT_SHORT_AR: Record<Contract, string> = {
+  kingOfHearts: 'K♥',
+  diamonds: '♦',
+  queens: 'Q',
+  slaps: 'لطش',
+  trix: 'تركس',
+};
+
+export function contractShort(c: Contract, lang: 'en' | 'ar'): string {
+  return lang === 'ar' ? CONTRACT_SHORT_AR[c] : CONTRACT_SHORT[c];
+}
+
 export const SUIT_SYMBOL: Record<Suit, string> = {
   S: '♠',
   H: '♥',

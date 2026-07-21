@@ -97,7 +97,7 @@ export function TrixLayoutCenter({
                   className="rounded-md border border-dashed border-emerald-600/60 flex items-center justify-center text-emerald-500/60 text-[9px] text-center px-0.5"
                   style={{ width: CARD_W, height: cardH }}
                 >
-                  {t('play J', 'العب الشايب')}
+                  {t('play J', 'العب الولد')}
                 </div>
               ) : (
                 // A short flex column: high honors down to the jack overlap into a

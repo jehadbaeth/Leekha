@@ -511,6 +511,7 @@ export function GameTable({
           instead of freezing at one distance past some breakpoint. */}
       <div className="flex flex-col items-center pt-3 @[900px]:pt-4 gap-0.5" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize)) }}>
         <Avatar
+          rtl={settings.language === 'ar'}
           name={names[topSeat]}
           score={view.scores[topSeat]}
           roundScore={seatSubline ? seatSubline(topSeat) : view.eatenPoints[topSeat]}
@@ -552,6 +553,7 @@ export function GameTable({
       >
         <div className="flex flex-col items-center gap-0.5">
           <Avatar
+          rtl={settings.language === 'ar'}
             name={names[leftSeat]}
             score={view.scores[leftSeat]}
             roundScore={seatSubline ? seatSubline(leftSeat) : view.eatenPoints[leftSeat]}
@@ -642,6 +644,7 @@ export function GameTable({
 
         <div className="flex flex-col items-center gap-0.5">
           <Avatar
+          rtl={settings.language === 'ar'}
             name={names[rightSeat]}
             score={view.scores[rightSeat]}
             roundScore={seatSubline ? seatSubline(rightSeat) : view.eatenPoints[rightSeat]}
@@ -847,6 +850,7 @@ export function GameTable({
       {spectator && (
         <div className="flex justify-center pb-1" style={{ paddingTop: Math.round(avatarGapForContainer(avatarSize)) }}>
           <Avatar
+          rtl={settings.language === 'ar'}
             name={names[mySeat]}
             score={view.scores[mySeat]}
             roundScore={seatSubline ? seatSubline(mySeat) : view.eatenPoints[mySeat]}

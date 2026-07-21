@@ -13,7 +13,7 @@ import { pick, type Settings } from '../settings';
 import { useTrixGame } from './useTrixGame';
 import { TrixLayoutCenter } from './TrixLayoutCenter';
 import { trixToSeatView, trixSeatTally } from './trixAdapter';
-import { CONTRACT_SHORT, SEAT_NAMES, cardKey, cardLabel, contractName } from './trixLabels';
+import { contractShort, SEAT_NAMES, cardKey, cardLabel, contractName } from './trixLabels';
 
 const ALL_SEATS: Seat[] = [0, 1, 2, 3];
 
@@ -166,12 +166,12 @@ export function TrixGame({
                   : 'text-emerald-300'
             }`}
           >
-            {CONTRACT_SHORT[c]}
+            {contractShort(c, L)}
           </span>
         ))}
         {teamScores && (
           <span className="text-[9px] text-sky-300 ml-1">
-            {teamScores[0]} <span className="text-emerald-500">vs</span> <span className="text-rose-300">{teamScores[1]}</span>
+            {teamScores[0]} <span className="text-emerald-500">{t('vs', 'مقابل')}</span> <span className="text-rose-300">{teamScores[1]}</span>
           </span>
         )}
       </div>

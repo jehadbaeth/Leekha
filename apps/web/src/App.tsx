@@ -246,10 +246,13 @@ export default function App() {
     );
   }
 
-  // The install banner is fixed to the bottom of the viewport. Never show it
-  // over the game board (it would cover the hand/emote on short screens); on
-  // menu screens, reserve bottom space so footer controls clear it.
-  const bannerVisible = install.canInstall && screen !== 'game';
+  // The install banner is fixed to the bottom of the viewport, so it overlays
+  // whatever is at the bottom of the current screen. Confine it to the Home
+  // screen (where an install nudge belongs anyway): the lobby and game have
+  // bottom controls it would cover, and each of those screens is its own
+  // scroll container, so a global bottom-padding reservation can't reliably
+  // clear it everywhere. Home reserves space via the outer scroller's pb-16.
+  const bannerVisible = install.canInstall && screen === 'home';
   return (
     <div className={`min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto ${bannerVisible ? 'pb-16' : ''}`}>
       <div className="game-shell-inner relative h-[100dvh] w-full text-white">

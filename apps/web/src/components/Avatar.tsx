@@ -19,6 +19,7 @@ export function Avatar({
   emoteDirection = 'up',
   country,
   size,
+  rtl = false,
 }: {
   name: string;
   score: number;
@@ -46,6 +47,8 @@ export function Avatar({
    * tiers apply -- fine up to a point, but they stop growing past the
    * biggest tier no matter how much wider the window gets. */
   size?: number;
+  /** When true, the presence sublabels ("bot is playing"/"reconnecting") render in Arabic. */
+  rtl?: boolean;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -112,10 +115,10 @@ export function Avatar({
           <span className={`${size ? '' : 'text-[11px] @[900px]:text-sm'} text-emerald-100 truncate`}>{name}</span>
         </span>
         {isBot && (
-          <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">bot is playing</span>
+          <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">{rtl ? 'روبوت يلعب' : 'bot is playing'}</span>
         )}
         {reconnecting && (
-          <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">reconnecting</span>
+          <span className="text-[9px] bg-slate-600 text-white rounded px-1 whitespace-nowrap">{rtl ? 'يعيد الاتصال' : 'reconnecting'}</span>
         )}
       </span>
       <span
