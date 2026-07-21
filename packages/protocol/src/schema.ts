@@ -21,6 +21,7 @@ export const RulesConfigSchema = z.object({
   moonPenalty: z.number().int().positive().optional(),
   passDirection: z.enum(['right', 'alternate']),
   bustTieBreak: z.literal('higherIndividual'),
+  partnership: z.boolean(),
   timers: z.object({ passMs: z.number().int().nonnegative(), playMs: z.number().int().nonnegative() }),
 });
 
@@ -170,7 +171,7 @@ export const GameTurnMsg = z.object({ type: z.literal('game.turn'), seq: z.numbe
 export const GamePlayedMsg = z.object({ type: z.literal('game.played'), seq: z.number().int().nonnegative(), roomCode: z.string(), seat: SeatSchema, card: CardSchema, forced: z.boolean() });
 export const GameTrickEndMsg = z.object({ type: z.literal('game.trickEnd'), seq: z.number().int().nonnegative(), roomCode: z.string(), winner: SeatSchema, points: z.number(), cards: z.array(TrickPlaySchema) });
 export const GameRoundEndMsg = z.object({ type: z.literal('game.roundEnd'), seq: z.number().int().nonnegative(), roomCode: z.string(), eaten: z.tuple([z.number(), z.number(), z.number(), z.number()]), totals: z.tuple([z.number(), z.number(), z.number(), z.number()]) });
-export const GameOverMsg = z.object({ type: z.literal('game.over'), seq: z.number().int().nonnegative(), roomCode: z.string(), losingTeam: z.union([z.literal(0), z.literal(1)]), bustSeat: SeatSchema, totals: z.tuple([z.number(), z.number(), z.number(), z.number()]) });
+export const GameOverMsg = z.object({ type: z.literal('game.over'), seq: z.number().int().nonnegative(), roomCode: z.string(), losingTeam: z.union([z.literal(0), z.literal(1)]).nullable(), bustSeat: SeatSchema, totals: z.tuple([z.number(), z.number(), z.number(), z.number()]) });
 export const PresenceMsg = z.object({ type: z.literal('presence'), seq: z.number().int().nonnegative(), roomCode: z.string(), seat: SeatSchema, status: z.enum(['connected', 'reconnecting', 'bot']) });
 export const ErrorMsg = z.object({ type: z.literal('error'), code: z.string(), message: z.string() });
 export const ServerEmoteMsg = z.object({ type: z.literal('emote'), seat: SeatSchema, id: z.string() });

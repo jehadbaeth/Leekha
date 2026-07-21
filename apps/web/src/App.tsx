@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Seat } from '@leekha/engine';
 import { defaultConfig } from '@leekha/engine';
-import { Home } from './Home';
 import { Lobby } from './Lobby';
 import { HowToPlay } from './HowToPlay';
 import { SettingsScreen } from './SettingsScreen';
@@ -14,7 +13,7 @@ import { TrixOnlineGame } from './trix/TrixOnlineGame';
 import { defaultTrixConfig } from '@leekha/trix';
 import { GameTable } from './components/GameTable';
 import { RoomDrawer } from './components/RoomDrawer';
-import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
+import { defaultSettings, loadSettings, saveSettings, pick, type Settings } from './settings';
 import { useGame } from './useGame';
 import { useOnlineGame } from './useOnlineGame';
 import { useVoiceLobby, voiceSpeakingSeats } from './voice/useVoiceLobby';
@@ -45,8 +44,14 @@ export default function App() {
   // Which game the player picked at the entry screen. null = show the picker.
   // Leekha's entire flow stays behind the 'leekha' choice, byte-for-byte.
   const [gameChoice, setGameChoice] = useState<GameChoice | null>(null);
+  // Guards the Leekha enter-once effect so a session resume (which resyncs on
+  // its own) doesn't also fire a create/join. Declared here so both the mount
+  // resume effect and the entry effect can see it.
+  const enteredLeekha = useRef(false);
   const [landingAuth, setLandingAuth] = useState(false);
   const [landingSettings, setLandingSettings] = useState(false);
+  const [landingHowto, setLandingHowto] = useState(false);
+  const [landingHistory, setLandingHistory] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [user, setUser] = useState<AuthedUser | null>(null);
   const game = useGame(settings.botDifficulty);
@@ -94,10 +99,17 @@ export default function App() {
   }, []);
 
   // If a seat token is already stashed in localStorage (a killed-and-reopened
-  // tab, per SPEC.md's Phase 2 definition of done), go straight into online
-  // mode; useOnlineGame's own effect replays auth + game.resync on connect.
+  // tab, per SPEC.md's Phase 2 definition of done), go straight into the online
+  // Leekha flow; useOnlineGame's own effect replays auth + game.resync on
+  // connect. Mark the flow already-entered so the entry effect doesn't also
+  // create/join a room -- the resync is the entry here.
   useEffect(() => {
-    if (loadSession()) setMode('online');
+    if (loadSession()) {
+      enteredLeekha.current = true;
+      setMode('online');
+      setGameChoice({ game: 'leekha', config: defaultConfig, online: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Follow the server's lead once we're in online mode: room.state means the
@@ -150,23 +162,53 @@ export default function App() {
     3: BOT_NAMES[3],
   };
 
-  async function handleCreateRoom(name: string, isPublic: boolean) {
-    setMode('online');
-    const code = await online.createRoom(name, defaultConfig, isPublic);
-    if (code) setScreen('lobby');
-  }
-
-  async function handleJoinRoom(name: string, code: string, gameType: 'leekha' | 'trix' = 'leekha') {
-    // A public room carries its game type, so route the join to the right game:
-    // a Trix room switches into the Trix online flow (which joins by code),
-    // rather than being (incorrectly) joined through the Leekha socket.
-    if (gameType === 'trix') {
-      setGameChoice({ game: 'trix', config: defaultTrixConfig, online: true, joinCode: code });
+  // Entering the Leekha flow from the main menu: start a local match, or create
+  // / join the online room, per the card the player tapped. Mirrors
+  // TrixOnlineGame's enter-once ref; the server-follow effect above flips the
+  // screen to lobby/game once room state arrives. Resets on return to the menu.
+  useEffect(() => {
+    if (!gameChoice || gameChoice.game !== 'leekha') {
+      enteredLeekha.current = false;
       return;
     }
-    setMode('online');
-    const ok = await online.joinRoom(name, code);
-    if (ok) setScreen('lobby');
+    if (enteredLeekha.current) return;
+    enteredLeekha.current = true;
+    if (!gameChoice.online) {
+      setMode('local');
+      game.startMatch(gameChoice.config);
+      setScreen('game');
+    } else {
+      setMode('online');
+      if (gameChoice.joinCode) void online.joinRoom(settings.displayName, gameChoice.joinCode);
+      else void online.createRoom(settings.displayName, gameChoice.config, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameChoice]);
+
+  // Leaving a Leekha game/lobby returns to the main menu (there is no separate
+  // Leekha home anymore); reset online + local state so the next entry is clean.
+  function exitToMenu() {
+    online.leaveRoom();
+    setMode('local');
+    setDrawerOpen(false);
+    setScreen('home');
+    setGameChoice(null);
+  }
+
+  // In-game "How to play" / return: go back to the running screen, not a home
+  // that no longer exists.
+  const backToPlay = () => setScreen(mode === 'online' && !online.view ? 'lobby' : 'game');
+
+  function handleJoinRoom(name: string, code: string, gameType: 'leekha' | 'trix' = 'leekha') {
+    // A public/entered room carries its game type, so route the join to the
+    // right game's online flow rather than the wrong socket. Both now go through
+    // gameChoice so the correct game branch renders the lobby/board.
+    if (gameType === 'trix') {
+      setGameChoice({ game: 'trix', config: defaultTrixConfig, online: true, joinCode: code });
+    } else {
+      setGameChoice({ game: 'leekha', config: defaultConfig, online: true, joinCode: code });
+    }
+    void name;
   }
 
   // The table used to be force-stretched to h-full/100vh so its flex-col
@@ -205,9 +247,13 @@ export default function App() {
       <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
         <div className="game-shell-inner relative h-[100dvh] w-full text-white">
           {landingSettings ? (
-            // Settings live at the landing so they apply to EVERY game (Leekha
-            // and Trix), not just Leekha's own menu.
+            // Settings, how-to-play, auth and history all live at the landing so
+            // they apply to EVERY game (Leekha and Trix), not one game's menu.
             <SettingsScreen settings={settings} onUpdate={updateSettings} onBack={() => setLandingSettings(false)} />
+          ) : landingHowto ? (
+            <HowToPlay settings={settings} onBack={() => setLandingHowto(false)} />
+          ) : landingHistory ? (
+            <HistoryScreen settings={settings} onBack={() => setLandingHistory(false)} />
           ) : landingAuth ? (
             <AuthScreen
               settings={settings}
@@ -226,9 +272,19 @@ export default function App() {
               onLogout={() => void apiLogout().finally(() => setUser(null))}
               onChoose={setGameChoice}
               onSettings={() => setLandingSettings(true)}
+              onHowToPlay={() => setLandingHowto(true)}
+              onHistory={() => setLandingHistory(true)}
               publicRooms={online.publicRooms}
               onRefreshPublicRooms={online.refreshPublicRooms}
               onJoinRoom={handleJoinRoom}
+              initialJoinCode={initialJoinCodeFromUrl()}
+            />
+          )}
+          {install.canInstall && !landingSettings && !landingHowto && !landingHistory && !landingAuth && (
+            <InstallBanner
+              rtl={settings.language === 'ar'}
+              onInstall={install.promptInstall}
+              onDismiss={install.dismiss}
             />
           )}
         </div>
@@ -250,15 +306,11 @@ export default function App() {
     );
   }
 
-  // The install banner is fixed to the bottom of the viewport, so it overlays
-  // whatever is at the bottom of the current screen. Confine it to the Home
-  // screen (where an install nudge belongs anyway): the lobby and game have
-  // bottom controls it would cover, and each of those screens is its own
-  // scroll container, so a global bottom-padding reservation can't reliably
-  // clear it everywhere. Home reserves space via the outer scroller's pb-16.
-  const bannerVisible = install.canInstall && screen === 'home';
+  // The Leekha flow (lobby + board). The install nudge lives on the main menu
+  // now, not here: the lobby and board have bottom controls a fixed banner would
+  // cover, and each is its own scroll container.
   return (
-    <div className={`min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto ${bannerVisible ? 'pb-16' : ''}`}>
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-felt-950 overflow-y-auto">
       <div className="game-shell-inner relative h-[100dvh] w-full text-white">
         {mode === 'online' && online.roomState && screen === 'game' && (
           <RoomDrawer
@@ -277,73 +329,34 @@ export default function App() {
               online.view
                 ? {
                     players: ([0, 1, 2, 3] as Seat[]).map((s) => ({ name: onlineNames[s], score: online.view!.scores[s] })),
-                    teams: [
-                      { label: `${onlineNames[0]} & ${onlineNames[2]}`, score: online.view.scores[0] + online.view.scores[2] },
-                      { label: `${onlineNames[1]} & ${onlineNames[3]}`, score: online.view.scores[1] + online.view.scores[3] },
-                    ],
+                    // Individual games have no teams, so show only the per-player standings.
+                    teams: online.view.config.partnership
+                      ? [
+                          { label: `${onlineNames[0]} & ${onlineNames[2]}`, score: online.view.scores[0] + online.view.scores[2] },
+                          { label: `${onlineNames[1]} & ${onlineNames[3]}`, score: online.view.scores[1] + online.view.scores[3] },
+                        ]
+                      : null,
                   }
                 : null
             }
             onHowToPlay={() => setScreen('howto')}
-            onLeave={() => {
-              setDrawerOpen(false);
-              online.leaveRoom();
-              setMode('local');
-              setScreen('home');
-            }}
+            onLeave={exitToMenu}
           />
         )}
-        {screen === 'home' && (
-        <Home
-          settings={settings}
-          onUpdateSettings={updateSettings}
-          onPlayVsBots={() => {
-            setMode('local');
-            game.startMatch();
-            setScreen('game');
-          }}
-          onCreateRoom={handleCreateRoom}
-          onJoinRoom={handleJoinRoom}
-          onHowToPlay={() => setScreen('howto')}
-          onSettings={() => setScreen('settings')}
-          onChangeGame={() => {
-            online.leaveRoom();
-            setMode('local');
-            setGameChoice(null);
-          }}
-          joinError={online.lastError}
-          initialJoinCode={initialJoinCodeFromUrl()}
-          publicRooms={online.publicRooms}
-          onRefreshPublicRooms={online.refreshPublicRooms}
-          user={user}
-          onAuth={() => setScreen('auth')}
-          onLogout={() => {
-            void apiLogout().finally(() => setUser(null));
-          }}
-          onHistory={() => setScreen('history')}
-        />
-      )}
+        {/* Brief bridge while the local match starts or the online room is
+            created/joined and the server's first state lands. */}
+        {(screen === 'home' || (screen === 'lobby' && !online.roomState) || (screen === 'game' && mode === 'online' && !online.view && !online.roomState)) && (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-felt-900 to-felt-950 text-emerald-100">
+            {gameChoice?.online && online.status !== 'connected'
+              ? pick(settings.language, 'Connecting…', 'يتصل…')
+              : pick(settings.language, 'Setting up…', 'يُجهّز…')}
+          </div>
+        )}
 
-      {screen === 'howto' && <HowToPlay onBack={() => setScreen('home')} settings={settings} />}
+        {/* In-game reference, reachable from the room drawer; returns to play. */}
+        {screen === 'howto' && <HowToPlay onBack={backToPlay} settings={settings} />}
 
-      {screen === 'settings' && (
-        <SettingsScreen settings={settings} onUpdate={updateSettings} onBack={() => setScreen('home')} />
-      )}
-
-      {screen === 'auth' && (
-        <AuthScreen
-          settings={settings}
-          onBack={() => setScreen('home')}
-          onAuthed={(u) => {
-            setUser(u);
-            setScreen('home');
-          }}
-        />
-      )}
-
-      {screen === 'history' && <HistoryScreen settings={settings} onBack={() => setScreen('home')} />}
-
-      {screen === 'lobby' && (
+        {screen === 'lobby' && online.roomState && (
         <Lobby
           roomState={online.roomState}
           roomCode={online.roomState?.roomCode ?? null}
@@ -357,11 +370,7 @@ export default function App() {
           onToggleSpectatorVoice={online.setSpectatorVoice}
           onTogglePublic={online.setPublic}
           voice={voice}
-          onLeave={() => {
-            online.leaveRoom();
-            setMode('local');
-            setScreen('home');
-          }}
+          onLeave={exitToMenu}
         />
       )}
 
@@ -379,7 +388,7 @@ export default function App() {
           onPlayCard={game.humanPlayCard}
           onAdvanceRound={game.advanceRound}
           onRematch={() => game.rematch()}
-          onHome={() => setScreen('home')}
+          onHome={exitToMenu}
         />
       )}
 
@@ -417,19 +426,7 @@ export default function App() {
             // and the overlay dismisses itself once the next game.dealt/snapshot lands.
           }}
           onRematch={() => online.rematch()}
-          onHome={() => {
-            online.leaveRoom();
-            setMode('local');
-            setScreen('home');
-          }}
-        />
-      )}
-
-      {bannerVisible && (
-        <InstallBanner
-          rtl={settings.language === 'ar'}
-          onInstall={install.promptInstall}
-          onDismiss={install.dismiss}
+          onHome={exitToMenu}
         />
       )}
       </div>

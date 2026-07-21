@@ -14,6 +14,7 @@ const FAST_CONFIG = {
   moonRule: 'none' as const,
   passDirection: 'right' as const,
   bustTieBreak: 'higherIndividual' as const,
+  partnership: true,
   timers: { passMs: 0, playMs: 0 },
 };
 

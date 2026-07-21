@@ -24,6 +24,11 @@ export interface RulesConfig {
   moonPenalty?: number; // Lebanese base uses 37 on a 36 point deck
   passDirection: 'right' | 'alternate'; // 'right'
   bustTieBreak: 'higherIndividual';
+  /** true (default): fixed partnerships (0,2) vs (1,3) -- a whole team loses when
+   * one of its members busts. false: every seat for itself, so a single player
+   * loses and the other three win. Only affects match-end scoring; the trick,
+   * passing, and eating rules are identical in both. */
+  partnership: boolean;
   timers: { passMs: number; playMs: number };
 }
 
@@ -37,6 +42,7 @@ export const defaultConfig: RulesConfig = {
   moonRule: 'none',
   passDirection: 'right',
   bustTieBreak: 'higherIndividual',
+  partnership: true,
   timers: { passMs: 45_000, playMs: 25_000 },
 };
 
@@ -105,7 +111,9 @@ export type GameEvent =
   | { type: 'played'; seat: Seat; card: Card; forced: boolean }
   | { type: 'trickEnd'; winner: Seat; points: number; cards: TrickPlay[] }
   | { type: 'roundEnd'; eaten: [number, number, number, number]; totals: [number, number, number, number]; nextDealer?: Seat }
-  | { type: 'gameOver'; losingTeam: 0 | 1; bustSeat: Seat; totals: [number, number, number, number] };
+  // losingTeam is null in individual (non-partnership) games, where bustSeat is
+  // the sole loser and the other three seats all win.
+  | { type: 'gameOver'; losingTeam: 0 | 1 | null; bustSeat: Seat; totals: [number, number, number, number] };
 
 export interface SeatView {
   seat: Seat;

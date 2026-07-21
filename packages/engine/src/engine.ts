@@ -172,9 +172,24 @@ export function selectNextDealer(eatenPoints: [number, number, number, number], 
   return tied[0];
 }
 
-export function computeMatchResult(scores: [number, number, number, number], target: number): MatchResult {
+export function computeMatchResult(
+  scores: [number, number, number, number],
+  target: number,
+  partnership = true,
+): MatchResult {
   const busted = ([0, 1, 2, 3] as Seat[]).filter((s) => scores[s] >= target);
   if (busted.length === 0) return { over: false };
+
+  if (!partnership) {
+    // Every seat for itself: the single highest-scoring busted player loses and
+    // the other three win. A tie for the worst score can't name one loser, so --
+    // mirroring the partnership cross-tie rule -- we play one more round as
+    // sudden death rather than declaring a shared loss.
+    const worst = Math.max(...busted.map((s) => scores[s]));
+    const losers = busted.filter((s) => scores[s] === worst);
+    if (losers.length !== 1) return { over: false };
+    return { over: true, losingTeam: undefined, bustSeat: losers[0] };
+  }
 
   const teamHighest = (team: 0 | 1): { score: number; seat?: Seat } => {
     let best = -Infinity;
@@ -277,7 +292,7 @@ export function playCard(m: MatchState, seat: Seat, card: Card): { state: MatchS
   const scores = m.scores.slice() as [number, number, number, number];
   for (let s = 0; s < 4; s++) scores[s] += eatenPoints[s];
 
-  const result = computeMatchResult(scores, m.config.targetScore);
+  const result = computeMatchResult(scores, m.config.targetScore, m.config.partnership);
   const roundState: RoundState = {
     ...m.round,
     hands,
@@ -288,7 +303,7 @@ export function playCard(m: MatchState, seat: Seat, card: Card): { state: MatchS
   };
 
   if (result.over) {
-    events.push({ type: 'gameOver', losingTeam: result.losingTeam!, bustSeat: result.bustSeat!, totals: scores });
+    events.push({ type: 'gameOver', losingTeam: result.losingTeam ?? null, bustSeat: result.bustSeat!, totals: scores });
     return {
       state: { ...m, moveLog, scores, phase: 'gameOver', round: roundState, result },
       events,

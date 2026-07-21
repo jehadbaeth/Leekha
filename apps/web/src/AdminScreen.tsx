@@ -534,7 +534,8 @@ function DangerTab({ token }: { token: string }) {
 }
 
 function MatchDetail({ match, token, onClose }: { match: AdminMatch; token: string; onClose: () => void }) {
-  const winningTeam = match.result ? (match.result.losingTeam === 0 ? 1 : 0) : null;
+  // losingTeam null => an individual game, where a single seat busted out (no team).
+  const winningTeam = match.result && match.result.losingTeam != null ? (match.result.losingTeam === 0 ? 1 : 0) : null;
   return (
     <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl bg-emerald-950 border border-emerald-700 p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
@@ -546,7 +547,7 @@ function MatchDetail({ match, token, onClose }: { match: AdminMatch; token: stri
           <span className="rounded-full bg-emerald-800 px-2.5 py-1 text-emerald-100">Finished</span>
           {match.result ? (
             <span className="rounded-full bg-rose-900/50 border border-rose-700/50 px-2.5 py-1 text-rose-200">
-              Team {winningTeam} won · seat {match.result.bustSeat} busted
+              {winningTeam !== null ? `Team ${winningTeam} won` : `seat ${match.result.bustSeat} lost (individual)`} · seat {match.result.bustSeat} busted
             </span>
           ) : (
             <span className="rounded-full bg-emerald-800 px-2.5 py-1 text-emerald-100">Ended (no bust)</span>

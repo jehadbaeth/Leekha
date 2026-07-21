@@ -212,7 +212,8 @@ export function useOnlineGame() {
           break;
         }
         case 'game.over': {
-          setMatchResult({ over: true, losingTeam: msg.losingTeam, bustSeat: msg.bustSeat });
+          // Wire uses null for individual games; MatchResult uses undefined.
+          setMatchResult({ over: true, losingTeam: msg.losingTeam ?? undefined, bustSeat: msg.bustSeat });
           setView((prev) => (prev ? { ...prev, phase: 'gameOver', scores: msg.totals } : prev));
           break;
         }

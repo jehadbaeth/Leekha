@@ -58,7 +58,8 @@ export function MatchEnd({
 }: {
   names: Record<Seat, string>;
   totals: [number, number, number, number];
-  losingTeam: 0 | 1;
+  /** null in an individual (non-partnership) game, where bustSeat is the sole loser. */
+  losingTeam: 0 | 1 | null;
   bustSeat: Seat;
   language: Settings['language'];
   mySeat: Seat;
@@ -71,8 +72,10 @@ export function MatchEnd({
 }) {
   const t = (en: string, ar: string) => pick(language, en, ar);
   const seats: Seat[] = [0, 1, 2, 3];
-  const losers = seats.filter((s) => (s % 2 === 0 ? 0 : 1) === losingTeam);
-  const winners = seats.filter((s) => (s % 2 === 0 ? 0 : 1) !== losingTeam);
+  // Individual game (losingTeam null): the single busted seat loses and the
+  // other three win. Partnership: the whole losing team loses.
+  const losers = losingTeam === null ? [bustSeat] : seats.filter((s) => (s % 2 === 0 ? 0 : 1) === losingTeam);
+  const winners = seats.filter((s) => !losers.includes(s));
 
   const isOnline = rematchVotes != null;
   const iVoted = isOnline && rematchVotes.seatsVoted.includes(mySeat);
@@ -91,8 +94,8 @@ export function MatchEnd({
           </div>
           <p className="text-emerald-100 text-sm">
             {t(
-              `${names[bustSeat]} busted at ${totals[bustSeat]} points. ${losers.map((s) => names[s]).join(' & ')} lose.`,
-              `${names[bustSeat]} تجاوز الحد عند ${totals[bustSeat]} نقطة. ${losers.map((s) => names[s]).join(' و ')} يخسران.`,
+              `${names[bustSeat]} busted at ${totals[bustSeat]} points. ${losers.map((s) => names[s]).join(' & ')} ${losers.length > 1 ? 'lose' : 'loses'}.`,
+              `${names[bustSeat]} تجاوز الحد عند ${totals[bustSeat]} نقطة. ${losers.map((s) => names[s]).join(' و ')} ${losers.length > 1 ? 'يخسران' : 'يخسر'}.`,
             )}
           </p>
 

@@ -47,7 +47,7 @@ export interface AdminMatch {
   startedAt: number;
   endedAt: number;
   finalScores: [number, number, number, number];
-  result: { losingTeam: 0 | 1; bustSeat: number } | null;
+  result: { losingTeam: 0 | 1 | null; bustSeat: number } | null;
   players: { seat: number; displayName: string; wasBot: number }[];
 }
 export interface LiveGame {

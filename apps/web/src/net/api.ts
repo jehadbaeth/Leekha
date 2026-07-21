@@ -10,7 +10,7 @@ export interface MatchSummary {
   matchId: string;
   endedAt: number;
   finalScores: [number, number, number, number];
-  result: { losingTeam: 0 | 1; bustSeat: number } | null;
+  result: { losingTeam: 0 | 1 | null; bustSeat: number } | null;
 }
 
 export interface MatchPlayer {
@@ -28,7 +28,7 @@ export interface MatchDetail {
     seed: string;
     moveLog: unknown[];
     finalScores: [number, number, number, number];
-    result: { losingTeam: 0 | 1; bustSeat: number } | null;
+    result: { losingTeam: 0 | 1 | null; bustSeat: number } | null;
     startedAt: number;
     endedAt: number;
   };

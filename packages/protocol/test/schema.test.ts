@@ -11,6 +11,7 @@ const config = {
   moonRule: 'none' as const,
   passDirection: 'right' as const,
   bustTieBreak: 'higherIndividual' as const,
+  partnership: true,
   timers: { passMs: 45000, playMs: 25000 },
 };
 

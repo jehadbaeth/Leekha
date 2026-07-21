@@ -50,6 +50,39 @@ describe('bust and match end', () => {
   });
 });
 
+describe('individual (non-partnership) match end', () => {
+  it('no one busts below target', () => {
+    expect(computeMatchResult([50, 60, 70, 20], 201, false).over).toBe(false);
+  });
+
+  it('the single highest-scoring busted player is the sole loser; no losingTeam', () => {
+    const r = computeMatchResult([210, 50, 60, 40], 201, false);
+    expect(r.over).toBe(true);
+    expect(r.bustSeat).toBe(0);
+    expect(r.losingTeam).toBeUndefined();
+  });
+
+  it('with several over target, only the very highest loses', () => {
+    const r = computeMatchResult([205, 260, 240, 30], 201, false);
+    expect(r.over).toBe(true);
+    expect(r.bustSeat).toBe(1);
+    expect(r.losingTeam).toBeUndefined();
+  });
+
+  it('an exact tie for the worst score plays on as sudden death', () => {
+    // Two players tied at 220: there is no single loser, so play continues.
+    expect(computeMatchResult([220, 100, 220, 30], 201, false).over).toBe(false);
+    expect(computeMatchResult([205, 205, 15, 15], 201, false).over).toBe(false);
+  });
+
+  it('diverges from partnership: same-team double bust ends a partnership game but not an individual one', () => {
+    // seats 0 & 2 (same team) both at 220, nobody else over.
+    const scores: [number, number, number, number] = [220, 50, 220, 40];
+    expect(computeMatchResult(scores, 201, true).over).toBe(true); // team 0 loses
+    expect(computeMatchResult(scores, 201, false).over).toBe(false); // two tied for worst -> sudden death
+  });
+});
+
 describe('round total invariant', () => {
   it('exactly 50 points exist per round', () => {
     const total = makeDeck().reduce((sum, card) => sum + cardPoints(card), 0);

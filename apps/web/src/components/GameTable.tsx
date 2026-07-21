@@ -22,6 +22,16 @@ function isEventType(type: string, suffix: 'played' | 'trickEnd' | 'roundEnd' | 
   return type === suffix || type === `game.${suffix === 'gameOver' ? 'over' : suffix}`;
 }
 
+// Individual-mode avatar colors, one per seat (partnership mode uses the two
+// team colors instead). Four hues distinct from each other, the felt, and the
+// amber turn ring.
+const INDIVIDUAL_SEAT_COLORS: Record<Seat, string> = {
+  0: 'bg-sky-700 border-sky-400',
+  1: 'bg-rose-700 border-rose-400',
+  2: 'bg-violet-700 border-violet-400',
+  3: 'bg-orange-600 border-orange-400',
+};
+
 /** Localized country name from a 2-letter code, falling back to the raw code where Intl lacks the region (or the browser lacks Intl.DisplayNames). */
 function regionName(cc: string, language: 'en' | 'ar'): string {
   try {
@@ -141,6 +151,12 @@ export function GameTable({
   const rightSeat = nextSeat(mySeat);
   const topSeat = partnerOf(mySeat);
   const leftSeat = prevSeat(mySeat);
+
+  // Individual (non-partnership) Leekha has no teams, so give each seat its own
+  // color instead of the two team colors. Undefined => Avatar falls back to the
+  // team palette (partnership Leekha, and Trix, which always reports partnership).
+  const individualMode = view.config.partnership === false;
+  const seatColorClass = (s: Seat): string | undefined => (individualMode ? INDIVIDUAL_SEAT_COLORS[s] : undefined);
 
   const turnSeatOf = (trick: { leader: Seat; plays: unknown[] }): Seat =>
     (((trick.leader as number) + trick.plays.length) % 4) as Seat;
@@ -348,8 +364,9 @@ export function GameTable({
         if (settings.sound && !suppressCaptureSounds) roundEndSound();
         if (settings.haptics) vibrate([15, 30, 15, 30]);
       } else if (isEventType(type, 'gameOver')) {
-        const ev = item.event as unknown as { losingTeam: 0 | 1 };
-        const won = ev.losingTeam !== teamOf(mySeat);
+        const ev = item.event as unknown as { losingTeam: 0 | 1 | null; bustSeat: Seat };
+        // Individual game (losingTeam null): I win unless I'm the sole busted seat.
+        const won = ev.losingTeam === null ? ev.bustSeat !== mySeat : ev.losingTeam !== teamOf(mySeat);
         if (settings.sound && !suppressCaptureSounds) gameOverSound(won);
         if (settings.haptics) vibrate(won ? [30, 50, 30, 50, 30] : [60]);
       }
@@ -539,6 +556,7 @@ export function GameTable({
           rtl={settings.language === 'ar'}
           name={names[topSeat]}
           speaking={!!speakingSeats?.[topSeat]}
+          colorClass={seatColorClass(topSeat)}
           score={view.scores[topSeat]}
           roundScore={seatSubline ? seatSubline(topSeat) : view.eatenPoints[topSeat]}
           isTurn={turn === topSeat}
@@ -589,6 +607,7 @@ export function GameTable({
           rtl={settings.language === 'ar'}
             name={names[leftSeat]}
             speaking={!!speakingSeats?.[leftSeat]}
+            colorClass={seatColorClass(leftSeat)}
             narrow
             score={view.scores[leftSeat]}
             roundScore={seatSubline ? seatSubline(leftSeat) : view.eatenPoints[leftSeat]}
@@ -682,6 +701,7 @@ export function GameTable({
           rtl={settings.language === 'ar'}
             name={names[rightSeat]}
             speaking={!!speakingSeats?.[rightSeat]}
+            colorClass={seatColorClass(rightSeat)}
             narrow
             score={view.scores[rightSeat]}
             roundScore={seatSubline ? seatSubline(rightSeat) : view.eatenPoints[rightSeat]}
@@ -939,6 +959,7 @@ export function GameTable({
             isDealer={dealer === mySeat}
             danger={dangerFor(mySeat)}
             team={teamOf(mySeat)}
+            colorClass={seatColorClass(mySeat)}
             presence={presence?.[mySeat]}
           country={countries ? (countries[mySeat] ?? null) : undefined}
             deadline={deadlineFor(mySeat)}
@@ -1141,7 +1162,7 @@ export function GameTable({
         <MatchEnd
           names={names}
           totals={view.scores}
-          losingTeam={matchResult.losingTeam!}
+          losingTeam={matchResult.losingTeam ?? null}
           bustSeat={matchResult.bustSeat!}
           language={settings.language}
           mySeat={mySeat}

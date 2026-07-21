@@ -49,7 +49,7 @@ Every rule below is implemented behind a config flag, so changing an answer late
 2. **First lead.** The dealer leads trick 1 and may lead any card. No "2 of clubs opens" rule, no restriction on leading hearts at any point in the round. (The seat to the dealer's right serves the cards; serving carries no gameplay meaning online.)
 3. **First trick.** Default: no special protections. The forced dump applies from trick 1 and penalty cards may land on trick 1.
 4. **Bust threshold.** Default: a cumulative score of exactly 201 counts as busted (the check is score ≥ 201). No special rule for landing on exactly 201 (some families play reset or halving rules on exact numbers; say so if Idlib does).
-5. **Bust timing and resolution.** Default: the round always plays out all 13 tricks. Scores are tallied at round end. If one or more players are at 201 or more: the team containing the player with the highest score loses. If the highest busted scores on opposing teams are exactly equal, compare team totals; if still equal, play one more round as sudden death. (The cross team tie rule, higher score loses, is documented in the base game.)
+5. **Bust timing and resolution.** Default: the round always plays out all 13 tricks. Scores are tallied at round end. If one or more players are at 201 or more: the team containing the player with the highest score loses. If the highest busted scores on opposing teams are exactly equal, compare team totals; if still equal, play one more round as sudden death. (The cross team tie rule, higher score loses, is documented in the base game.) When `partnership` is false (individual mode), there are no teams: the single highest-scoring busted player loses and the other three win; if two or more are tied for that highest score there is no single loser, so play one more round as sudden death (mirroring the partnership tie rule). Only the end-of-match win/loss differs between the two modes; the trick, forced-dump, passing, and dealer rules are identical.
 6. **Eating all 50.** Default: nothing special happens, the eater simply scores 50. The Lebanese base game punishes a moon shot with 37; if Idlib has an analog (for example 51), it slots into the config as `moonRule`.
 7. **Passing restrictions.** Default: none. Any 3 cards may be passed, including Leekha cards and hearts. (One popular app forbids passing the last card of a suit; assumed not an Idlib rule.)
 8. **Multiple Leekha cards when forced.** Default: the holder chooses which one to dump. This matches the documented base rule.
@@ -270,6 +270,7 @@ export interface RulesConfig {
   moonPenalty?: number;                   // Lebanese base uses 37 on a 36 point deck
   passDirection: 'right' | 'alternate';   // 'right'
   bustTieBreak: 'higherIndividual';
+  partnership: boolean;                    // true = fixed teams (0,2) vs (1,3); false = every seat for itself
   timers: { passMs: number; playMs: number };
 }
 

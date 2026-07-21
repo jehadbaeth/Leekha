@@ -23,6 +23,7 @@ export function Avatar({
   narrow = false,
   flushTop = false,
   speaking = false,
+  colorClass,
 }: {
   name: string;
   score: number;
@@ -58,6 +59,9 @@ export function Avatar({
   flushTop?: boolean;
   /** Voice: this player currently has incoming audio — draw a green glow ring around the circle. */
   speaking?: boolean;
+  /** Overrides the team-based circle color (bg + border classes). Used in individual
+   * mode to give each seat its own color instead of the two team colors. */
+  colorClass?: string;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -97,7 +101,7 @@ export function Avatar({
       <div
         style={circleStyle}
         className={`relative ${size ? '' : 'w-11 h-11 @[900px]:w-16 @[900px]:h-16 text-sm @[900px]:text-lg border-2 @[900px]:border-[3px]'} rounded-full flex items-center justify-center font-bold shadow-[0_2px_5px_rgba(0,0,0,0.4)] transition-opacity ${
-          team === 0 ? 'bg-sky-700 border-sky-400' : 'bg-rose-700 border-rose-400'
+          colorClass ?? (team === 0 ? 'bg-sky-700 border-sky-400' : 'bg-rose-700 border-rose-400')
         } ${isTurn ? 'ring-2 ring-amber-300 ring-offset-2 ring-offset-felt-950 animate-pulse' : ''} ${
           reconnecting ? 'opacity-40 grayscale' : ''
         }`}
