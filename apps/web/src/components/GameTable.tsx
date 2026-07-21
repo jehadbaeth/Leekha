@@ -513,7 +513,7 @@ export function GameTable({
       {/* Top: partner. paddingBottom scales with avatarSize (not a fixed px/tier)
           so the gap to the trick circle grows continuously with the table
           instead of freezing at one distance past some breakpoint. */}
-      <div className="flex flex-col items-center pt-3 @[900px]:pt-4 gap-0.5" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize)) }}>
+      <div className="flex flex-col items-center pt-1 @[900px]:pt-2 gap-0.5" style={{ paddingBottom: Math.round(avatarGapForContainer(avatarSize) * 0.5) }}>
         <Avatar
           rtl={settings.language === 'ar'}
           name={names[topSeat]}
@@ -601,7 +601,7 @@ export function GameTable({
                 eye on a real play area. */}
             <div
               className="absolute inset-0 rounded-full bg-emerald-700/40 shadow-[inset_0_4px_20px_rgba(0,0,0,0.4)] pointer-events-none"
-              style={{ margin: -Math.round(trickCircleForContainer(tableW) * 0.14) }}
+              style={{ margin: -Math.round(trickCircleForContainer(tableW) * 0.05) }}
             />
             {trickPlays.map((p) => {
               const pos = posFor(p.seat);
