@@ -33,6 +33,16 @@ export interface VoiceController {
   toggleMute: () => void;
 }
 
+/** Seats (0-3) whose seated player currently has live incoming audio. Only
+ * covers OTHER participants (self isn't in `participants` and has no table
+ * avatar anyway), which is exactly what the board's speaking rings need. */
+export function voiceSpeakingSeats(v: VoiceController): Partial<Record<0 | 1 | 2 | 3, boolean>> {
+  const m: Partial<Record<0 | 1 | 2 | 3, boolean>> = {};
+  if (!v.joined) return m;
+  for (const p of v.participants) if (p.seat !== null && v.speaking[p.voiceId]) m[p.seat] = true;
+  return m;
+}
+
 export interface VoiceContext {
   roomCode: string | null;
   seated: boolean;

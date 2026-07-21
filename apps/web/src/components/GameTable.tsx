@@ -86,6 +86,7 @@ export function GameTable({
   seatExposed,
   menuInDrawer,
   onOpenMenu,
+  speakingSeats,
 }: {
   view: SeatView;
   names: Record<Seat, string>;
@@ -133,6 +134,7 @@ export function GameTable({
   seatExposed?: Partial<Record<Seat, Card[]>>; // small face-up cards shown in front of a seat, visible to all (Trix doubled honors + revealed 2s)
   menuInDrawer?: boolean; // consolidate home/room/voice into a ☰ drawer (caller renders the drawer); frees the corners so the emote button moves clear of the side avatars
   onOpenMenu?: () => void; // opens the caller's room drawer
+  speakingSeats?: Partial<Record<Seat, boolean>>; // voice: seats with live incoming audio, drawn with a green glow ring
 }) {
   const t = (en: string, ar: string) => pick(settings.language, en, ar);
   const mySeat = view.seat;
@@ -536,6 +538,7 @@ export function GameTable({
           flushTop
           rtl={settings.language === 'ar'}
           name={names[topSeat]}
+          speaking={!!speakingSeats?.[topSeat]}
           score={view.scores[topSeat]}
           roundScore={seatSubline ? seatSubline(topSeat) : view.eatenPoints[topSeat]}
           isTurn={turn === topSeat}
@@ -585,6 +588,7 @@ export function GameTable({
           <Avatar
           rtl={settings.language === 'ar'}
             name={names[leftSeat]}
+            speaking={!!speakingSeats?.[leftSeat]}
             narrow
             score={view.scores[leftSeat]}
             roundScore={seatSubline ? seatSubline(leftSeat) : view.eatenPoints[leftSeat]}
@@ -677,6 +681,7 @@ export function GameTable({
           <Avatar
           rtl={settings.language === 'ar'}
             name={names[rightSeat]}
+            speaking={!!speakingSeats?.[rightSeat]}
             narrow
             score={view.scores[rightSeat]}
             roundScore={seatSubline ? seatSubline(rightSeat) : view.eatenPoints[rightSeat]}

@@ -6,7 +6,7 @@ import { TrixGame } from './TrixGame';
 import { useOnlineTrixGame } from './useOnlineTrixGame';
 import { SEAT_NAMES } from './trixLabels';
 import { RoomDrawer } from '../components/RoomDrawer';
-import { useVoiceLobby } from '../voice/useVoiceLobby';
+import { useVoiceLobby, voiceSpeakingSeats } from '../voice/useVoiceLobby';
 
 const ALL_SEATS: Seat[] = [0, 1, 2, 3];
 
@@ -94,6 +94,7 @@ export function TrixOnlineGame({
           recapAutoAdvances
           menuInDrawer
           onOpenMenu={() => setDrawerOpen(true)}
+          speakingSeats={voiceSpeakingSeats(voice)}
         />
         <RoomDrawer
           open={drawerOpen}

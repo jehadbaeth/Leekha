@@ -67,6 +67,7 @@ export function TrixGame({
   recapAutoAdvances = false,
   menuInDrawer,
   onOpenMenu,
+  speakingSeats,
 }: {
   controller: TrixController;
   config: TrixRulesConfig;
@@ -78,6 +79,7 @@ export function TrixGame({
   /** Online: consolidate home/room/voice into the shared ☰ drawer (rendered by the caller). */
   menuInDrawer?: boolean;
   onOpenMenu?: () => void;
+  speakingSeats?: Partial<Record<Seat, boolean>>;
 }) {
   const { view, startMatch, pendingDeal, continueDeal, humanChooseContract, humanExpose, humanPass, humanPlay } = controller;
   const [passFlash, setPassFlash] = useState(false);
@@ -369,6 +371,7 @@ export function TrixGame({
       onHome={onExit}
       menuInDrawer={menuInDrawer}
       onOpenMenu={onOpenMenu}
+      speakingSeats={speakingSeats}
       hudOverride={hud}
       centerOverride={center}
       bottomOverride={bottom}

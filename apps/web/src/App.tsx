@@ -17,7 +17,7 @@ import { RoomDrawer } from './components/RoomDrawer';
 import { defaultSettings, loadSettings, saveSettings, type Settings } from './settings';
 import { useGame } from './useGame';
 import { useOnlineGame } from './useOnlineGame';
-import { useVoiceLobby } from './voice/useVoiceLobby';
+import { useVoiceLobby, voiceSpeakingSeats } from './voice/useVoiceLobby';
 import { loadSession } from './net/session';
 import { fetchMe, logout as apiLogout, type AuthedUser } from './net/api';
 import { useInstallPrompt } from './useInstallPrompt';
@@ -402,6 +402,7 @@ export default function App() {
           roomCode={online.roomState?.roomCode ?? null}
           menuInDrawer
           onOpenMenu={() => setDrawerOpen(true)}
+          speakingSeats={voiceSpeakingSeats(voice)}
           settings={settings}
           onCommitPass={online.pass}
           onPlayCard={online.play}

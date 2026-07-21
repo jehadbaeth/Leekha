@@ -22,6 +22,7 @@ export function Avatar({
   rtl = false,
   narrow = false,
   flushTop = false,
+  speaking = false,
 }: {
   name: string;
   score: number;
@@ -55,6 +56,8 @@ export function Avatar({
   narrow?: boolean;
   /** Top seat: skip the tall label-mirror pad above the circle (only side seats need it, to align with the trick circle). Lets the partner sit near the top edge and frees vertical room for the play area below. */
   flushTop?: boolean;
+  /** Voice: this player currently has incoming audio — draw a green glow ring around the circle. */
+  speaking?: boolean;
 }) {
   const reconnecting = presence === 'reconnecting';
   const isBot = presence === 'bot';
@@ -109,6 +112,20 @@ export function Avatar({
           <span className="absolute inset-0 rounded-full border-2 border-dashed border-slate-300 animate-spin [animation-duration:2s]" />
         )}
         {isTurn && deadline != null && <TimerRing deadline={deadline} />}
+        {speaking && (
+          // Voice: a green ring + soft glow while this player has incoming audio.
+          // Rendered as its own absolutely-positioned element (with its own
+          // box-shadow) sitting just outside the circle, so it never touches the
+          // circle's own box-shadow slot that the amber turn `ring` uses -- the
+          // two stack concentrically instead of overriding each other.
+          <span
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              inset: -5,
+              boxShadow: '0 0 0 3px #4ade80, 0 0 14px 4px rgba(74,222,128,0.55)',
+            }}
+          />
+        )}
       </div>
       <span
         style={nameMaxW ? { maxWidth: nameMaxW, fontSize: size! * 0.23 } : undefined}
