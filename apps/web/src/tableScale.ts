@@ -37,7 +37,14 @@ export function avatarSizeForContainer(containerPx: number): number {
 }
 
 export function trickCircleForContainer(containerPx: number): number {
-  return Math.max(144, Math.min(320, containerPx * 0.29));
+  // Floor bumped from 144: a phone whose OS display-size/zoom setting is
+  // pushed above default (e.g. Samsung's "Screen zoom") renders every fixed
+  // CSS px physically bigger without changing what containerPx reads as --
+  // there's no reliable way for the page to detect that and compensate, so
+  // giving the trick area (and, via trickCardWidthForCircle below, the
+  // thrown cards) more headroom at the floor keeps it from reading as
+  // cramped on those devices without touching hand cards or avatars.
+  return Math.max(164, Math.min(320, containerPx * 0.29));
 }
 
 /**
