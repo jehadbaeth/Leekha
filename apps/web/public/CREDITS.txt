@@ -17,20 +17,21 @@ Free License (free for commercial and non-commercial use, no attribution
 required): https://mixkit.co/license/#sfxFree
 Files, by Mixkit item id and title:
   emote-nice.mp3     523  "Animated small group applause"
-  emote-haha.mp3     424  "Crowd laugh"
   emote-gg.mp3      2285  "Orchestra triumphant trumpets"
   emote-cry.mp3      474  "Lost kid sobbing"
-  emote-angry.mp3   1963  "Angry monster scream"
   emote-oops.mp3     472  "Slow sad trombone fail"
   emote-kiss.mp3    2196  "Flirtatious double kiss"
-  emote-clown.mp3   2886  "Funny clown horn sounds"
-  emote-popcorn.mp3  131  "Human eating a potato chip"
   emote-finger.mp3  2891  "Cartoon fart sound"
-  emote-donkey.mp3  1770  "Donkey scream"
   emote-sleep.mp3   1911  "Sleep soft snore"
   emote-goat.mp3    1763  "Farm goat baa"
   emote-fire.mp3    1335  "Big fire burning"
   emote-poop.mp3    2889  "Funny cartoon fast splat"
+
+Custom recordings (public/sounds/emote-*.opus)
+-----------------------------------------------
+Recorded/supplied by the app's developer, not third-party assets:
+  emote-haha.opus, emote-angry.opus, emote-clown.opus,
+  emote-popcorn.opus, emote-donkey.opus.
 
 Animated emotes (public/emotes/)
 ---------------------------------

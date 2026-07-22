@@ -71,18 +71,18 @@ const GAME_LOSE = '/sounds/game-lose.ogg';
 // maxMs caps recordings that run longer than a table reaction should.
 const EMOTE_SOUNDS: Record<string, { url: string; gain?: number; maxMs?: number }> = {
   nice: { url: '/sounds/emote-nice.mp3' }, // small group applause
-  haha: { url: '/sounds/emote-haha.mp3' }, // real crowd laugh
+  haha: { url: '/sounds/emote-haha.opus' }, // user-recorded laugh
   wow: { url: '/sounds/emote-wow.ogg' }, // explosion (Kenney), for the exploding head
   gg: { url: '/sounds/emote-gg.mp3', maxMs: 4000 }, // triumphant orchestra trumpets
   cry: { url: '/sounds/emote-cry.mp3' }, // sobbing kid
-  angry: { url: '/sounds/emote-angry.mp3' }, // monster scream
+  angry: { url: '/sounds/emote-angry.opus' }, // user-recorded angry
   oops: { url: '/sounds/emote-oops.mp3', maxMs: 4500 }, // the classic sad trombone
   kiss: { url: '/sounds/emote-kiss.mp3', gain: 0.9 }, // kiss smack
   fire: { url: '/sounds/emote-fire.mp3', gain: 1 }, // real big fire burning roar (Mixkit), user-picked over 7 other candidates
-  clown: { url: '/sounds/emote-clown.mp3' }, // clown horn honks
-  popcorn: { url: '/sounds/emote-popcorn.mp3', maxMs: 3000 }, // loud chip munching
+  clown: { url: '/sounds/emote-clown.opus' }, // user-recorded, for "enter"
+  popcorn: { url: '/sounds/emote-popcorn.opus', maxMs: 3000 }, // user-recorded, "ocazion"
   finger: { url: '/sounds/emote-finger.mp3', gain: 0.9 }, // cartoon fart
-  donkey: { url: '/sounds/emote-donkey.mp3', maxMs: 4000 }, // full donkey bray
+  donkey: { url: '/sounds/emote-donkey.opus', maxMs: 4000 }, // user-recorded donkey
   poop: { url: '/sounds/emote-poop.mp3' }, // funny cartoon fast splat
   sleep: { url: '/sounds/emote-sleep.mp3', maxMs: 3500, gain: 0.9 }, // real snoring
   goat: { url: '/sounds/emote-goat.mp3' }, // goat baa, for the GOAT
