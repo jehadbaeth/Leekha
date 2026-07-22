@@ -509,6 +509,13 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
           console.error('[server error]', msg.type, err);
           sendError('server-error', 'Something went wrong on the server.');
         }
+        // room.create/room.join/room.sit/room.list are ack-based requests (see
+        // GameSocket.request): if the handler threw before reaching its own
+        // ack?.(...) call, that ack is never invoked, and the client sits on
+        // its 8s timeout before it can react at all. Answering the ack here
+        // too means a genuine mid-handler failure surfaces immediately instead
+        // of manifesting as an unexplained multi-second stall.
+        ack?.({ error: 'server-error' });
       }
     });
 
