@@ -276,7 +276,7 @@ function LeekhaCard({
         />
         <div>
           <div className="text-lg font-bold text-white">{t('Leekha', 'ليخة')}</div>
-          <div className="text-xs text-amber-100/80">{t('The Idlib variant', 'نسخة إدلب')}</div>
+          <div className="text-xs text-amber-100/80">{t('The Idlib variant', 'ليخة ادلبية')}</div>
         </div>
       </div>
       <div className="flex rounded-full overflow-hidden border border-amber-400/50 text-xs w-max">

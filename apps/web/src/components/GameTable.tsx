@@ -349,17 +349,23 @@ export function GameTable({
     for (const item of events) {
       const type = item.event.type;
       if (isEventType(type, 'played')) {
-        if (settings.sound) playCardSound();
-        if (settings.haptics) vibrate(8);
+        // The Leekha ("eating") sting fires the instant a Q♠/K♣/10♦ hits the
+        // table, not when the trick it lands in later resolves -- that's the
+        // dramatic beat, and waiting for trick-collection buried it several
+        // hundred ms after the moment that actually earned the reaction.
+        const ev = item.event as unknown as { card: Card };
+        const big = ev.card ? isBigCard(ev.card) : false;
+        if (settings.sound) {
+          if (big && !suppressCaptureSounds) trickEndSound(true);
+          else playCardSound();
+        }
+        if (settings.haptics) vibrate(big ? [20, 40, 20] : 8);
       } else if (isEventType(type, 'trickEnd')) {
-        // The trick-capture ("eating") sting and the round/game stings are
-        // Leekha-tuned (a special sound for Q♠/K♣/10♦). A game can opt out of
-        // them via suppressCaptureSounds while still getting the card-play click
-        // and the trick-freeze pause.
-        const ev = item.event as unknown as { cards: { card: Card }[] };
-        const big = ev.cards?.some((p) => isBigCard(p.card)) ?? false;
-        if (settings.sound && !suppressCaptureSounds) trickEndSound(big);
-        if (settings.haptics) vibrate(big ? [20, 40, 20] : 15);
+        // The round/game stings are Leekha-tuned too (SPEC.md 7.5.6); the
+        // big-card sting itself already fired above at play-time, so this is
+        // just the ordinary capture sound regardless of what the trick held.
+        if (settings.sound && !suppressCaptureSounds) trickEndSound(false);
+        if (settings.haptics) vibrate(15);
       } else if (isEventType(type, 'roundEnd')) {
         if (settings.sound && !suppressCaptureSounds) roundEndSound();
         if (settings.haptics) vibrate([15, 30, 15, 30]);

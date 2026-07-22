@@ -41,9 +41,9 @@ export function rankFullName(rank: Card['rank']): string {
 
 export function rankFullNameAr(rank: Card['rank']): string {
   if (rank === 14) return 'الآس';
-  if (rank === 13) return 'الشايب';
+  if (rank === 13) return 'الختيار';
   if (rank === 12) return 'البنت';
-  if (rank === 11) return 'الولد';
+  if (rank === 11) return 'الشب';
   return String(rank);
 }
 

@@ -8,8 +8,7 @@ Source: Kenney (www.kenney.nl) — "Casino Audio", "Interface Sounds",
 License: Creative Commons CC0 1.0 Universal (public domain dedication).
 https://creativecommons.org/publicdomain/zero/1.0/
 Attribution is not required, but credit to Kenney is appreciated.
-Also still used for two emotes: emote-wow.ogg (explosion) and
-emote-fire.ogg (whoosh).
+Also still used for one emote: emote-wow.ogg (explosion).
 
 Emote sounds (public/sounds/emote-*.mp3)
 -----------------------------------------
@@ -31,6 +30,7 @@ Files, by Mixkit item id and title:
   emote-rooster.mp3 2470  "Short rooster crowing"
   emote-sleep.mp3   1911  "Sleep soft snore"
   emote-goat.mp3    1763  "Farm goat baa"
+  emote-fire.mp3    1329  "Campfire burning crackles"
 
 Animated emotes (public/emotes/)
 ---------------------------------

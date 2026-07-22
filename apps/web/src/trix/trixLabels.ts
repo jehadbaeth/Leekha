@@ -11,7 +11,7 @@ export const CONTRACT_LABEL: Record<Contract, string> = {
 
 /** Arabic (Levantine Trix) contract names. */
 export const CONTRACT_LABEL_AR: Record<Contract, string> = {
-  kingOfHearts: 'الشايب',
+  kingOfHearts: 'الختيار',
   diamonds: 'الديناري',
   queens: 'البنات',
   slaps: 'اللطوش',

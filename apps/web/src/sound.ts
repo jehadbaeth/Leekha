@@ -78,7 +78,7 @@ const EMOTE_SOUNDS: Record<string, { url: string; gain?: number; maxMs?: number 
   angry: { url: '/sounds/emote-angry.mp3' }, // monster scream
   oops: { url: '/sounds/emote-oops.mp3', maxMs: 4500 }, // the classic sad trombone
   kiss: { url: '/sounds/emote-kiss.mp3', gain: 0.9 }, // kiss smack
-  fire: { url: '/sounds/emote-fire.ogg' }, // whoosh (Kenney)
+  fire: { url: '/sounds/emote-fire.mp3', maxMs: 2200 }, // real campfire crackle (Mixkit)
   clown: { url: '/sounds/emote-clown.mp3' }, // clown horn honks
   popcorn: { url: '/sounds/emote-popcorn.mp3', maxMs: 3000 }, // loud chip munching
   finger: { url: '/sounds/emote-finger.mp3', gain: 0.9 }, // cartoon fart
@@ -104,7 +104,7 @@ export function playCardSound() {
 
 export function trickEndSound(bigCard: boolean) {
   if (bigCard) {
-    play(BIG_CARD_HIT, 0.85);
+    play(BIG_CARD_HIT, 1);
   } else {
     playOneOf(CHIP_STACK, 0.6);
   }

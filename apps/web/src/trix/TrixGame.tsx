@@ -186,7 +186,7 @@ export function TrixGame({
         <div className="text-center text-[9px] text-rose-200/80">
           {t(
             '♥ can’t be led while King of Hearts is live (only when you hold nothing else)',
-            'لا يمكن فتح ♥ أثناء الشايب (إلا إذا لم يبقَ معك سواها)',
+            'لا يمكن فتح ♥ أثناء الختيار (إلا إذا لم يبقَ معك سواها)',
           )}
         </div>
       )}
