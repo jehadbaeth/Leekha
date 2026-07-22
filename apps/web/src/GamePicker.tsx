@@ -268,9 +268,16 @@ function LeekhaCard({
 
   return (
     <div className="rounded-2xl bg-amber-500/15 border border-amber-400/50 p-4 flex flex-col gap-3">
-      <div>
-        <div className="text-lg font-bold text-white">{t('Leekha', 'ليخة')}</div>
-        <div className="text-xs text-amber-100/80">{t('The Idlib variant', 'نسخة إدلب')}</div>
+      <div className="flex items-center gap-3">
+        <img
+          src="/leekha-badge-128.png"
+          alt=""
+          className="w-12 h-12 rounded-full shrink-0 shadow-[0_2px_6px_rgba(0,0,0,0.4)]"
+        />
+        <div>
+          <div className="text-lg font-bold text-white">{t('Leekha', 'ليخة')}</div>
+          <div className="text-xs text-amber-100/80">{t('The Idlib variant', 'نسخة إدلب')}</div>
+        </div>
       </div>
       <div className="flex rounded-full overflow-hidden border border-amber-400/50 text-xs w-max">
         <button
