@@ -61,7 +61,7 @@ function playOneOf(urls: string[], gain = 0.7) {
 const CARD_PLACE = [1, 2, 3, 4].map((i) => `/sounds/card-place-${i}.ogg`);
 const CARD_SLIDE = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => `/sounds/card-slide-${i}.ogg`);
 const CHIP_STACK = [1, 2, 3, 4, 5, 6].map((i) => `/sounds/chip-stack-${i}.ogg`);
-const BIG_CARD_HIT = '/sounds/big-card-hit.ogg';
+const BIG_CARD_HIT = '/sounds/big-card-hit.mp3'; // user-recorded, "uh-oh"
 const ROUND_END = '/sounds/round-end.ogg';
 const GAME_WIN = '/sounds/game-win.ogg';
 const GAME_LOSE = '/sounds/game-lose.ogg';
@@ -84,7 +84,7 @@ const EMOTE_SOUNDS: Record<string, { url: string; gain?: number; maxMs?: number 
   finger: { url: '/sounds/emote-finger.mp3', gain: 0.9 }, // cartoon fart
   donkey: { url: '/sounds/emote-donkey.opus', maxMs: 4000 }, // user-recorded donkey
   poop: { url: '/sounds/emote-poop.mp3' }, // funny cartoon fast splat
-  sleep: { url: '/sounds/emote-sleep.mp3', maxMs: 3500, gain: 0.9 }, // real snoring
+  sleep: { url: '/sounds/emote-sleep.mp3', maxMs: 3500, gain: 0.9 }, // user-recorded, "boring"
   goat: { url: '/sounds/emote-goat.mp3' }, // goat baa, for the GOAT
 };
 

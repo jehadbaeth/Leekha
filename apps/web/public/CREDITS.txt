@@ -20,17 +20,17 @@ Files, by Mixkit item id and title:
   emote-cry.mp3      474  "Lost kid sobbing"
   emote-oops.mp3     472  "Slow sad trombone fail"
   emote-finger.mp3  2891  "Cartoon fart sound"
-  emote-sleep.mp3   1911  "Sleep soft snore"
   emote-goat.mp3    1763  "Farm goat baa"
   emote-fire.mp3    1335  "Big fire burning"
   emote-poop.mp3    2889  "Funny cartoon fast splat"
 
-Custom recordings (public/sounds/emote-*.opus, emote-*.mp3)
+Custom recordings (public/sounds/emote-*.opus, emote-*.mp3, big-card-hit.mp3)
 -------------------------------------------------------------
 Recorded/supplied by the app's developer, not third-party assets:
   emote-haha.opus, emote-angry.opus, emote-clown.opus,
   emote-popcorn.opus, emote-donkey.opus, emote-kiss.mp3 ("habibi"),
-  emote-gg.mp3 ("come").
+  emote-gg.mp3 ("come"), emote-sleep.mp3 ("boring"),
+  big-card-hit.mp3 ("uh-oh", the Leekha capture sting).
 
 Animated emotes (public/emotes/)
 ---------------------------------
