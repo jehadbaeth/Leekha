@@ -83,7 +83,7 @@ const EMOTE_SOUNDS: Record<string, { url: string; gain?: number; maxMs?: number 
   popcorn: { url: '/sounds/emote-popcorn.mp3', maxMs: 3000 }, // loud chip munching
   finger: { url: '/sounds/emote-finger.mp3', gain: 0.9 }, // cartoon fart
   donkey: { url: '/sounds/emote-donkey.mp3', maxMs: 4000 }, // full donkey bray
-  poop: { url: '/sounds/emote-poop.mp3' }, // wet fart/accident sound
+  poop: { url: '/sounds/emote-poop.mp3' }, // funny cartoon fast splat
   sleep: { url: '/sounds/emote-sleep.mp3', maxMs: 3500, gain: 0.9 }, // real snoring
   goat: { url: '/sounds/emote-goat.mp3' }, // goat baa, for the GOAT
 };

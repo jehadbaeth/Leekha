@@ -30,7 +30,7 @@ Files, by Mixkit item id and title:
   emote-sleep.mp3   1911  "Sleep soft snore"
   emote-goat.mp3    1763  "Farm goat baa"
   emote-fire.mp3    1335  "Big fire burning"
-  emote-poop.mp3    3041  "Wet accident fart"
+  emote-poop.mp3    2889  "Funny cartoon fast splat"
 
 Animated emotes (public/emotes/)
 ---------------------------------
