@@ -10,8 +10,8 @@ export interface EmoteDef {
 /**
  * SPEC.md section 7.5.11: quick, localized emotes, no free text chat.
  * Glyph combos and captions are our own — deliberately playful table-talk in
- * the spirit of Levantine card-app banter (donkey, rooster "good morning" for
- * the slow player, the GOAT...), not copies of any other app's art.
+ * the spirit of Levantine card-app banter (donkey, poop for a garbage move,
+ * the GOAT...), not copies of any other app's art.
  * The `anim` artwork is Google's openly-licensed Noto Emoji Animation set
  * (Apache 2.0) and every sound is a real recording (Mixkit free license /
  * Kenney CC0) — see public/CREDITS.txt.
@@ -34,7 +34,7 @@ export const EMOTES: EmoteDef[] = [
   { id: 'finger', glyph: '🖕', anim: '/emotes/finger.webp', en: 'Take that!', ar: 'كُل هوا!' },
   // Row 4: the barnyard
   { id: 'donkey', glyph: '🫏', anim: '/emotes/donkey.webp', en: 'Donkey move!', ar: 'يا حمار!' },
-  { id: 'rooster', glyph: '🐓', anim: '/emotes/rooster.webp', en: 'Good morning!', ar: 'صباح الخير!' },
+  { id: 'poop', glyph: '💩', anim: '/emotes/poop.webp', en: 'That was garbage', ar: 'زبالة!' },
   { id: 'sleep', glyph: '😴', anim: '/emotes/sleep.webp', en: 'Wake up, your turn', ar: 'يالله نمنا!' },
   { id: 'goat', glyph: '🐐', anim: '/emotes/goat.webp', en: 'The GOAT', ar: 'أسطورة!' },
 ];
