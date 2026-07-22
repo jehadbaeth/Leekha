@@ -44,7 +44,7 @@ export function trickCircleForContainer(containerPx: number): number {
   // giving the trick area (and, via trickCardWidthForCircle below, the
   // thrown cards) more headroom at the floor keeps it from reading as
   // cramped on those devices without touching hand cards or avatars.
-  return Math.max(164, Math.min(320, containerPx * 0.29));
+  return Math.max(190, Math.min(320, containerPx * 0.29));
 }
 
 /**
