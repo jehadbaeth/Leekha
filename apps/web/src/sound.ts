@@ -73,11 +73,11 @@ const EMOTE_SOUNDS: Record<string, { url: string; gain?: number; maxMs?: number 
   nice: { url: '/sounds/emote-nice.mp3' }, // small group applause
   haha: { url: '/sounds/emote-haha.opus' }, // user-recorded laugh
   wow: { url: '/sounds/emote-wow.ogg' }, // explosion (Kenney), for the exploding head
-  gg: { url: '/sounds/emote-gg.mp3', maxMs: 4000 }, // triumphant orchestra trumpets
+  gg: { url: '/sounds/emote-gg.mp3', maxMs: 4000 }, // user-recorded, "come"
   cry: { url: '/sounds/emote-cry.mp3' }, // sobbing kid
   angry: { url: '/sounds/emote-angry.opus' }, // user-recorded angry
   oops: { url: '/sounds/emote-oops.mp3', maxMs: 4500 }, // the classic sad trombone
-  kiss: { url: '/sounds/emote-kiss.mp3', gain: 0.9 }, // kiss smack
+  kiss: { url: '/sounds/emote-kiss.mp3', gain: 0.9 }, // user-recorded, "habibi"
   fire: { url: '/sounds/emote-fire.mp3', gain: 1 }, // real big fire burning roar (Mixkit), user-picked over 7 other candidates
   clown: { url: '/sounds/emote-clown.opus' }, // user-recorded, for "enter"
   popcorn: { url: '/sounds/emote-popcorn.opus', maxMs: 3000 }, // user-recorded, "ocazion"
