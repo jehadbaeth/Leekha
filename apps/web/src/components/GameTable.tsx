@@ -692,7 +692,7 @@ export function GameTable({
           {visibleEmotes[mySeat] && (
             <div
               key={visibleEmotes[mySeat]!.ts}
-              className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
+              className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
             >
               <img src={visibleEmotes[mySeat]!.anim} alt="" className="w-16 h-16 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
               <span className="bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">

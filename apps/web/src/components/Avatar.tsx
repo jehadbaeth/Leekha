@@ -89,7 +89,7 @@ export function Avatar({
       {emote && (
         <div
           key={emote.ts}
-          className={`absolute ${emoteDirection === 'down' ? 'top-full mt-1' : '-top-20'} left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop`}
+          className={`absolute ${emoteDirection === 'down' ? 'top-full mt-1' : '-top-20'} left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop`}
           aria-hidden
         >
           <img src={emote.anim} alt="" className="w-16 h-16 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
