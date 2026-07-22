@@ -78,7 +78,7 @@ const EMOTE_SOUNDS: Record<string, { url: string; gain?: number; maxMs?: number 
   angry: { url: '/sounds/emote-angry.mp3' }, // monster scream
   oops: { url: '/sounds/emote-oops.mp3', maxMs: 4500 }, // the classic sad trombone
   kiss: { url: '/sounds/emote-kiss.mp3', gain: 0.9 }, // kiss smack
-  fire: { url: '/sounds/emote-fire.mp3', gain: 1, maxMs: 2600 }, // aggressive raging-fire flame roar (Mixkit)
+  fire: { url: '/sounds/emote-fire.mp3', gain: 1 }, // real big fire burning roar (Mixkit), user-picked over 7 other candidates
   clown: { url: '/sounds/emote-clown.mp3' }, // clown horn honks
   popcorn: { url: '/sounds/emote-popcorn.mp3', maxMs: 3000 }, // loud chip munching
   finger: { url: '/sounds/emote-finger.mp3', gain: 0.9 }, // cartoon fart
