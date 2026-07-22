@@ -30,7 +30,7 @@ Files, by Mixkit item id and title:
   emote-rooster.mp3 2470  "Short rooster crowing"
   emote-sleep.mp3   1911  "Sleep soft snore"
   emote-goat.mp3    1763  "Farm goat baa"
-  emote-fire.mp3    1329  "Campfire burning crackles"
+  emote-fire.mp3    1333  "Aggressive fire flame"
 
 Animated emotes (public/emotes/)
 ---------------------------------
