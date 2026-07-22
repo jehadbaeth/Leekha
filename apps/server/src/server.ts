@@ -244,6 +244,15 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
                   state.seat = null;
                   sendObserverView(room);
                 }
+              } else {
+                // The token doesn't resolve to any live room -- most commonly a
+                // server restart wiped the in-memory room/tokenIndex out from
+                // under a browser tab that still has an old seat token stashed
+                // in localStorage. Silently doing nothing here left the client
+                // waiting forever on its "reconnecting" screen (it never gets a
+                // room.state/game.snapshot to move past); tell it plainly so it
+                // can drop the stale session and offer the main menu again.
+                sendError('session-expired', 'That game session is no longer available.');
               }
             }
             break;
@@ -423,7 +432,10 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
 
           case 'game.resync': {
             const room = currentRoom();
-            if (!room) break;
+            if (!room) {
+              sendError('session-expired', 'That game session is no longer available.');
+              break;
+            }
             const seat = mySeat();
             if (seat !== null) {
               room.resync(seat);

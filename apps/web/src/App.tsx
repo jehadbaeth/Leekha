@@ -186,6 +186,17 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameChoice]);
 
+  // A stored seat token that no longer resolves to a live room (server.ts's
+  // 'session-expired' error, typically after a deploy restarts the server and
+  // drops in-memory rooms) used to leave the tab stuck on the bridge screen
+  // forever -- nothing ever told it to stop waiting. Bounce back to the menu
+  // the moment that happens instead.
+  useEffect(() => {
+    if (online.entryFailedAt === 0) return;
+    exitToMenu();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online.entryFailedAt]);
+
   // Leaving a Leekha game/lobby returns to the main menu (there is no separate
   // Leekha home anymore); reset online + local state so the next entry is clean.
   function exitToMenu() {

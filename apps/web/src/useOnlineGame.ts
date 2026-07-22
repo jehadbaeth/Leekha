@@ -55,6 +55,14 @@ export function useOnlineGame() {
     3: 'connected',
   });
   const [lastError, setLastError] = useState<string | null>(null);
+  // Bumped whenever entering a room definitively failed and there is no path
+  // forward left on the bridge/"Setting up…" screen: a stored seat token
+  // rejected as stale (its room was gone, most often because a deploy
+  // restarted the server and wiped in-memory rooms) or a create/join request
+  // whose ack never arrived. Without this, a client stuck in either case
+  // would sit on that screen forever -- it never gets a room.state/snapshot
+  // to move past, and nothing ever told it to give up and go back to the menu.
+  const [entryFailedAt, setEntryFailedAt] = useState(0);
   const [spectators, setSpectators] = useState<{ count: number; countries: Record<string, number> } | null>(null);
   const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
   const [emotes, setEmotes] = useState<Record<Seat, { id: string; ts: number } | null>>({
@@ -249,6 +257,11 @@ export function useOnlineGame() {
         }
         case 'error': {
           setLastError(msg.message);
+          if (msg.code === 'session-expired') {
+            clearSession();
+            sessionRef.current = null;
+            setEntryFailedAt((n) => n + 1);
+          }
           break;
         }
       }
@@ -299,11 +312,23 @@ export function useOnlineGame() {
 
   const createRoom = useCallback(async (name: string, config: RulesConfig, isPublic = false) => {
     socketRef.current!.send({ type: 'auth', name: name || 'Guest', locale: navigator.language });
-    const res = await socketRef.current!.request<{ code: string; seatToken: string } | { error: string }>({
-      type: 'room.create',
-      config,
-      isPublic,
-    });
+    let res: { code: string; seatToken: string } | { error: string };
+    try {
+      res = await socketRef.current!.request<{ code: string; seatToken: string } | { error: string }>({
+        type: 'room.create',
+        config,
+        isPublic,
+      });
+    } catch {
+      // The ack never arrived (server.ts's try/catch around a thrown handler
+      // error emits a fire-and-forget 'error' event, not the ack this request
+      // is awaiting -- see GameSocket.request's own timeout). Without this,
+      // the bridge screen in App.tsx would wait on a promise that never
+      // resolves, forever.
+      setLastError('Request timed out.');
+      setEntryFailedAt((n) => n + 1);
+      return null;
+    }
     if ('error' in res) {
       setLastError(res.error);
       return null;
@@ -325,10 +350,17 @@ export function useOnlineGame() {
   const joinRoom = useCallback(async (name: string, code: string) => {
     const resolvedName = name || 'Guest';
     socketRef.current!.send({ type: 'auth', name: resolvedName, locale: navigator.language });
-    const res = await socketRef.current!.request<{ seatToken: string } | { observer: true } | { error: string }>({
-      type: 'room.join',
-      code: code.toUpperCase(),
-    });
+    let res: { seatToken: string } | { observer: true } | { error: string };
+    try {
+      res = await socketRef.current!.request<{ seatToken: string } | { observer: true } | { error: string }>({
+        type: 'room.join',
+        code: code.toUpperCase(),
+      });
+    } catch {
+      setLastError('Request timed out.');
+      setEntryFailedAt((n) => n + 1);
+      return false;
+    }
     if ('error' in res) {
       setLastError(res.error);
       return false;
@@ -349,10 +381,16 @@ export function useOnlineGame() {
   }, []);
 
   const claimSeat = useCallback(async (seat: Seat) => {
-    const res = await socketRef.current!.request<{ seatToken: string } | { error: string }>({
-      type: 'room.sit',
-      seat,
-    });
+    let res: { seatToken: string } | { error: string };
+    try {
+      res = await socketRef.current!.request<{ seatToken: string } | { error: string }>({
+        type: 'room.sit',
+        seat,
+      });
+    } catch {
+      setLastError('Request timed out.');
+      return false;
+    }
     if ('error' in res) {
       setLastError(res.error);
       return false;
@@ -429,6 +467,7 @@ export function useOnlineGame() {
     emotes,
     spectators,
     lastError,
+    entryFailedAt,
     events,
     clearEvent,
     publicRooms,
