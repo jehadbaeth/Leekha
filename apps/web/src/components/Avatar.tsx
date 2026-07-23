@@ -1,6 +1,8 @@
+import { useRef } from 'react';
 import type { Seat } from '@leekha/engine';
 import { Flag } from './Flag';
 import { avatarLabelHeightForSize } from '../tableScale';
+import { EmoteSticker } from './EmoteSticker';
 
 export type PresenceStatus = 'connected' | 'reconnecting' | 'bot';
 
@@ -84,20 +86,18 @@ export function Avatar({
   // flow, which other call sites (the spectator's own seat avatar) rely on
   // for real layout spacing to whatever content follows.
   const labelPad = flushTop ? 0 : size ? avatarLabelHeightForSize(size, isBot || reconnecting) : 34;
+  const anchorRef = useRef<HTMLDivElement | null>(null);
   return (
-    <div className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`} style={{ paddingTop: labelPad }}>
-      {emote && (
-        <div
-          key={emote.ts}
-          className={`absolute ${emoteDirection === 'down' ? 'top-full mt-1' : '-top-20'} left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop`}
-          aria-hidden
-        >
-          <img src={emote.anim} alt="" className="w-16 h-16 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
-          <span className="bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
-            {emote.caption}
-          </span>
-        </div>
-      )}
+    <div ref={anchorRef} className={`relative flex flex-col items-center gap-0.5 ${compact ? '' : ''}`} style={{ paddingTop: labelPad }}>
+      <EmoteSticker
+        anchorRef={anchorRef}
+        emote={emote}
+        computeStyle={(r) =>
+          emoteDirection === 'down'
+            ? { left: r.left + r.width / 2, top: r.bottom + 4 }
+            : { left: r.left + r.width / 2, top: r.top - 80 }
+        }
+      />
       <div
         style={circleStyle}
         className={`relative ${size ? '' : 'w-11 h-11 @[900px]:w-16 @[900px]:h-16 text-sm @[900px]:text-lg border-2 @[900px]:border-[3px]'} rounded-full flex items-center justify-center font-bold shadow-[0_2px_5px_rgba(0,0,0,0.4)] transition-opacity ${

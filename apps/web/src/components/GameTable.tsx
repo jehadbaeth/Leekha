@@ -3,6 +3,7 @@ import type { Card, MatchResult, Seat, SeatView } from '@leekha/engine';
 import { nextSeat, partnerOf, prevSeat, teamOf } from '@leekha/engine';
 import { CardFace } from './CardFace';
 import { Avatar, type PresenceStatus } from './Avatar';
+import { EmoteSticker } from './EmoteSticker';
 import { Flag } from './Flag';
 import { PassingPanel } from './PassingPanel';
 import { RoundSummary } from './RoundSummary';
@@ -205,6 +206,7 @@ export function GameTable({
   // never shrinks it. The bias is clamped to the leftover slack so the circle
   // stays clear of the partner above on short screens.
   const [seatsRowEl, setSeatsRowEl] = useState<HTMLDivElement | null>(null);
+  const centerAnchorRef = useRef<HTMLDivElement | null>(null);
   const [seatsRowH, setSeatsRowH] = useState(0);
   useLayoutEffect(() => {
     if (!seatsRowEl) return;
@@ -631,6 +633,7 @@ export function GameTable({
         </div>
 
         <div
+          ref={centerAnchorRef}
           className="flex-1 min-h-0 min-w-0 flex flex-col items-center justify-center gap-1 relative"
           style={{
             minHeight: trickCircleForContainer(tableW) + 20,
@@ -689,17 +692,11 @@ export function GameTable({
           {/* "You" have no avatar slot of your own (SPEC.md 7.2: you're always
               the hand at the bottom), so your own emote needs a pop of its own
               here or you'd tap the picker and see nothing happen at all. */}
-          {visibleEmotes[mySeat] && (
-            <div
-              key={visibleEmotes[mySeat]!.ts}
-              className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-1 select-none pointer-events-none animate-emote-pop"
-            >
-              <img src={visibleEmotes[mySeat]!.anim} alt="" className="w-16 h-16 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
-              <span className="bg-black/75 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
-                {visibleEmotes[mySeat]!.caption}
-              </span>
-            </div>
-          )}
+          <EmoteSticker
+            anchorRef={centerAnchorRef}
+            emote={visibleEmotes[mySeat]}
+            computeStyle={(r) => ({ left: r.left + r.width / 2, bottom: window.innerHeight - r.bottom + 56 })}
+          />
         </div>
 
         <div className="flex flex-col items-center gap-0.5">
