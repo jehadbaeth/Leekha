@@ -60,16 +60,15 @@ export function startRound(m: MatchState): MatchState {
     hands[i % 4].push(deck[i]);
   }
   // Round 1 of every match (and rematch): whoever was DEALT the 7 of hearts
-  // owns the round -- they are the dealer and lead the first trick. From
-  // round 2 on, the dealer chosen at the previous round's end (biggest
-  // eater, K-club tiebreak; see selectNextDealer) leads. In both cases the
-  // dealer plays the first hand personally; the seat to their right merely
-  // serves the cards, which has no mechanical effect in an app.
+  // owns the round -- they are the dealer and lead the first trick
+  // personally. From round 2 on, the dealer is the biggest eater from the
+  // previous round (K-club tiebreak; see selectNextDealer), but they do not
+  // lead themselves -- the seat to their right opens the round instead.
   const dealer =
     nextRoundIndex === 1
       ? (hands.findIndex((h) => h.some((c) => c.suit === 'H' && c.rank === 7)) as Seat)
       : m.dealer;
-  const leader = dealer;
+  const leader = nextRoundIndex === 1 ? dealer : nextSeat(dealer);
   return {
     ...m,
     dealer,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeMatchResult, newMatch, startRound, defaultConfig, cardPoints, makeDeck, selectNextDealer, Card } from '../src/index.js';
+import { computeMatchResult, newMatch, startRound, defaultConfig, cardPoints, makeDeck, selectNextDealer, nextSeat, Card } from '../src/index.js';
 import { c, cfg } from './helpers.js';
 
 describe('bust and match end', () => {
@@ -115,6 +115,15 @@ describe('dealer selection', () => {
     const eatenCards: Card[][] = [[c('C', 13)], [c('H', 5)], [], []];
     const dealer = selectNextDealer([20, 20, 5, 5], eatenCards, 2);
     expect(dealer).toBe(0);
+  });
+
+  it('from round 2 on, the seat to the dealer (biggest eater)\'s right leads, not the dealer themselves', () => {
+    let m = startRound(newMatch(defaultConfig, 'seed-right-lead'));
+    m = { ...m, phase: 'roundEnd', dealer: 2 };
+    m = startRound(m);
+    expect(m.dealer).toBe(2);
+    expect(m.round.currentTrick.leader).toBe(nextSeat(2));
+    expect(m.round.currentTrick.leader).not.toBe(m.dealer);
   });
 
   it('cascades to the Q♠ eater when the K♣ eater is not among the tied', () => {
