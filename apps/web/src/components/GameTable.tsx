@@ -207,6 +207,24 @@ export function GameTable({
   // stays clear of the partner above on short screens.
   const [seatsRowEl, setSeatsRowEl] = useState<HTMLDivElement | null>(null);
   const centerAnchorRef = useRef<HTMLDivElement | null>(null);
+  // Players kept missing the ☰ curtain (it's the only way in to invite/voice),
+  // so it draws the eye with a 3-pulse ring burst every 3 minutes -- starting
+  // fresh for each new lobby (keyed on roomCode) -- until the player actually
+  // opens it, at which point it's found and the bursts stop for good.
+  const [curtainPulsing, setCurtainPulsing] = useState(false);
+  const curtainOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!menuInDrawer) return;
+    curtainOpenedRef.current = false;
+    const burst = () => {
+      if (curtainOpenedRef.current) return;
+      setCurtainPulsing(true);
+      window.setTimeout(() => setCurtainPulsing(false), 1900);
+    };
+    burst();
+    const id = window.setInterval(burst, 3 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [menuInDrawer, roomCode]);
   const [seatsRowH, setSeatsRowH] = useState(0);
   useLayoutEffect(() => {
     if (!seatsRowEl) return;
@@ -856,8 +874,12 @@ export function GameTable({
               // invite and voice/participants, so the play area isn't ringed
               // with floating buttons that collide with the edge avatars.
               <button
-                className="flex items-center justify-center w-9 h-9 bg-emerald-900/80 border border-emerald-700 rounded-full shadow-lg active:scale-95 text-lg"
-                onClick={onOpenMenu}
+                className={`flex items-center justify-center w-9 h-9 bg-emerald-900/80 border border-emerald-700 rounded-full shadow-lg active:scale-95 text-lg ${curtainPulsing ? 'animate-curtain-pulse' : ''}`}
+                onClick={() => {
+                  curtainOpenedRef.current = true;
+                  setCurtainPulsing(false);
+                  onOpenMenu();
+                }}
                 aria-label={t('Room menu', 'قائمة الغرفة')}
               >
                 ☰

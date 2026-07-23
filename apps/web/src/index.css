@@ -89,6 +89,20 @@ body {
   animation-iteration-count: 1;
 }
 
+/* Draws attention to the room-menu "curtain" button (☰) in each new lobby,
+   since it's the only way in to invite/voice and players kept missing it.
+   A ring pulses outward 3 times, then stays quiet until the next 3-minute
+   burst (see GameTable.tsx) -- rather than pulsing forever, which would just
+   become peripheral noise once someone already knows it's there. */
+@keyframes curtain-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
+  50% { box-shadow: 0 0 0 9px rgba(52, 211, 153, 0); }
+}
+
+.animate-curtain-pulse {
+  animation: curtain-pulse 0.6s ease-out 3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0.01ms !important;
@@ -100,6 +114,10 @@ body {
      nothing ever shows. Reduced motion should mean a STATIC sticker, not an
      invisible one; the JS timeout still removes it after ~2.5s. */
   .animate-emote-pop {
+    animation: none !important;
+  }
+
+  .animate-curtain-pulse {
     animation: none !important;
   }
 }
