@@ -695,7 +695,7 @@ export function GameTable({
           <EmoteSticker
             anchorRef={centerAnchorRef}
             emote={visibleEmotes[mySeat]}
-            computeStyle={(r) => ({ left: r.left + r.width / 2, bottom: window.innerHeight - r.bottom + 56 })}
+            computeStyle={(r) => ({ left: r.left + r.width / 2, bottom: window.innerHeight - r.bottom - 56 })}
           />
         </div>
 
