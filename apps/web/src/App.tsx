@@ -217,12 +217,16 @@ export default function App() {
   // that no longer exists.
   const backToPlay = () => setScreen(mode === 'online' && !online.view ? 'lobby' : 'game');
 
-  function handleJoinRoom(name: string, code: string, gameType: 'leekha' | 'trix' = 'leekha') {
-    // A public/entered room carries its game type, so route the join to the
-    // right game's online flow rather than the wrong socket. Both now go through
+  async function handleJoinRoom(name: string, code: string, gameType?: 'leekha' | 'trix') {
+    // A public-room-list click already knows the room's game type; typing a
+    // bare code doesn't, so ask the server which game it belongs to before
+    // committing to either flow (Leekha and Trix are separate hooks/sockets,
+    // and joining on the wrong one would seat the player into a room whose
+    // broadcasts its renderer can't understand). Both paths still go through
     // gameChoice so the correct game branch renders the lobby/board.
     setJoinError(null);
-    if (gameType === 'trix') {
+    const resolved = gameType ?? (await online.lookupRoomGameType(code)) ?? 'leekha';
+    if (resolved === 'trix') {
       setGameChoice({ game: 'trix', config: defaultTrixConfig, online: true, joinCode: code });
     } else {
       setGameChoice({ game: 'leekha', config: defaultConfig, online: true, joinCode: code });

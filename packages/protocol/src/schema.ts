@@ -68,6 +68,8 @@ export const RoomCreateMsg = z.object({
   allowSpectatorVoice: z.boolean().optional(),
 });
 export const RoomJoinMsg = z.object({ type: z.literal('room.join'), code: z.string().length(6) });
+/** A non-committal check of what game a code belongs to, sent before room.join so the client can mount the right game's online flow (Leekha and Trix are separate hooks/sockets) instead of guessing and joining the wrong one. */
+export const RoomLookupMsg = z.object({ type: z.literal('room.lookup'), code: z.string().length(6) });
 export const RoomListMsg = z.object({ type: z.literal('room.list') });
 export const RoomSitMsg = z.object({ type: z.literal('room.sit'), seat: SeatSchema });
 export const RoomAddBotMsg = z.object({ type: z.literal('room.addBot'), seat: SeatSchema, level: BotLevelSchema });
@@ -93,6 +95,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   AuthMsg,
   RoomCreateMsg,
   RoomJoinMsg,
+  RoomLookupMsg,
   RoomListMsg,
   RoomSitMsg,
   RoomAddBotMsg,

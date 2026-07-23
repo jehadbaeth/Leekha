@@ -289,6 +289,25 @@ export function useOnlineGame() {
     if ('rooms' in res) setPublicRooms(res.rooms);
   }, []);
 
+  // Entering a code doesn't say which game it's for, and Leekha/Trix are
+  // separate hooks and sockets -- joining on the wrong one would seat the
+  // player into a room whose broadcasts its renderer can't understand. This
+  // asks the room's actual game type first, over the always-connected home
+  // socket, before committing to either flow. Returns null on any failure
+  // (not-found or a dropped request) so the caller can fall back to its
+  // default and let the normal join-error path handle it.
+  const lookupRoomGameType = useCallback(async (code: string): Promise<'leekha' | 'trix' | null> => {
+    try {
+      const res = await socketRef.current!.request<{ gameType: 'leekha' | 'trix' } | { error: string }>({
+        type: 'room.lookup',
+        code: code.toUpperCase(),
+      });
+      return 'gameType' in res ? res.gameType : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     const socket = socketRef.current!;
     return socket.onStatus((s) => {
@@ -481,6 +500,7 @@ export function useOnlineGame() {
     clearEvent,
     publicRooms,
     refreshPublicRooms,
+    lookupRoomGameType,
     createRoom,
     joinRoom,
     claimSeat,

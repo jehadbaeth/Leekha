@@ -278,6 +278,16 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
             break;
           }
 
+          case 'room.lookup': {
+            const room = manager.get(msg.code);
+            if (!room) {
+              ack?.({ error: 'not-found' });
+              break;
+            }
+            ack?.({ gameType: room instanceof TrixRoom ? 'trix' : 'leekha' });
+            break;
+          }
+
           case 'room.join': {
             const room = manager.get(msg.code);
             if (!room) {

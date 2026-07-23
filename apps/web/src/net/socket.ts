@@ -39,7 +39,8 @@ type Ack =
   | { seatToken: string }
   | { observer: true }
   | { error: string }
-  | { rooms: PublicRoom[] };
+  | { rooms: PublicRoom[] }
+  | { gameType: 'leekha' | 'trix' };
 
 /**
  * Thin typed wrapper around a single socket.io connection. Every protocol message,
