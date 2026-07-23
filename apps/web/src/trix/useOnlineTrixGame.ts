@@ -35,6 +35,11 @@ export function useOnlineTrixGame() {
   const [spectators, setSpectators] = useState<{ count: number; countries: Record<string, number> } | null>(null);
   const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
+  // Bumped whenever a create/join/claim is rejected or its ack never arrives,
+  // so TrixOnlineGame can bounce back to the menu instead of leaving the
+  // player stuck on the "Setting up room…" bridge forever (mirrors
+  // useOnlineGame's entryFailedAt -- see its comment for the history here).
+  const [entryFailedAt, setEntryFailedAt] = useState(0);
   const roomStateRef = useRef<RoomState | null>(null);
   // Ref mirror of mySeat so the socket message handler reads the live value, not
   // a stale closure capture (same race guard useOnlineGame uses).
@@ -182,13 +187,21 @@ export function useOnlineTrixGame() {
 
   const createRoom = useCallback(async (name: string, config: TrixRulesConfig) => {
     socketRef.current!.send({ type: 'auth', name: name || 'Guest', locale: navigator.language });
-    const res = await socketRef.current!.request<{ code: string; seatToken: string } | { error: string }>({
-      type: 'room.create',
-      gameType: 'trix',
-      trixConfig: config,
-    });
+    let res: { code: string; seatToken: string } | { error: string };
+    try {
+      res = await socketRef.current!.request<{ code: string; seatToken: string } | { error: string }>({
+        type: 'room.create',
+        gameType: 'trix',
+        trixConfig: config,
+      });
+    } catch {
+      setLastError('Request timed out.');
+      setEntryFailedAt((n) => n + 1);
+      return null;
+    }
     if ('error' in res) {
       setLastError(res.error);
+      setEntryFailedAt((n) => n + 1);
       return null;
     }
     const session: StoredSession = { roomCode: res.code, seatToken: res.seatToken, seat: 0 };
@@ -201,7 +214,13 @@ export function useOnlineTrixGame() {
   }, [setMySeatBoth]);
 
   const claimSeat = useCallback(async (seat: Seat) => {
-    const res = await socketRef.current!.request<{ seatToken: string } | { error: string }>({ type: 'room.sit', seat });
+    let res: { seatToken: string } | { error: string };
+    try {
+      res = await socketRef.current!.request<{ seatToken: string } | { error: string }>({ type: 'room.sit', seat });
+    } catch {
+      setLastError('Request timed out.');
+      return false;
+    }
     if ('error' in res) {
       setLastError(res.error);
       return false;
@@ -216,12 +235,20 @@ export function useOnlineTrixGame() {
   const joinRoom = useCallback(async (name: string, code: string) => {
     const resolved = name || 'Guest';
     socketRef.current!.send({ type: 'auth', name: resolved, locale: navigator.language });
-    const res = await socketRef.current!.request<{ seatToken: string } | { observer: true } | { error: string }>({
-      type: 'room.join',
-      code: code.toUpperCase(),
-    });
+    let res: { seatToken: string } | { observer: true } | { error: string };
+    try {
+      res = await socketRef.current!.request<{ seatToken: string } | { observer: true } | { error: string }>({
+        type: 'room.join',
+        code: code.toUpperCase(),
+      });
+    } catch {
+      setLastError('Request timed out.');
+      setEntryFailedAt((n) => n + 1);
+      return false;
+    }
     if ('error' in res) {
       setLastError(res.error);
+      setEntryFailedAt((n) => n + 1);
       return false;
     }
     if ('observer' in res) return true;
@@ -293,6 +320,7 @@ export function useOnlineTrixGame() {
     roomState,
     mySeat,
     lastError,
+    entryFailedAt,
     createRoom,
     joinRoom,
     claimSeat,

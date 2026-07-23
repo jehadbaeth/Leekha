@@ -31,6 +31,7 @@ export function GamePicker({
   onRefreshPublicRooms,
   onJoinRoom,
   initialJoinCode,
+  joinError,
 }: {
   settings: Settings;
   onUpdateSettings: (patch: Partial<Settings>) => void;
@@ -47,6 +48,10 @@ export function GamePicker({
   onJoinRoom: (name: string, code: string, gameType?: 'leekha' | 'trix') => void;
   /** Pre-fills the join-by-code field when opened from a shared ?join= link. */
   initialJoinCode?: string;
+  /** Set after a create/join attempt the server rejected (bad code, expired
+   * room, etc.) bounces back here -- otherwise the player gets no explanation
+   * for suddenly landing back on the menu. */
+  joinError?: string | null;
 }) {
   const L = settings.language;
   const t = (en: string, ar: string) => pick(L, en, ar);
@@ -129,6 +134,7 @@ export function GamePicker({
         <JoinByCode
           language={L}
           initialCode={initialJoinCode}
+          error={joinError}
           onJoin={(code) => {
             commitName();
             onJoinRoom(name.trim(), code);
@@ -321,15 +327,23 @@ function LeekhaCard({
 function JoinByCode({
   language,
   initialCode,
+  error,
   onJoin,
 }: {
   language: Settings['language'];
   initialCode?: string;
+  error?: string | null;
   onJoin: (code: string) => void;
 }) {
   const t = (en: string, ar: string) => pick(language, en, ar);
   const [open, setOpen] = useState(!!initialCode);
   const [code, setCode] = useState(initialCode ?? '');
+  // A rejected join bounces the player back to this exact screen -- reopen
+  // the form so the error lands next to the code they just typed, instead of
+  // making them re-discover the "Join a room by code" button to see why.
+  useEffect(() => {
+    if (error) setOpen(true);
+  }, [error]);
 
   if (!open) {
     return (
@@ -344,6 +358,11 @@ function JoinByCode({
   return (
     <div className="flex flex-col gap-2 bg-emerald-950/60 border border-emerald-700 rounded-xl p-3">
       <span className="text-xs uppercase tracking-wide text-emerald-200">{t('Room code', 'رمز الغرفة')}</span>
+      {error && (
+        <span className="text-xs text-red-300 bg-red-950/50 border border-red-800 rounded-lg px-2 py-1">
+          {t("Couldn't join that room. Check the code and try again.", 'تعذر الانضمام لهذه الغرفة. تحقق من الرمز وحاول مرة أخرى.')}
+        </span>
+      )}
       <input
         className="rounded-lg px-3 py-2 text-slate-900 bg-white tracking-widest uppercase text-center font-mono text-lg"
         value={code}

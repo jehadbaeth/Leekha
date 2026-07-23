@@ -45,6 +45,12 @@ export function TrixOnlineGame({
     onExit();
   };
 
+  useEffect(() => {
+    if (online.entryFailedAt === 0) return;
+    leave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online.entryFailedAt]);
+
   const { roomState, view } = online;
 
   const voice = useVoiceLobby(online.socket, {

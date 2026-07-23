@@ -65,6 +65,10 @@ export default function App() {
   });
   const install = useInstallPrompt();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Surfaced next to the join-by-code field when a create/join attempt gets
+  // rejected (bad code, expired room) and bounces back to the menu -- see the
+  // entryFailedAt effect below.
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   useEffect(() => {
     // loadSettings fills a persisted fun handle (Mad Llama, Cosmic Otter) when
@@ -193,6 +197,7 @@ export default function App() {
   // the moment that happens instead.
   useEffect(() => {
     if (online.entryFailedAt === 0) return;
+    setJoinError(online.lastError ?? null);
     exitToMenu();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online.entryFailedAt]);
@@ -216,6 +221,7 @@ export default function App() {
     // A public/entered room carries its game type, so route the join to the
     // right game's online flow rather than the wrong socket. Both now go through
     // gameChoice so the correct game branch renders the lobby/board.
+    setJoinError(null);
     if (gameType === 'trix') {
       setGameChoice({ game: 'trix', config: defaultTrixConfig, online: true, joinCode: code });
     } else {
@@ -291,6 +297,7 @@ export default function App() {
               onRefreshPublicRooms={online.refreshPublicRooms}
               onJoinRoom={handleJoinRoom}
               initialJoinCode={initialJoinCodeFromUrl()}
+              joinError={joinError}
             />
           )}
           {install.canInstall && !landingSettings && !landingHowto && !landingHistory && !landingAuth && (

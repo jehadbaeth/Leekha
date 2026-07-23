@@ -330,7 +330,12 @@ export function useOnlineGame() {
       return null;
     }
     if ('error' in res) {
+      // A rejected create (not a dropped ack -- the catch above already
+      // handles that) leaves screen==='lobby' with no roomState, i.e. stuck
+      // on the "Setting up…" bridge forever unless this also bounces us
+      // back to the menu via App.tsx's entryFailedAt effect.
       setLastError(res.error);
+      setEntryFailedAt((n) => n + 1);
       return null;
     }
     const session: StoredSession = { roomCode: res.code, seatToken: res.seatToken, seat: 0 };
@@ -362,7 +367,11 @@ export function useOnlineGame() {
       return false;
     }
     if ('error' in res) {
+      // Same "Setting up…" bridge trap as createRoom's error branch above --
+      // a bad/expired room code needs to bounce back to the menu too, not
+      // just a dropped ack.
       setLastError(res.error);
+      setEntryFailedAt((n) => n + 1);
       return false;
     }
     if ('observer' in res) {
