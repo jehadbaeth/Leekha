@@ -245,13 +245,18 @@ export function choosePlay(view: SeatView, opts: HeuristicOptions): Card {
     const partnerWinning = teamOf(win.seat) === myTeam;
     const pointsOnTrick = trick.plays.reduce((sum, p) => sum + cardPoints(p.card), 0) > 0;
 
-    // Rescue: partner is winning a dangerous trick and badly needs help. Take it as cheaply as legal allows.
+    // Rescue: partner is winning a dangerous trick and we are healthier. Take
+    // it as cheaply as legal allows -- but never with a Leekha (that would
+    // just move the bomb onto the healthier seat's score). Team health is
+    // max(member scores); the healthier seat absorbs, never the reverse.
     if (partnerWinning && pointsOnTrick) {
-      const partnerScore = view.scores[win.seat];
+      const partnerScore = view.scores[partner];
       const myScore = view.scores[view.seat];
       const dangerThreshold = view.config.targetScore - 30;
-      if (partnerScore >= dangerThreshold && myScore <= partnerScore - 40) {
-        const winners = legal.filter((c) => c.rank > win.rank).sort((a, b) => a.rank - b.rank);
+      if (partnerScore >= dangerThreshold && myScore <= partnerScore - 20) {
+        const winners = legal
+          .filter((c) => c.rank > win.rank && !isLeekha(c))
+          .sort((a, b) => a.rank - b.rank);
         if (winners.length > 0) return winners[0];
       }
     }

@@ -21,14 +21,28 @@ function cardKey(c: Card): string {
   return `${c.suit}${c.rank}`;
 }
 
+function winningRankOnTrick(view: SeatView): number | null {
+  const plays = view.currentTrick.plays;
+  if (plays.length === 0) return null;
+  const led = plays[0].card.suit;
+  let best = plays[0].card.rank;
+  for (const p of plays.slice(1)) if (p.card.suit === led && p.card.rank > best) best = p.card.rank;
+  return best;
+}
+
 /**
- * Candidate moves the search is allowed to pick at the ROOT. When leading, drop
- * Leekha cards unless one is the only legal play: under the undercut rule a led
- * Leekha pins every follower below it, so it wins its own trick, and measurement
- * shows the leader's own team eats a voluntarily-led Leekha ~75-86% of the time.
- * The heuristic tier already refuses to lead one (heuristic.ts backstop); this
- * gives the search root the same guard, since its rollout continuation is that
- * same heuristic and it would otherwise fool itself into "dump now beats hold".
+ * Candidate moves the search is allowed to pick at the ROOT.
+ *
+ * 1. Leading: drop Leekha cards unless one is the only legal play. Under the
+ *    undercut rule a led Leekha pins every follower below it, so it wins its
+ *    own trick (~75-86% eaten by the leader's team).
+ * 2. Following: drop a Leekha that would WIN the trick whenever any other legal
+ *    card exists (duck, Leekha-under talyeekh, or cheaper non-Leekha winner).
+ *    Winning with Q♠/K♣/10♦ eats those points by choice; flat Monte Carlo
+ *    rollouts often prefer "unload now" over holding a covered Leekha, which
+ *    is inverted when the seat is already ahead of its partner. The heuristic
+ *    already avoids this; this keeps hard/insane from overruling it.
+ *
  * The rollout continuation is untouched -- only which root moves get scored.
  */
 function rootCandidates(view: SeatView, leadBackstop: boolean): Card[] {
@@ -36,6 +50,22 @@ function rootCandidates(view: SeatView, leadBackstop: boolean): Card[] {
   if (leadBackstop && view.currentTrick.plays.length === 0) {
     const nonLeekha = legal.filter((c) => !isLeekha(c));
     if (nonLeekha.length > 0) return nonLeekha;
+  }
+  const winRank = winningRankOnTrick(view);
+  if (winRank !== null) {
+    const led = view.currentTrick.plays[0].card.suit;
+    const followingLed = legal.every((c) => c.suit === led);
+    if (followingLed) {
+      // Drop any Leekha that would WIN this trick whenever another legal card
+      // exists (a duck, a Leekha-under talyeekh, or a cheaper non-Leekha winner).
+      // Winning with Q♠/K♣/10♦ eats those points by choice. latest.json idx 182/349:
+      // oracle preferred S12/C13 over S6/C6 because rollouts treat "unload now" as
+      // safer than holding a still-covered Leekha -- inverted when already ahead.
+      const withoutWinningLeekha = legal.filter((c) => !(isLeekha(c) && c.rank > winRank));
+      if (withoutWinningLeekha.length > 0 && withoutWinningLeekha.length < legal.length) {
+        return withoutWinningLeekha;
+      }
+    }
   }
   return legal;
 }
@@ -198,6 +228,7 @@ function utility(view: SeatView, projectedScores: [number, number, number, numbe
   const myTeam = teamOf(view.seat);
   const oppTeam = myTeam === 0 ? 1 : 0;
   const target = view.config.targetScore;
+  const partner = ((view.seat + 2) % 4) as Seat;
 
   const teamSeats = (team: 0 | 1) => SEATS.filter((s) => teamOf(s) === team);
   const bust = (team: 0 | 1) => (teamSeats(team).some((s) => projectedScores[s] >= target) ? 1 : 0);
@@ -211,7 +242,31 @@ function utility(view: SeatView, projectedScores: [number, number, number, numbe
   const usRoundPts = roundPts(myTeam);
   const oppRoundPts = roundPts(oppTeam);
 
-  return 100 * (oppBust - usBust) + (oppMaxScoreRisk - usMaxScoreRisk) + 0.1 * (oppRoundPts - usRoundPts);
+  // Prefer routing remaining round points onto the healthier teammate (lower
+  // cumulative). Without this, rollouts happily pile Leekhas onto the already-
+  // higher seat -- latest.json Bot2 ate to 214 while partner sat at 44.
+  const myProjected = projectedScores[view.seat];
+  const partnerProjected = projectedScores[partner];
+  const loadBalance = partnerProjected - myProjected;
+
+  // Soft distance-to-bust term: graded pressure before the hard cliff at target.
+  const usHeadroom = Math.max(0, target - usMaxScoreRisk);
+  const oppHeadroom = Math.max(0, target - oppMaxScoreRisk);
+
+  // Extra penalty for the acting seat eating round points while already ahead
+  // of partner: team health is max(scores), so the lead seat should duck/dump
+  // rather than vacuum.
+  const aheadEntering = view.scores[view.seat] - view.scores[partner];
+  const selfishEat = aheadEntering > 0 ? roundEaten[view.seat] : 0;
+
+  return (
+    100 * (oppBust - usBust) +
+    (oppMaxScoreRisk - usMaxScoreRisk) +
+    0.25 * (oppHeadroom - usHeadroom) +
+    1.0 * loadBalance +
+    0.5 * (oppRoundPts - usRoundPts) -
+    1.0 * selfishEat
+  );
 }
 
 /**

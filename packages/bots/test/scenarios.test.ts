@@ -156,6 +156,192 @@ describe('search/oracle tiers never voluntarily lead a Leekha', () => {
 });
 
 describe('follow scenarios from real-game blunders', () => {
+  /** Build complementary hidden hands with correct remaining sizes for a mid-trick view. */
+  function trueHandsFor(v: SeatView): Card[][] {
+    const deck = (['S', 'H', 'D', 'C'] as Card['suit'][]).flatMap((s) =>
+      Array.from({ length: 13 }, (_, i) => c(s, i + 2)),
+    );
+    const used = new Set<string>();
+    for (const card of v.hand) used.add(`${card.suit}${card.rank}`);
+    for (const trick of v.playedCards) for (const pl of trick) used.add(`${pl.card.suit}${pl.card.rank}`);
+    for (const pl of v.currentTrick.plays) used.add(`${pl.card.suit}${pl.card.rank}`);
+    const pool = deck.filter((card) => !used.has(`${card.suit}${card.rank}`));
+
+    const playedCount = (seat: Seat) => {
+      let n = 0;
+      for (const trick of v.playedCards) for (const pl of trick) if (pl.seat === seat) n++;
+      for (const pl of v.currentTrick.plays) if (pl.seat === seat) n++;
+      return n;
+    };
+
+    const hands: Card[][] = [[], [], [], []];
+    hands[v.seat] = v.hand.slice();
+    let i = 0;
+    for (const seat of [0, 1, 2, 3] as Seat[]) {
+      if (seat === v.seat) continue;
+      const need = 13 - playedCount(seat);
+      hands[seat] = pool.slice(i, i + need);
+      i += need;
+    }
+    return hands;
+  }
+
+  it('does not win with a protectable Leekha when a safe duck exists (Log #2 r11)', () => {
+    // Seat 2 at 143 vs partner 55 holds Q♠ with S9 cover. Trick: SJ, S10, C3.
+    // Winning with Q♠ eats 13 by choice; ducking under SJ is required.
+    const priorTrick = [
+      { seat: 0 as Seat, card: c('H', 2), forced: false },
+      { seat: 1 as Seat, card: c('H', 3), forced: false },
+      { seat: 2 as Seat, card: c('H', 5), forced: false },
+      { seat: 3 as Seat, card: c('H', 14), forced: false },
+    ];
+    const v = view({
+      seat: 2,
+      trickNumber: 2,
+      scores: [55, 162, 143, 140],
+      playedCards: [priorTrick],
+      currentTrick: {
+        leader: 3,
+        plays: [
+          { seat: 3, card: c('S', 11), forced: false },
+          { seat: 0, card: c('S', 10), forced: false },
+          { seat: 1, card: c('C', 3), forced: false },
+        ],
+      },
+      // 12 cards remain after trick 1 (H5 already played in priorTrick).
+      hand: [
+        c('C', 9), c('C', 8), c('S', 2), c('S', 9), c('D', 9), c('D', 14),
+        c('S', 5), c('S', 13), c('H', 4), c('S', 12), c('D', 8), c('S', 3),
+      ],
+      legal: [c('S', 2), c('S', 9), c('S', 5), c('S', 13), c('S', 12), c('S', 3)],
+    });
+    expect(isLeekha(choosePlay(v, opts))).toBe(false);
+
+    const { best } = perfectInfoBest(v, trueHandsFor(v), {
+      noise: 8,
+      rng: rngFromSeed('log2-r11-duck'),
+      endgameCounting: false,
+    });
+    expect(isLeekha(best)).toBe(false);
+  });
+
+  it('does not win with a protectable K♣ when a safe duck exists (Log #2 r14)', () => {
+    // Seat 2 at 185 vs partner 106, clubs led C7, legal C9/C2/C8/CK.
+    // Winning with CK eats 14 while already far ahead of partner.
+    const v = view({
+      seat: 2,
+      trickNumber: 1,
+      scores: [106, 183, 185, 176],
+      currentTrick: {
+        leader: 1,
+        plays: [{ seat: 1, card: c('C', 7), forced: false }],
+      },
+      hand: [
+        c('H', 4), c('C', 9), c('H', 11), c('D', 6), c('D', 12), c('D', 5),
+        c('H', 6), c('D', 8), c('C', 2), c('C', 8), c('C', 13), c('S', 12), c('D', 10),
+      ],
+      legal: [c('C', 9), c('C', 2), c('C', 8), c('C', 13)],
+    });
+    const heuristic = choosePlay(v, opts);
+    expect(heuristic).not.toEqual(c('C', 13));
+    expect(isLeekha(heuristic)).toBe(false);
+
+    const { best } = perfectInfoBest(v, trueHandsFor(v), {
+      noise: 8,
+      rng: rngFromSeed('log2-r14-duck'),
+      endgameCounting: false,
+    });
+    expect(best).not.toEqual(c('C', 13));
+    expect(isLeekha(best)).toBe(false);
+  });
+
+  it('does not win with Q♠ over a low spade lead when covered (latest.json r4)', () => {
+    // Bot2 at 105 vs partner 10, lead S5/S4, legal S10/S6/S7/SQ. Winning with
+    // SQ eats 13 while already far ahead -- the classic load-balance blunder.
+    const prior = [
+      [
+        { seat: 0 as Seat, card: c('H', 2), forced: false },
+        { seat: 1 as Seat, card: c('H', 3), forced: false },
+        { seat: 2 as Seat, card: c('H', 4), forced: false },
+        { seat: 3 as Seat, card: c('H', 5), forced: false },
+      ],
+      [
+        { seat: 0 as Seat, card: c('H', 6), forced: false },
+        { seat: 1 as Seat, card: c('H', 8), forced: false },
+        { seat: 2 as Seat, card: c('H', 9), forced: false },
+        { seat: 3 as Seat, card: c('H', 14), forced: false },
+      ],
+    ];
+    const v = view({
+      seat: 2,
+      trickNumber: 3,
+      scores: [10, 17, 105, 18],
+      playedCards: prior,
+      currentTrick: {
+        leader: 0,
+        plays: [
+          { seat: 0, card: c('S', 5), forced: false },
+          { seat: 1, card: c('S', 4), forced: false },
+        ],
+      },
+      hand: [
+        c('S', 10), c('C', 3), c('H', 7), c('S', 6), c('C', 10), c('C', 5),
+        c('S', 7), c('S', 12), c('D', 13), c('C', 14), c('D', 2),
+      ],
+      legal: [c('S', 10), c('S', 6), c('S', 7), c('S', 12)],
+    });
+    expect(isLeekha(choosePlay(v, opts))).toBe(false);
+
+    const { best } = perfectInfoBest(v, trueHandsFor(v), {
+      noise: 8,
+      rng: rngFromSeed('latest-r4-sq'),
+      endgameCounting: false,
+    });
+    expect(isLeekha(best)).toBe(false);
+  });
+
+  it('does not win with K♣ over C2 when C6 duck exists (latest.json r7)', () => {
+    // Bot2 at 177 vs partner 40, C2 led, legal C6/CK. Winning with CK is a
+    // 14-point self-eat while already near bust.
+    const prior = [
+      [
+        { seat: 1 as Seat, card: c('H', 2), forced: false },
+        { seat: 2 as Seat, card: c('H', 3), forced: false },
+        { seat: 3 as Seat, card: c('H', 4), forced: false },
+        { seat: 0 as Seat, card: c('H', 5), forced: false },
+      ],
+      [
+        { seat: 0 as Seat, card: c('H', 6), forced: false },
+        { seat: 1 as Seat, card: c('H', 7), forced: false },
+        { seat: 2 as Seat, card: c('H', 10), forced: false },
+        { seat: 3 as Seat, card: c('H', 14), forced: false },
+      ],
+    ];
+    const v = view({
+      seat: 2,
+      trickNumber: 3,
+      scores: [40, 45, 177, 38],
+      playedCards: prior,
+      currentTrick: {
+        leader: 1,
+        plays: [{ seat: 1, card: c('C', 2), forced: false }],
+      },
+      hand: [
+        c('S', 5), c('H', 13), c('H', 8), c('H', 9), c('D', 14), c('D', 12),
+        c('C', 6), c('D', 4), c('D', 9), c('C', 13), c('S', 13),
+      ],
+      legal: [c('C', 6), c('C', 13)],
+    });
+    expect(choosePlay(v, opts)).toEqual(c('C', 6));
+
+    const { best } = perfectInfoBest(v, trueHandsFor(v), {
+      noise: 8,
+      rng: rngFromSeed('latest-r7-ck'),
+      endgameCounting: false,
+    });
+    expect(best).toEqual(c('C', 6));
+  });
+
   it('burns a liability winner as last actor on a pointless trick', () => {
     // Last to play on a 0-point spade trick while Q♠ is still out: winning
     // with A♠ here is free and unloads a card that would otherwise be
