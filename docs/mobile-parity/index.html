@@ -371,7 +371,7 @@
     <p class="standfirst">
       The mobile apps wrap the existing web build in Capacitor, so every screen is
       literally the same React bundle the browser runs. Here is the evidence, screen
-      by screen, plus the two backend changes the port genuinely required.
+      by screen, plus the three backend fixes the port genuinely required.
     </p>
   </header>
 
@@ -573,10 +573,27 @@
     </div>
   </section>
 
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Match history, after the deploy</h3>
+        <span class="chip chip-ok">Authenticated</span>
+        <p>Reachable only once the bearer-token server change shipped. It renders its
+          empty state, not an error, so the authenticated request went through.</p>
+      </div>
+      <div class="shots wide">
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-history.png" alt="Android match history screen showing its empty state">
+        </figure>
+      </div>
+    </div>
+
     <div class="blocker" style="margin-top:8px">
       <h3>What is not compared here, and why</h3>
-      <p><strong>Match history</strong> needs a logged-in session, which is exactly what
-        the undeployed server change blocks, so there is no honest pair to show yet.
+      <p><strong>Match history</strong> is now reachable and was verified on the device
+        after the server deploy: it renders its empty state rather than an error, which
+        means the authenticated request succeeded. A side-by-side adds nothing while the
+        test account has no matches, so it is shown once rather than as a pair.
         <strong>Round summary</strong> and <strong>match end</strong> need a full round
         played out, and since every deal is random the two sides would differ by content
         rather than layout, which makes a screenshot pair weak evidence. Both are ordinary
@@ -648,6 +665,8 @@
       <li>Landscape orientation</li>
       <li>Status and navigation bars match the felt</li>
       <li>No audio decode errors during play</li>
+      <li>Login survives a cold app restart</li>
+      <li>Match history authenticates via bearer token</li>
       <li>152 tests pass across every package</li>
     </ul>
   </section>
@@ -655,12 +674,12 @@
   <section>
     <h2>Before this ships</h2>
 
-    <div class="blocker">
-      <h3>The server change is not deployed</h3>
-      <p>Production still runs the old code and returns no token on login, so a logged-in
-        session does not survive an app restart. Online play, rooms and bots all work
-        against production today; only accounts are affected. This is the one blocker,
-        and deploying <code>apps/server</code> clears it.</p>
+    <div class="blocker" style="border-left-color: var(--ok)">
+      <h3>Resolved: the server change is deployed</h3>
+      <p>Production now returns a token on login. Verified end to end on the device: sign
+        in, force-stop the app, relaunch, and it is still signed in, with
+        <code>/api/history</code> authenticating through the bearer header. The accounts
+        and history database survived the redeploy intact.</p>
     </div>
 
     <div class="blocker">

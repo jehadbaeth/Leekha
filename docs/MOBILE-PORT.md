@@ -99,7 +99,8 @@ match vs bots through passing, bot replies (so the `botWorker` Web Worker runs
 in the webview), follow-suit legality, trick resolution, confirm-before-play,
 session resume across restart, the Trix local and online tables, a Trix online room
 on the live server, hardware back at every level (overlay, room, menu), Arabic/RTL,
-landscape, felt system bars, and no audio decode errors.
+landscape, felt system bars, no audio decode errors, and a logged-in session
+surviving a cold restart against the deployed backend.
 
 **iOS: scaffolded and configured, but never compiled.** This machine has only
 the Command Line Tools, so `pod install` never ran. On a Mac with Xcode:
@@ -113,10 +114,10 @@ Nothing about the iOS target should be treated as verified until that happens.
 
 ## Open items
 
-- **The bearer-token server change is not deployed.** Production still returns no
-  `token` on login, so logged-in sessions do not survive an app restart. Online
-  play, rooms and bots all work against production today; only accounts are
-  affected. Deploy `apps/server` to fix.
+- ~~The bearer-token server change is not deployed.~~ **Deployed 2026-09-14.**
+  Production returns a token on login, and the app was verified end to end: log
+  in, force-stop, relaunch, still signed in, and `/api/history` authenticates
+  through the bearer header. The accounts/history DB survived the redeploy.
 - `scripts/build-web.mjs` hardcodes the Tailscale Funnel URL as its default. For
   a store release that bakes a homelab address into a binary that cannot be
   changed without resubmitting. Point it at a stable domain before shipping.
