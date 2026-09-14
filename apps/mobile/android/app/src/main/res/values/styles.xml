@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <!-- The window background is whatever shows in any region the webview
+             does not cover: most visibly the letterbox beside the camera
+             cutout in landscape, which defaults to white and reads as a torn
+             strip next to the felt. Paint it the table colour instead. -->
+        <item name="android:windowBackground">@color/feltGreen</item>
+        <!-- Android 15 (API 35) draws every app edge-to-edge by default, which
+             would put the status bar and the gesture pill on top of the table.
+             The webapp has never had to dodge either, so opting out keeps the
+             webview laid out inside the safe area and the layout identical to
+             the browser's. Ignored on older releases. -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+        <!-- Paint the system bars the same felt as the table, with light
+             icons/gesture pill on top of it (windowLight*Bar = false means
+             "this bar is dark, draw light glyphs"). -->
+        <item name="android:statusBarColor">@color/feltGreen</item>
+        <item name="android:navigationBarColor">@color/feltGreen</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+        <!-- The launch theme is what is on screen during cold start, so it
+             needs the same system-bar colors or the app visibly flashes a grey
+             status bar before the webview takes over. -->
+        <item name="android:statusBarColor">@color/feltGreen</item>
+        <item name="android:navigationBarColor">@color/feltGreen</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

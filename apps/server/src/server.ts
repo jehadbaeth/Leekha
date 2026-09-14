@@ -8,7 +8,7 @@ import { RoomManager, TrixRoom, type AnyRoom } from './roomManager.js';
 import { createStaticHandler } from './staticFiles.js';
 import { createPersistence } from './persistence.js';
 import { openDb } from './db.js';
-import { createAuthHandler, resolveSessionFromCookieHeader } from './auth.js';
+import { createAuthHandler, resolveSessionFromCookieHeader, resolveSessionFromToken } from './auth.js';
 import { createAdminHandler } from './admin.js';
 
 interface SocketState {
@@ -150,12 +150,20 @@ export function createApp(options: { webDist?: string; redisUrl?: string; databa
 
   io.on('connection', (socket: Socket) => {
     const cookieHeader = socket.handshake.headers.cookie;
+    // Native app builds have no usable cookie on this cross-site handshake
+    // (see bearerToken in auth.ts), so they pass the same session token in
+    // the socket.io `auth` payload instead. Cookie first, so a browser
+    // session still wins where both are present.
+    const handshakeToken =
+      typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : null;
     const state: SocketState = {
       name: null,
       roomCode: null,
       seat: null,
       country: detectCountry(socket),
-      userId: resolveSessionFromCookieHeader(db, cookieHeader)?.id ?? null,
+      userId:
+        (resolveSessionFromCookieHeader(db, cookieHeader) ?? resolveSessionFromToken(db, handshakeToken))?.id ??
+        null,
     };
 
     // Telemetry visit tracking (Phase 2). visitorId is a stable per-browser id

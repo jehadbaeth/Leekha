@@ -1,4 +1,5 @@
 import { SERVER_URL } from './socket';
+import { authHeaders, saveAuthToken } from '../native';
 
 export interface AuthedUser {
   id: string;
@@ -48,7 +49,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${SERVER_URL}${path}`, {
     ...init,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    // authHeaders() is empty on web (the cookie carries the session) and a
+    // bearer token in the native shell, where the cookie cannot travel.
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: 'unknown' }));
@@ -67,22 +70,33 @@ export async function fetchMe(): Promise<AuthedUser | null> {
   }
 }
 
+// The server returns `token` alongside the user on register/login. Web ignores
+// it and keeps using the session cookie; saveAuthToken only stores it in the
+// native shell, where it is the only thing that keeps the session alive.
 export function register(email: string, password: string, displayName: string): Promise<AuthedUser> {
-  return request<{ user: AuthedUser }>('/api/register', {
+  return request<{ user: AuthedUser; token?: string }>('/api/register', {
     method: 'POST',
     body: JSON.stringify({ email, password, displayName }),
-  }).then((r) => r.user);
+  }).then((r) => {
+    saveAuthToken(r.token ?? null);
+    return r.user;
+  });
 }
 
 export function login(email: string, password: string): Promise<AuthedUser> {
-  return request<{ user: AuthedUser }>('/api/login', {
+  return request<{ user: AuthedUser; token?: string }>('/api/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
-  }).then((r) => r.user);
+  }).then((r) => {
+    saveAuthToken(r.token ?? null);
+    return r.user;
+  });
 }
 
 export function logout(): Promise<void> {
-  return request<{ ok: true }>('/api/logout', { method: 'POST' }).then(() => undefined);
+  return request<{ ok: true }>('/api/logout', { method: 'POST' })
+    .then(() => undefined)
+    .finally(() => saveAuthToken(null));
 }
 
 export function fetchHistory(): Promise<MatchSummary[]> {

@@ -28,6 +28,23 @@ function parseCookieHeader(header: string | undefined): Record<string, string> {
   return out;
 }
 
+/**
+ * Reads a session token out of an `Authorization: Bearer <token>` header.
+ *
+ * Native app builds (Capacitor, see apps/mobile) cannot rely on the session
+ * cookie: the webview's origin is the local bundle, so every /api/* call is
+ * cross-site, and the cookie below is SameSite=Lax -- which browsers refuse
+ * to attach to cross-site XHR. Those clients keep the same token in their own
+ * storage and send it here instead. Web clients are unaffected and keep using
+ * the cookie.
+ */
+function bearerToken(header: string | string[] | undefined): string | null {
+  const raw = Array.isArray(header) ? header[0] : header;
+  if (!raw) return null;
+  const match = /^Bearer\s+(.+)$/i.exec(raw.trim());
+  return match ? match[1].trim() : null;
+}
+
 function setSessionCookie(res: ServerResponse, token: string, maxAgeMs: number): void {
   res.setHeader(
     'Set-Cookie',
@@ -79,14 +96,8 @@ export interface AuthedUser {
   displayName: string;
 }
 
-/**
- * Resolves a session token found in a cookie header to a user. Takes the raw
- * header string (not an IncomingMessage) so the socket layer can resolve the
- * same cookie off `socket.handshake.headers.cookie`, not just plain HTTP
- * requests.
- */
-export function resolveSessionFromCookieHeader(db: Db, cookieHeader: string | undefined): AuthedUser | null {
-  const token = parseCookieHeader(cookieHeader)[SESSION_COOKIE];
+/** Resolves a raw, unexpired session token to its user. */
+export function resolveSessionFromToken(db: Db, token: string | null | undefined): AuthedUser | null {
   if (!token) return null;
   const session = db.getSession(token);
   if (!session || session.expires_at < Date.now()) return null;
@@ -95,8 +106,26 @@ export function resolveSessionFromCookieHeader(db: Db, cookieHeader: string | un
   return { id: user.id, email: user.email, displayName: user.display_name };
 }
 
+/**
+ * Resolves a session token found in a cookie header to a user. Takes the raw
+ * header string (not an IncomingMessage) so the socket layer can resolve the
+ * same cookie off `socket.handshake.headers.cookie`, not just plain HTTP
+ * requests.
+ */
+export function resolveSessionFromCookieHeader(db: Db, cookieHeader: string | undefined): AuthedUser | null {
+  return resolveSessionFromToken(db, parseCookieHeader(cookieHeader)[SESSION_COOKIE]);
+}
+
+/**
+ * Resolves the caller from either transport: the cookie (web) or an
+ * Authorization: Bearer header (native app builds). Checked in that order so
+ * a browser session always wins on a shared machine.
+ */
 function resolveSession(db: Db, req: IncomingMessage): AuthedUser | null {
-  return resolveSessionFromCookieHeader(db, req.headers.cookie);
+  return (
+    resolveSessionFromCookieHeader(db, req.headers.cookie) ??
+    resolveSessionFromToken(db, bearerToken(req.headers.authorization))
+  );
 }
 
 /**
@@ -134,7 +163,9 @@ export function createAuthHandler(db: Db) {
       const now = Date.now();
       db.createSession({ token, user_id: id, created_at: now, expires_at: now + SESSION_TTL_MS });
       setSessionCookie(res, token, SESSION_TTL_MS);
-      json(res, 200, { user: { id, email, displayName } });
+      // `token` is returned for native clients that cannot use the cookie
+      // (see bearerToken above); web clients simply ignore it.
+      json(res, 200, { user: { id, email, displayName }, token });
       return true;
     }
 
@@ -156,12 +187,13 @@ export function createAuthHandler(db: Db) {
       const now = Date.now();
       db.createSession({ token, user_id: user.id, created_at: now, expires_at: now + SESSION_TTL_MS });
       setSessionCookie(res, token, SESSION_TTL_MS);
-      json(res, 200, { user: { id: user.id, email: user.email, displayName: user.display_name } });
+      json(res, 200, { user: { id: user.id, email: user.email, displayName: user.display_name }, token });
       return true;
     }
 
     if (method === 'POST' && url.pathname === '/api/logout') {
-      const token = parseCookieHeader(req.headers.cookie)[SESSION_COOKIE];
+      const token =
+        parseCookieHeader(req.headers.cookie)[SESSION_COOKIE] ?? bearerToken(req.headers.authorization);
       if (token) db.deleteSession(token);
       clearSessionCookie(res);
       json(res, 200, { ok: true });

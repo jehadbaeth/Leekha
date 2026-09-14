@@ -46,6 +46,50 @@ describe('apps/server auth REST endpoints', () => {
     expect(meBody.user.displayName).toBe('Alice');
   });
 
+  // Native app builds (Capacitor) cannot use the SameSite=Lax session cookie:
+  // their webview origin makes every /api/* call cross-site. They carry the
+  // same token in an Authorization header instead -- these lock that path in.
+  it('returns a bearer token that authenticates /api/me without any cookie', async () => {
+    const res = await fetch(`${base}/api/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'native@example.com', password: 'hunter22', displayName: 'Native' }),
+    });
+    expect(res.status).toBe(200);
+    const { token } = await res.json();
+    expect(typeof token).toBe('string');
+
+    const me = await fetch(`${base}/api/me`, { headers: { authorization: `Bearer ${token}` } });
+    expect(me.status).toBe(200);
+    expect((await me.json()).user.displayName).toBe('Native');
+  });
+
+  it('issues a bearer token on login and revokes it on logout', async () => {
+    await fetch(`${base}/api/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'native2@example.com', password: 'hunter22', displayName: 'Native2' }),
+    });
+    const login = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'native2@example.com', password: 'hunter22' }),
+    });
+    const { token } = await login.json();
+    const auth = { authorization: `Bearer ${token}` };
+
+    expect((await fetch(`${base}/api/history`, { headers: auth })).status).toBe(200);
+    expect((await fetch(`${base}/api/logout`, { method: 'POST', headers: auth })).status).toBe(200);
+    expect((await fetch(`${base}/api/me`, { headers: auth })).status).toBe(401);
+  });
+
+  it('rejects a malformed or unknown bearer token', async () => {
+    for (const header of ['Bearer not-a-real-token', 'Basic abc', 'Bearer']) {
+      const res = await fetch(`${base}/api/me`, { headers: { authorization: header } });
+      expect(res.status).toBe(401);
+    }
+  });
+
   it('rejects duplicate email registration', async () => {
     const payload = { email: 'bob@example.com', password: 'hunter22', displayName: 'Bob' };
     const first = await fetch(`${base}/api/register`, {

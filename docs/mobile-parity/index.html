@@ -1,0 +1,689 @@
+<title>Leekha Mobile Parity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+  /* Light palette: paper ground, felt-green ink, neutrals biased green so they
+     read as chosen rather than inherited mid-grey. */
+  :root {
+    --ground: #f2f5f1;
+    --surface: #ffffff;
+    --surface-sunk: #e8ede8;
+    --ink: #12211b;
+    --ink-muted: #55665e;
+    --ink-faint: #7d8e86;
+    --felt: #0f4c3a;
+    --gold: #9a6b06;
+    --gold-bg: #fdf3d9;
+    --border: #d5ded7;
+    --border-strong: #b9c7bf;
+    --ok: #0f6b46;
+    --ok-bg: #dff2e7;
+    --warn: #8a4b06;
+    --warn-bg: #fbeada;
+    --shot-frame: #c8d4cc;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0a1712;
+      --surface: #10241d;
+      --surface-sunk: #0d1e18;
+      --ink: #e9f2ec;
+      --ink-muted: #9cb3a8;
+      --ink-faint: #6f877c;
+      --felt: #34d399;
+      --gold: #fbbf24;
+      --gold-bg: #2a2110;
+      --border: #1d3a30;
+      --border-strong: #2b5044;
+      --ok: #4ade80;
+      --ok-bg: #10291d;
+      --warn: #fbbf24;
+      --warn-bg: #2a2110;
+      --shot-frame: #22463a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0a1712;
+    --surface: #10241d;
+    --surface-sunk: #0d1e18;
+    --ink: #e9f2ec;
+    --ink-muted: #9cb3a8;
+    --ink-faint: #6f877c;
+    --felt: #34d399;
+    --gold: #fbbf24;
+    --gold-bg: #2a2110;
+    --border: #1d3a30;
+    --border-strong: #2b5044;
+    --ok: #4ade80;
+    --ok-bg: #10291d;
+    --warn: #fbbf24;
+    --warn-bg: #2a2110;
+    --shot-frame: #22463a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    padding: 72px 0 40px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 18px;
+  }
+
+  h1 {
+    font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.6rem, 7vw, 4.4rem);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: 1.2rem;
+    color: var(--ink-muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---------- verdict strip ---------- */
+
+  .verdicts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin: 40px 0 0;
+  }
+
+  .verdict {
+    background: var(--surface);
+    padding: 22px 24px;
+  }
+
+  .verdict dt {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 8px;
+  }
+
+  .verdict dd {
+    margin: 0;
+    font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.22rem;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+  }
+
+  .verdict dd small {
+    display: block;
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 400;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    letter-spacing: 0;
+    margin-top: 4px;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { margin-top: 72px; }
+
+  h2 {
+    font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.6rem, 3.4vw, 2.1rem);
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+
+  .section-note {
+    color: var(--ink-muted);
+    max-width: 68ch;
+    margin: 0 0 32px;
+  }
+
+  h3 {
+    font-family: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  p { margin: 0 0 16px; }
+  p:last-child { margin-bottom: 0; }
+
+  code {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.86em;
+    background: var(--surface-sunk);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  /* ---------- the comparison grid ---------- */
+
+  .pair { margin-bottom: 56px; }
+
+  .pair-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pair-head p {
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+    flex: 1 1 260px;
+  }
+
+  .chip {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .chip-ok { background: var(--ok-bg); color: var(--ok); }
+  .chip-fix { background: var(--warn-bg); color: var(--warn); }
+
+  .shots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .shots.wide { grid-template-columns: 1fr; }
+
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  figcaption {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  figcaption::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--felt);
+    flex: none;
+  }
+
+  figure.app figcaption::before { background: var(--gold); }
+
+  figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--shot-frame);
+    border-radius: 6px;
+  }
+
+  /* ---------- findings ---------- */
+
+  .findings {
+    display: grid;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .finding {
+    background: var(--surface);
+    padding: 24px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 16px;
+    align-items: start;
+  }
+
+  .finding .num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.8rem;
+    color: var(--gold);
+    padding-top: 4px;
+  }
+
+  .finding .body { grid-column: 2; }
+  .finding .body p { font-size: 0.97rem; color: var(--ink-muted); margin-top: 8px; }
+  .finding .body p strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- checklist ---------- */
+
+  .checks {
+    columns: 2;
+    column-gap: 40px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .checks li {
+    break-inside: avoid;
+    padding: 9px 0 9px 26px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.97rem;
+  }
+
+  .checks li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    top: 9px;
+    color: var(--ok);
+    font-weight: 700;
+  }
+
+  /* ---------- blockers ---------- */
+
+  .blocker {
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--gold);
+    background: var(--surface);
+    padding: 24px 26px;
+    margin-bottom: 16px;
+  }
+
+  .blocker h3 { margin-bottom: 8px; }
+  .blocker p { color: var(--ink-muted); font-size: 0.97rem; }
+
+  footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--ink-faint);
+    font-size: 0.87rem;
+  }
+
+  @media (max-width: 700px) {
+    .shots { grid-template-columns: 1fr; }
+    .checks { columns: 1; }
+    .wrap { padding: 0 18px 64px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Port verification / Android + iOS</p>
+    <h1>Leekha goes native</h1>
+    <p class="standfirst">
+      The mobile apps wrap the existing web build in Capacitor, so every screen is
+      literally the same React bundle the browser runs. Here is the evidence, screen
+      by screen, plus the two backend changes the port genuinely required.
+    </p>
+  </header>
+
+  <dl class="verdicts">
+    <div class="verdict">
+      <dt>Visual parity</dt>
+      <dd>Identical<small>Both games, both languages, verified per screen</small></dd>
+    </div>
+    <div class="verdict">
+      <dt>Logic parity</dt>
+      <dd>152 tests pass<small>Shared engine, bots and protocol untouched</small></dd>
+    </div>
+    <div class="verdict">
+      <dt>Android</dt>
+      <dd>Built &amp; verified<small>API 35 emulator, live backend</small></dd>
+    </div>
+    <div class="verdict">
+      <dt>iOS</dt>
+      <dd>Not compiled<small>No Xcode on this machine</small></dd>
+    </div>
+  </dl>
+
+  <section>
+    <h2>Screen by screen</h2>
+    <p class="section-note">
+      Left is the live web app in Chrome at a phone viewport. Right is the Android app
+      on an API 35 emulator. Card deals differ between captures because every match
+      deals fresh; nothing else does.
+    </p>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Game picker</h3>
+        <span class="chip chip-ok">Match</span>
+        <p>Entry screen with display name, three game cards and the public room list.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-picker-en.png" alt="Web game picker in English">
+        </figure>
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-picker-en.png" alt="Android game picker in English">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Arabic, right to left</h3>
+        <span class="chip chip-ok">Match</span>
+        <p>The highest-risk layout mode: <code>dir=rtl</code> mirrors the badge, the
+          toggle order and the button order. All three mirror identically.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-picker-ar.png" alt="Web game picker in Arabic, right to left">
+        </figure>
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-picker-ar.png" alt="Android game picker in Arabic, right to left">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Game table, passing phase</h3>
+        <span class="chip chip-ok">Match</span>
+        <p>Avatars, trick circle, score HUD, passing panel and the two-story fanned
+          hand. The bots replied, which proves the bot Web Worker runs in the webview.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-game-passing.png" alt="Web game table during the passing phase">
+        </figure>
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-game-passing.png" alt="Android game table during the passing phase">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Trix</h3>
+        <span class="chip chip-ok">Match</span>
+        <p>Trix is a second, entirely separate table UI: four suit lanes, contract
+          chips and a different HUD. It carries over as exactly as Leekha does.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-trix-bots.png" alt="Web Trix table with four suit lanes">
+        </figure>
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-trix-bots.png" alt="Android Trix table with four suit lanes">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Trix online, and a second defect</h3>
+        <span class="chip chip-fix">Found &amp; fixed</span>
+        <p>Trix runs its own room and its own drawer, so the first version of the back
+          button quit the entire match on a press that was only meant to close the
+          drawer. Back handlers now run innermost first. Left: drawer open. Right: after
+          one back press, drawer closed and the match still running.</p>
+      </div>
+      <div class="shots">
+        <figure class="app">
+          <figcaption>Drawer open</figcaption>
+          <img src="shots/android-trix-drawer-open.png" alt="Trix online room drawer open over the table">
+        </figure>
+        <figure class="app">
+          <figcaption>After one back press</figcaption>
+          <img src="shots/android-trix-drawer-back.png" alt="Trix table after back closed the drawer, match still running">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Settings</h3>
+        <span class="chip chip-ok">Match</span>
+        <p>Every row, order, toggle state and preset carries over unchanged.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-settings.png" alt="Web settings screen">
+        </figure>
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-settings.png" alt="Android settings screen">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>How to play</h3>
+        <span class="chip chip-ok">Match</span>
+        <p>Long-form scrolling rules content.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-howto.png" alt="Web how to play screen">
+        </figure>
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-howto.png" alt="Android how to play screen">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Log in</h3>
+        <span class="chip chip-ok">Match</span>
+        <p>Rendering matches. Sessions need the server change below to survive a restart.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-auth.png" alt="Web log in screen">
+        </figure>
+        <figure class="app">
+          <figcaption>Android app</figcaption>
+          <img src="shots/android-auth.png" alt="Android log in screen">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>Landscape, and one real defect</h3>
+        <span class="chip chip-fix">Found &amp; fixed</span>
+        <p>Rotating exposed a white strip where the camera cutout letterboxes the
+          window. The browser never shows this because it has no window behind the page.
+          Fixed by painting the Android window background felt green.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Before</figcaption>
+          <img src="shots/android-game-landscape.png" alt="Android landscape with a white strip beside the camera cutout">
+        </figure>
+        <figure class="app">
+          <figcaption>After</figcaption>
+          <img src="shots/android-landscape-fixed.png" alt="Android landscape with the cutout area painted felt green">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+    <div class="blocker" style="margin-top:8px">
+      <h3>What is not compared here, and why</h3>
+      <p><strong>Match history</strong> needs a logged-in session, which is exactly what
+        the undeployed server change blocks, so there is no honest pair to show yet.
+        <strong>Round summary</strong> and <strong>match end</strong> need a full round
+        played out, and since every deal is random the two sides would differ by content
+        rather than layout, which makes a screenshot pair weak evidence. Both are ordinary
+        components of the same bundle; neither is a known risk.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the backend actually needed</h2>
+    <p class="section-note">
+      The assumption was that the same backend would work unchanged. It almost did.
+      Three things break specifically because a webview's origin is the app bundle
+      rather than the server.
+    </p>
+
+    <div class="findings">
+      <div class="finding">
+        <span class="num">01</span>
+        <div class="body">
+          <h3>The server URL pointed at the app itself</h3>
+          <p><code>socket.ts</code> fell back to <code>window.location.origin</code>,
+            which in the shell is the local bundle. Every socket and API call would have
+            gone nowhere. Native builds now require an explicit <code>VITE_SERVER_URL</code>
+            and <strong>fail loudly at startup</strong> instead of dying as silent
+            connection errors.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="num">02</span>
+        <div class="body">
+          <h3>The session cookie can never arrive</h3>
+          <p>The cookie is <code>SameSite=Lax</code>, and browsers refuse to attach a Lax
+            cookie to cross-site requests. Login would appear to succeed, then
+            <code>/api/me</code> would return 401 forever. The server now also accepts
+            <code>Authorization: Bearer</code>, and login and register return that token.
+            <strong>Web behaviour is untouched</strong> and still cookie based.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="num">03</span>
+        <div class="body">
+          <h3>Invite links were dead on arrival</h3>
+          <p>Room invites were built from <code>window.location.origin</code> too, so every
+            link shared from the app would have read <code>https://localhost/?join=CODE</code>
+            and worked for nobody. Invites now use the server URL.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Verified on device</h2>
+    <p class="section-note">Each of these was exercised on the emulator, not reasoned about.</p>
+    <ul class="checks">
+      <li>Room created and seated on the live server</li>
+      <li>Server-side country detection and flags</li>
+      <li>Full local match against bots</li>
+      <li>Bot Web Worker runs inside the webview</li>
+      <li>Follow-suit legality dims illegal cards</li>
+      <li>Trick resolution and trick counter</li>
+      <li>Confirm-before-play interaction</li>
+      <li>Session resumes after an app restart</li>
+      <li>Hardware back unwinds instead of quitting</li>
+      <li>Trix local and online tables</li>
+      <li>Trix online room on the live server</li>
+      <li>Back closes an overlay before leaving a room</li>
+      <li>Back at the menu closes the app</li>
+      <li>Arabic right-to-left layout</li>
+      <li>Landscape orientation</li>
+      <li>Status and navigation bars match the felt</li>
+      <li>No audio decode errors during play</li>
+      <li>152 tests pass across every package</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Before this ships</h2>
+
+    <div class="blocker">
+      <h3>The server change is not deployed</h3>
+      <p>Production still runs the old code and returns no token on login, so a logged-in
+        session does not survive an app restart. Online play, rooms and bots all work
+        against production today; only accounts are affected. This is the one blocker,
+        and deploying <code>apps/server</code> clears it.</p>
+    </div>
+
+    <div class="blocker">
+      <h3>iOS has never been compiled</h3>
+      <p>The Xcode project is scaffolded and configured, with the microphone usage string
+        and an audio session that keeps sound audible on silent, but this machine has only
+        the Command Line Tools so <code>pod install</code> never ran. Treat nothing about
+        iOS as verified until it builds on a Mac with Xcode.</p>
+    </div>
+
+    <div class="blocker">
+      <h3>A homelab URL is baked into the build</h3>
+      <p>The default server address is the Tailscale Funnel link. In a store release that
+        address cannot be changed without resubmitting the app. Point it at a stable domain
+        first. Relatedly, Apple guideline 4.2 rejects thin webview wrappers; offline bot
+        play, haptics and a native audio session are a reasonable defence, but it is a real
+        risk worth knowing.</p>
+    </div>
+  </section>
+
+  <footer>
+    Capacitor 7.6.9 · JDK 21 · Android SDK 35 · captured on a Pixel API 35 emulator against
+    the live deployment.
+  </footer>
+
+</div>

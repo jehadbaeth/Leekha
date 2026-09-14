@@ -22,6 +22,7 @@ import { fetchMe, logout as apiLogout, type AuthedUser } from './net/api';
 import { useInstallPrompt } from './useInstallPrompt';
 import { InstallBanner } from './components/InstallBanner';
 import { unlockAudio } from './sound';
+import { registerBackHandler } from './native';
 
 type Screen = 'home' | 'howto' | 'settings' | 'game' | 'lobby' | 'auth' | 'history';
 type Mode = 'local' | 'online';
@@ -216,6 +217,41 @@ export default function App() {
   // In-game "How to play" / return: go back to the running screen, not a home
   // that no longer exists.
   const backToPlay = () => setScreen(mode === 'online' && !online.view ? 'lobby' : 'game');
+
+  // Android's hardware/gesture back button. It has no browser history to walk,
+  // so it is mapped onto the same transitions the on-screen back controls
+  // already perform, innermost first: close the admin panel, then a landing
+  // sub-screen, then the room drawer, then in-game how-to/settings, then leave
+  // the room. Only a back press at the bare menu (returning false) is allowed
+  // to leave the app -- otherwise back would drop a player out mid-match.
+  useEffect(
+    () =>
+      registerBackHandler(() => {
+        if (adminMode) {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+          setAdminMode(false);
+          return true;
+        }
+        if (!gameChoice) {
+          if (landingSettings) return setLandingSettings(false), true;
+          if (landingHowto) return setLandingHowto(false), true;
+          if (landingHistory) return setLandingHistory(false), true;
+          if (landingAuth) return setLandingAuth(false), true;
+          return false; // at the menu with nothing open: let Android close the app
+        }
+        // Trix runs its own room/connection (TrixOnlineGame), not the Leekha
+        // `online` hook that exitToMenu tears down -- so back here has to go
+        // through the same exit the Trix screen's own control uses, or the
+        // picker would reappear while the Trix room stayed joined.
+        if (gameChoice.game === 'trix') return setGameChoice(null), true;
+        if (drawerOpen) return setDrawerOpen(false), true;
+        if (screen === 'howto' || screen === 'settings') return backToPlay(), true;
+        exitToMenu();
+        return true;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adminMode, gameChoice, landingSettings, landingHowto, landingHistory, landingAuth, drawerOpen, screen, mode, online.view],
+  );
 
   async function handleJoinRoom(name: string, code: string, gameType?: 'leekha' | 'trix') {
     // A public-room-list click already knows the room's game type; typing a

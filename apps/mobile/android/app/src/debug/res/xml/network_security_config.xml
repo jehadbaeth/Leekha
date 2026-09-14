@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY (this file lives in src/debug, so it is never part of a
+  release APK). Release builds keep Android's default: HTTPS only.
+
+  This permits cleartext to dev/LAN hosts, which is necessary but on its own
+  NOT sufficient to talk to a plain HTTP dev server. The webview serves the app
+  from https://localhost (see androidScheme in capacitor.config.ts), so an
+  http:// API call is additionally blocked as mixed content:
+
+      Mixed Content: The page at 'https://localhost/' was loaded over HTTPS,
+      but requested an insecure resource 'http://10.0.2.2:8080/api/...'
+
+  Setting `android.androidScheme` to 'http' did not change the load URL when it
+  was tried here (the webview still loaded https://localhost), so that route was
+  not pursued and remains unverified. In practice: develop the native app
+  against an HTTPS server. The emulator reaches the host machine as 10.0.2.2.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <!-- Typical private LAN host, for testing on a real device. -->
+        <domain includeSubdomains="true">192.168.0.14</domain>
+    </domain-config>
+</network-security-config>

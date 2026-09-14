@@ -6,6 +6,7 @@ import { TrixGame } from './TrixGame';
 import { useOnlineTrixGame } from './useOnlineTrixGame';
 import { SEAT_NAMES } from './trixLabels';
 import { RoomDrawer } from '../components/RoomDrawer';
+import { BACK_PRIORITY, registerBackHandler } from '../native';
 import { useVoiceLobby, voiceSpeakingSeats } from '../voice/useVoiceLobby';
 
 const ALL_SEATS: Seat[] = [0, 1, 2, 3];
@@ -30,6 +31,15 @@ export function TrixOnlineGame({
   const online = useOnlineTrixGame();
   const entered = useRef(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // The room drawer is owned here, not by App.tsx, so it registers its own
+  // back handler. The overlay priority puts it ahead of App.tsx's screen-level
+  // handler, which would otherwise leave the whole Trix room on a back press
+  // that was only meant to close the drawer.
+  useEffect(
+    () => registerBackHandler(() => (drawerOpen ? (setDrawerOpen(false), true) : false), BACK_PRIORITY.overlay),
+    [drawerOpen],
+  );
 
   useEffect(() => {
     if (entered.current) return;

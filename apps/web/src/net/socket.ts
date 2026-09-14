@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ClientMessage, PublicRoom, ServerMessage } from '@leekha/protocol';
 import { loadSettings } from '../settings';
+import { loadAuthToken, resolveServerUrl } from '../native';
 
 // A stable per-browser id so the server can group reconnects into one visit for
 // telemetry (see SESSION_GRACE_MS in apps/server/src/server.ts). Anonymous and
@@ -27,10 +28,9 @@ function visitorQuery(): Record<string, string> {
 // would then have "localhost" resolve to THAT device, not the dev machine,
 // and every socket/API call would fail with connection refused. Reusing the
 // hostname the page was actually loaded from (whatever it is) fixes both
-// cases at once.
-export const SERVER_URL: string =
-  (import.meta.env.VITE_SERVER_URL as string | undefined) ??
-  (import.meta.env.DEV ? `http://${window.location.hostname}:8080` : window.location.origin);
+// cases at once. The native shell is the one case where that fallback is
+// wrong (its origin is the local bundle) -- see resolveServerUrl.
+export const SERVER_URL: string = resolveServerUrl();
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
@@ -56,7 +56,15 @@ export class GameSocket {
   status: ConnectionStatus = 'connecting';
 
   constructor(url: string = SERVER_URL) {
-    this.socket = io(url, { transports: ['websocket', 'polling'], query: visitorQuery() });
+    // `auth.token` is how the native shell identifies its logged-in user: the
+    // handshake carries no usable cookie there (see native.ts). Undefined on
+    // web, where socket.handshake.headers.cookie already does the job.
+    const token = loadAuthToken();
+    this.socket = io(url, {
+      transports: ['websocket', 'polling'],
+      query: visitorQuery(),
+      auth: token ? { token } : undefined,
+    });
 
     this.socket.on('connect', () => this.setStatus('connected'));
     this.socket.on('disconnect', () => this.setStatus('disconnected'));

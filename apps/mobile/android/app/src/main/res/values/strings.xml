@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Leekha</string>
+    <string name="title_activity_main">Leekha</string>
+    <string name="package_name">net.leekha.app</string>
+    <string name="custom_url_scheme">net.leekha.app</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The felt green the web app paints on `body` (apps/web/src/index.css and
+         the `felt` palette in tailwind.config.js). The system bars use it too so
+         the app reads as one continuous table rather than a green page floating
+         between a grey status bar and a white gesture bar. -->
+    <color name="feltGreen">#0b3d2e</color>
+</resources>

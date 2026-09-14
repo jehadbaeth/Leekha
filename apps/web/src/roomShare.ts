@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { pick, type Settings } from './settings';
+import { isNative } from './native';
+import { SERVER_URL } from './net/socket';
 
 // navigator.clipboard is only exposed in a secure context (HTTPS or
 // localhost); a plain-HTTP LAN deployment (e.g. a local test server) has
@@ -44,7 +46,13 @@ async function copyText(text: string): Promise<boolean> {
 export function useRoomShare(roomCode: string | null, language: Settings['language']) {
   const [copied, setCopied] = useState(false);
   const t = (en: string, ar: string) => pick(language, en, ar);
-  const joinLink = roomCode ? `${window.location.origin}${window.location.pathname}?join=${roomCode}` : '';
+  // An invite has to be openable by whoever receives it, which rules out
+  // window.location.origin in the native shell: there the origin is the app's
+  // own local bundle (https://localhost), so the link would be dead for every
+  // recipient. The server also serves the web client, so its URL is the one
+  // address that works for a phone, a laptop, or another app install alike.
+  const base = isNative() ? SERVER_URL : `${window.location.origin}${window.location.pathname}`;
+  const joinLink = roomCode ? `${base}?join=${roomCode}` : '';
 
   function flashCopied() {
     setCopied(true);
