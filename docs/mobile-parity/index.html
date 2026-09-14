@@ -390,7 +390,7 @@
     </div>
     <div class="verdict">
       <dt>iOS</dt>
-      <dd>Not compiled<small>No Xcode on this machine</small></dd>
+      <dd>Builds &amp; runs<small>Simulator; device-only bits untested</small></dd>
     </div>
   </dl>
 
@@ -416,6 +416,27 @@
         <figure class="app">
           <figcaption>Android app</figcaption>
           <img src="shots/android-picker-en.png" alt="Android game picker in English">
+        </figure>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head">
+        <h3>The same picker on iOS</h3>
+        <span class="chip chip-ok">Builds &amp; connects</span>
+        <p>iPhone 17 Pro simulator, iOS 26.5. Content sits below the Dynamic Island
+          because the native build drops <code>viewport-fit=cover</code>, so the webview
+          viewport is the safe area. Its socket reached the live server: the display name
+          shown here, Sneaky Owl, appears in the server's own connection telemetry.</p>
+      </div>
+      <div class="shots">
+        <figure>
+          <figcaption>Web</figcaption>
+          <img src="shots/web-picker-en.png" alt="Web game picker in English">
+        </figure>
+        <figure class="app">
+          <figcaption>iOS app</figcaption>
+          <img src="shots/ios-picker-en.png" alt="iOS game picker in English on an iPhone simulator">
         </figure>
       </div>
     </div>
@@ -667,6 +688,8 @@
       <li>No audio decode errors during play</li>
       <li>Login survives a cold app restart</li>
       <li>Match history authenticates via bearer token</li>
+      <li>iOS compiles and launches on a simulator</li>
+      <li>iOS socket reaches the live server</li>
       <li>152 tests pass across every package</li>
     </ul>
   </section>
@@ -683,11 +706,14 @@
     </div>
 
     <div class="blocker">
-      <h3>iOS has never been compiled</h3>
-      <p>The Xcode project is scaffolded and configured, with the microphone usage string
-        and an audio session that keeps sound audible on silent, but this machine has only
-        the Command Line Tools so <code>pod install</code> never ran. Treat nothing about
-        iOS as verified until it builds on a Mac with Xcode.</p>
+      <h3>iOS builds and runs, but three things are still untested</h3>
+      <p>It compiles clean, launches, renders correctly and talks to the live server. What
+        is <strong>not</strong> verified: interactive flows, because the simulator cannot be
+        driven from here without granting accessibility control; the <strong>silent switch</strong>
+        audio behaviour, which needs a real ringer switch; and the <strong>microphone
+        permission</strong> prompt, which a simulator fakes. All three need a physical
+        iPhone. The app is also unsigned, so it runs on a simulator only until a signing
+        team is set in Xcode.</p>
     </div>
 
     <div class="blocker">

@@ -102,15 +102,26 @@ on the live server, hardware back at every level (overlay, room, menu), Arabic/R
 landscape, felt system bars, no audio decode errors, and a logged-in session
 surviving a cold restart against the deployed backend.
 
-**iOS: scaffolded and configured, but never compiled.** This machine has only
-the Command Line Tools, so `pod install` never ran. On a Mac with Xcode:
+**iOS: builds, launches and reaches the backend.** Verified on an iPhone 17 Pro
+simulator (iOS 26.5, Xcode 26.6): compiles clean, renders the picker with correct
+safe-area insets under the Dynamic Island, and its socket reached the live server
+(the app's display name appears in the server's own `telemetry_sessions` table).
 
 ```bash
-cd apps/mobile/ios/App && pod install
-cd apps/mobile && npx cap open ios
+cd apps/mobile/ios/App && pod install      # already run
+cd apps/mobile && npx cap open ios         # NOTE: from apps/mobile, not ios/App
 ```
 
-Nothing about the iOS target should be treated as verified until that happens.
+Three things are still **not** verified on iOS and need a physical iPhone:
+
+- Interactive flows. `simctl` has no tap command, and driving the simulator via
+  AppleScript needs accessibility permission that cannot be granted headlessly.
+- The silent-switch audio behaviour, which is the whole point of the
+  `AVAudioSession` call in `AppDelegate` and needs a real ringer switch.
+- The microphone permission prompt, which a simulator fakes.
+
+The app is also unsigned (`CODE_SIGNING_ALLOWED=NO` for the simulator build), so
+a signing team must be set in Xcode before it runs on a device.
 
 ## Open items
 
