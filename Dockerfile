@@ -1,12 +1,12 @@
 # Single-image deployment (SPEC.md section 9 item 6): one container serves
 # the built client and the WebSocket on the same origin.
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /repo
 RUN corepack enable
 
 FROM base AS deps
 # better-sqlite3 and argon2 are native modules; node-gyp needs a build
-# toolchain to compile them, and node:20-alpine has none of this by default
+# toolchain to compile them, and node:24-alpine has none of this by default
 # (bare install fails with "Could not find any Python installation to use").
 # Scoped to the deps stage only, so runtime (a separate `FROM base` branch)
 # never carries the ~200MB toolchain into the shipped image.
